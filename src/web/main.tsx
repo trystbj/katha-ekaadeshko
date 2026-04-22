@@ -34,22 +34,77 @@ function ensureBridge() {
   // In local dev, you can override with VITE_BACKEND_URL (e.g. http://127.0.0.1:5000)
   const baseUrl = import.meta.env.VITE_BACKEND_URL || ''
 
+  async function fetchHealth() {
+    const base = baseUrl.replace(/\/+$/, '')
+    const url = base ? `${base}/api/health` : '/api/health'
+    const r = await fetch(url, { method: 'GET' })
+    if (!r.ok) throw new Error(`Health ${r.status}`)
+    return (await r.json()) as {
+      ok: boolean
+      providers?: { openai?: boolean; gemini?: boolean; deepseek?: boolean; leonardo?: boolean }
+    }
+  }
+
   ;(window as any).katha = {
     // Settings are stored locally in web mode (no secrets are auto-read from disk).
-    settingsGetApiKeys: async () => ({
-      openai: '',
-      gemini: '',
-      deepseek: '',
-      leonardo: '',
-      hasOpenAI: false,
-      hasGemini: false,
-      hasDeepSeek: false,
-      hasLeonardo: false
-    }),
+    settingsGetApiKeys: async () => {
+      try {
+        const h = await fetchHealth()
+        const p = h.providers || {}
+        return {
+          openai: '',
+          gemini: '',
+          deepseek: '',
+          leonardo: '',
+          hasOpenAI: Boolean(p.openai),
+          hasGemini: Boolean(p.gemini),
+          hasDeepSeek: Boolean(p.deepseek),
+          hasLeonardo: Boolean(p.leonardo)
+        }
+      } catch {
+        return {
+          openai: '',
+          gemini: '',
+          deepseek: '',
+          leonardo: '',
+          hasOpenAI: false,
+          hasGemini: false,
+          hasDeepSeek: false,
+          hasLeonardo: false
+        }
+      }
+    },
     settingsSetApiKeys: async () => true,
     settingsGetApiKeysRaw: async () => ({}),
-    settingsHasFileKeys: async () => false,
-    settingsDebugKeyPaths: async () => ({ candidates: [], has: { openai: false, gemini: false, deepseek: false, leonardo: false } }),
+    settingsHasFileKeys: async () => {
+      try {
+        const h = await fetchHealth()
+        const p = h.providers || {}
+        return Boolean(p.openai || p.gemini || p.deepseek || p.leonardo)
+      } catch {
+        return false
+      }
+    },
+    settingsDebugKeyPaths: async () => {
+      try {
+        const h = await fetchHealth()
+        const p = h.providers || {}
+        return {
+          candidates: [{ path: 'Vercel Environment Variables', exists: true }],
+          has: {
+            openai: Boolean(p.openai),
+            gemini: Boolean(p.gemini),
+            deepseek: Boolean(p.deepseek),
+            leonardo: Boolean(p.leonardo)
+          }
+        }
+      } catch {
+        return {
+          candidates: [{ path: 'Vercel Environment Variables', exists: false }],
+          has: { openai: false, gemini: false, deepseek: false, leonardo: false }
+        }
+      }
+    },
 
     projectsList: async () => {
       const m = lsGet<Record<string, StoredProject>>(PROJECTS_KEY, {})
