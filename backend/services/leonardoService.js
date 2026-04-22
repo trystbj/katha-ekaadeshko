@@ -11,8 +11,9 @@ function sleep(ms) {
 }
 
 export async function leonardoGenerateForScript({ script, input }) {
-  // Serverless default: skip media generation to keep free deploy simple.
-  if (process.env.VERCEL === '1' || process.env.KATHA_SERVERLESS === '1') return []
+  // Serverless-safe: Leonardo returns hosted URLs; no local storage required.
+  // You can disable explicitly if desired.
+  if (process.env.KATHA_DISABLE_LEONARDO === '1') return []
   // If no key, just return empty array (backend still returns story/script/audio).
   if (!process.env.LEONARDO_API_KEY) return []
   const modelId = process.env.LEONARDO_MODEL_ID || '7b592283-e8a7-4c5a-9ba6-d18c31f258b9'
