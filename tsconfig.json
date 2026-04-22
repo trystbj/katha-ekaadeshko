@@ -20,6 +20,5 @@
       "@renderer/*": ["src/renderer/src/*"]
     }
   },
-  "include": ["src/renderer/src/**/*", "src/renderer/**/*.tsx", "src/preload/**/*.ts"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src/web/**/*", "src/renderer/src/**/*"]
 }
