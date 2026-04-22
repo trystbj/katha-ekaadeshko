@@ -1,0 +1,77 @@
+{
+  "name": "katha-ekaadeshko",
+  "version": "1.0.0",
+  "description": "कथा एकादेशको — AI Story Studio (desktop)",
+  "main": "out/main/index.js",
+  "author": "Tryst BJ",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "icons": "node scripts/prepare-icons.mjs",
+    "backend:install": "npm --prefix backend install --omit=dev",
+    "web:dev": "vite --config vite.web.config.ts",
+    "web:build": "vite build --config vite.web.config.ts",
+    "pack": "npm run backend:install && npm run icons && npm run build && electron-builder --dir",
+    "dist": "npm run backend:install && npm run icons && npm run build && electron-builder"
+  },
+  "dependencies": {
+    "electron-store": "^10.0.0",
+    "i18next": "^24.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^15.4.0",
+    "zustand": "^5.0.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.34.5",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "com.trystbj.kathaekaadeshko",
+    "productName": "Katha Ekaadeshko",
+    "icon": "build/icon.ico",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "build/icon.ico",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true
+    }
+  }
+}
