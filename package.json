@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "npm run web:dev",
+    "dev": "vercel dev --listen 4173",
     "web:dev": "vite --config vite.web.config.ts",
     "web:build": "vite build --config vite.web.config.ts",
     "build": "npm run web:build"
@@ -25,6 +25,7 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.7.2",
+    "vercel": "^46.0.0",
     "vite": "^5.4.11"
   }
 }

@@ -33,7 +33,15 @@ export default async function handler(req, res) {
     res.status(200).json(result)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    res.status(500).json({ error: msg })
+    res.status(500).json({
+      error: msg,
+      providers: {
+        openai: Boolean(process.env.OPENAI_API_KEY),
+        gemini: Boolean(process.env.GEMINI_API_KEY),
+        deepseek: Boolean(process.env.DEEPSEEK_API_KEY),
+        leonardo: Boolean(process.env.LEONARDO_API_KEY)
+      }
+    })
   }
 }
 

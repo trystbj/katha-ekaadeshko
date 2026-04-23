@@ -22,8 +22,23 @@ export async function ttsGenerateForScript({ script, input, req }) {
   for (const s of script) {
     const narration = String(s.narration || '').trim()
     if (!narration) continue
-    const audio_url = await ttsOne({ text: narration, input, req, scene: s.scene })
-    out.push({ scene: s.scene, audio_url })
+    try {
+      const audio_url = await ttsOne({ text: narration, input, req, scene: s.scene })
+      if (audio_url) out.push({ scene: s.scene, audio_url })
+    } catch (e) {
+      // TTS is optional. If the provider is quota-limited or blocked, skip audio instead of failing the whole pipeline.
+      const msg = e instanceof Error ? e.message : String(e)
+      if (
+        msg.includes(' 401:') ||
+        msg.includes(' 403:') ||
+        msg.includes(' 429:') ||
+        msg.includes('insufficient_quota') ||
+        msg.toLowerCase().includes('quota')
+      ) {
+        return out
+      }
+      throw e
+    }
     await sleep(50)
   }
   return out

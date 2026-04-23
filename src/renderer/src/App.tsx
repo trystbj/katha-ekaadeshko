@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   STYLE_PRESETS,
@@ -169,13 +169,65 @@ export default function App() {
     listening: boolean
   }>({ rec: null, listening: false })
   const [voiceListening, setVoiceListening] = useState(false)
+  const ideaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const canUseClipboard = typeof navigator !== 'undefined' && !!navigator.clipboard
   const canUseSpeech =
     typeof window !== 'undefined' &&
     (Boolean((window as any).SpeechRecognition) || Boolean((window as any).webkitSpeechRecognition))
 
+  const copyIdea = useCallback(async () => {
+    setError(null)
+    try {
+      const text = idea || ''
+      if (canUseClipboard) {
+        await navigator.clipboard.writeText(text)
+        return
+      }
+      // Fallback for restricted browsers: select the textarea and use execCommand('copy').
+      const el = ideaRef.current
+      if (!el) throw new Error('Copy not available here. Use Ctrl+C or long‑press to copy.')
+      el.focus()
+      el.select()
+      const ok = document.execCommand?.('copy')
+      if (!ok) throw new Error('Copy blocked by browser. Use Ctrl+C or long‑press to copy.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }, [canUseClipboard, idea, setError])
+
+  const pasteIntoIdea = useCallback(async () => {
+    setError(null)
+    try {
+      if (canUseClipboard) {
+        const text = await navigator.clipboard.readText()
+        if (typeof text === 'string') setIdea(text)
+        return
+      }
+      // Fallback: allow manual paste into a prompt (works on mobile / restricted clipboard permissions).
+      const next = window.prompt('Paste text here')
+      if (typeof next === 'string') setIdea(next)
+    } catch (e) {
+      // Common: clipboard read blocked unless user grants permission.
+      const msg = e instanceof Error ? e.message : String(e)
+      const next = window.prompt('Paste text here (browser blocked auto-paste)', '')
+      if (typeof next === 'string') {
+        setIdea(next)
+      } else {
+        setError(msg)
+      }
+    }
+  }, [canUseClipboard, setError, setIdea])
+
   useEffect(() => {
+    // On the web we want the browser's native right-click menu (copy/paste/select).
+    // Only intercept contextmenu in Electron.
+    const isElectron =
+      typeof navigator !== 'undefined' &&
+      typeof navigator.userAgent === 'string' &&
+      navigator.userAgent.includes('Electron')
+    if (!isElectron) return
+
     const onCtx = (e: MouseEvent) => {
       const k = window.katha
       if (!k?.uiShowContextMenu) return
@@ -389,6 +441,7 @@ export default function App() {
           <h3>{t('ideaPlaceholder')}</h3>
           <textarea
             className="idea-input"
+            ref={ideaRef}
             value={idea}
             onChange={(e) => setIdea(e.target.value)}
             onBlur={onIdeaBlur}
@@ -407,9 +460,26 @@ export default function App() {
               </span>
               {voiceListening ? 'Listening…' : 'Voice'}
             </button>
-            <span style={{ marginLeft: 10, color: 'var(--muted)', fontSize: 13 }}>
-              Right‑click anywhere for Cut / Copy / Paste.
-            </span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-small"
+              style={{ marginLeft: 8 }}
+              disabled={Boolean(busy) || !idea}
+              onClick={() => void copyIdea()}
+              title={canUseClipboard ? 'Copy idea' : 'Copy (Ctrl+C)'}
+            >
+              Copy
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-small"
+              style={{ marginLeft: 8 }}
+              disabled={Boolean(busy)}
+              onClick={() => void pasteIntoIdea()}
+              title={canUseClipboard ? 'Paste into idea' : 'Paste (Ctrl+V)'}
+            >
+              Paste
+            </button>
           </div>
           <div className="row" style={{ marginTop: 10 }}>
             <input
