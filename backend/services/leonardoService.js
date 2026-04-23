@@ -38,21 +38,53 @@ function buildScenePrompt(scene, input) {
 
 async function generateOne({ prompt, modelId }) {
   const key = requireKey()
-  const createRes = await fetch(`${LEONARDO_API}/generations`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt,
-      modelId,
-      num_images: 1,
-      width: 832,
-      height: 1216,
-      alchemy: true,
-      contrast: 3.5
+  const modelName = String(process.env.LEONARDO_MODEL_NAME || '').toLowerCase().trim()
+  // Some Leonardo models (e.g. Kino 2.1) don't support Alchemy.
+  const allowAlchemy = !(modelName.includes('kino') && modelName.includes('2.1'))
+  const alchemy = process.env.LEONARDO_ALCHEMY
+    ? process.env.LEONARDO_ALCHEMY === '1'
+    : allowAlchemy
+
+  const create = async (alchemyFlag) => {
+    const createRes = await fetch(`${LEONARDO_API}/generations`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        modelId,
+        num_images: 1,
+        width: 832,
+        height: 1216,
+        alchemy: alchemyFlag,
+        contrast: 3.5
+      })
     })
-  })
-  if (!createRes.ok) throw new Error(`Leonardo create ${createRes.status}: ${await createRes.text()}`)
-  const created = await createRes.json()
+    const txt = await createRes.text()
+    return { ok: createRes.ok, status: createRes.status, txt }
+  }
+
+  let createdTxt = null
+  let createdJson = null
+  {
+    const r1 = await create(alchemy)
+    if (!r1.ok) {
+      // If the model rejects Alchemy (e.g. Kino 2.1), retry once with alchemy disabled.
+      const isAlchemyUnsupported =
+        r1.status === 400 && r1.txt.toLowerCase().includes('alchemy is not enabled')
+      if (alchemy && isAlchemyUnsupported) {
+        const r2 = await create(false)
+        if (!r2.ok) throw new Error(`Leonardo create ${r2.status}: ${r2.txt}`)
+        createdTxt = r2.txt
+      } else {
+        throw new Error(`Leonardo create ${r1.status}: ${r1.txt}`)
+      }
+    } else {
+      createdTxt = r1.txt
+    }
+    createdJson = JSON.parse(createdTxt)
+  }
+
+  const created = createdJson
   const generationId = created?.sdGenerationJob?.generationId
   if (!generationId) throw new Error('Leonardo: missing generationId')
 
