@@ -44,8 +44,10 @@ function isSwitchableProviderError(e) {
   return (
     status === 401 ||
     status === 403 ||
+    status === 402 ||
     status === 429 ||
     msg.includes('insufficient_quota') ||
+    msg.toLowerCase().includes('insufficient balance') ||
     msg.includes('quota') ||
     msg.includes('API_KEY is missing') ||
     msg.includes('invalid JSON response')
