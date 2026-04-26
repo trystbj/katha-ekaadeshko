@@ -24,9 +24,21 @@ function lsSet(k: string, v: unknown) {
 
 const PROJECTS_KEY = 'katha:web:projects'
 const SETTINGS_KEY = 'katha:web:settings'
+const STORY_HISTORY_KEY = 'katha:web:story-history'
+const STORY_HISTORY_MAX = 80
 
 function nowIso() {
   return new Date().toISOString()
+}
+
+function storyHistoryRead(): StoredProject[] {
+  const raw = lsGet<{ items?: StoredProject[] } | StoredProject[]>(STORY_HISTORY_KEY, { items: [] })
+  if (Array.isArray(raw)) return raw.slice(0, STORY_HISTORY_MAX)
+  return (raw.items || []).slice(0, STORY_HISTORY_MAX)
+}
+
+function storyHistoryWrite(items: StoredProject[]) {
+  lsSet(STORY_HISTORY_KEY, { items: items.slice(0, STORY_HISTORY_MAX) })
 }
 
 function ensureBridge() {
@@ -189,6 +201,32 @@ function ensureBridge() {
       })
       const text = await res.text()
       if (!res.ok) throw new Error(text)
+      return true
+    },
+
+    storyHistoryList: async () => {
+      return storyHistoryRead().map((p) => ({
+        id: p.id,
+        title: String(p.title || 'Untitled'),
+        status: String(p.status || 'new'),
+        updatedAt: String(p.updatedAt || p.createdAt || '')
+      }))
+    },
+    storyHistorySave: async (project: StoredProject) => {
+      if (!project?.id) throw new Error('Project id missing')
+      const list = storyHistoryRead()
+      const next = { ...project, updatedAt: project.updatedAt || nowIso() }
+      const rest = list.filter((p) => p.id !== project.id)
+      storyHistoryWrite([next, ...rest])
+      return true
+    },
+    storyHistoryLoad: async (id: string) => {
+      const p = storyHistoryRead().find((x) => x.id === id)
+      if (!p) throw new Error('Story not found in history')
+      return p
+    },
+    storyHistoryDelete: async (id: string) => {
+      storyHistoryWrite(storyHistoryRead().filter((p) => p.id !== id))
       return true
     },
 

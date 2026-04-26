@@ -39,6 +39,11 @@ export type KathaAPI = {
   projectsLoad: (id: string) => Promise<ProjectState>
   projectsSave: (project: ProjectState) => Promise<boolean>
   projectsDelete: (id: string) => Promise<boolean>
+  /** Local device story history (browser localStorage on web). */
+  storyHistoryList?: () => Promise<{ id: string; title: string; status: string; updatedAt: string }[]>
+  storyHistorySave?: (project: ProjectState) => Promise<boolean>
+  storyHistoryLoad?: (id: string) => Promise<ProjectState>
+  storyHistoryDelete?: (id: string) => Promise<boolean>
   aiComplete: (payload: {
     system: string
     user: string

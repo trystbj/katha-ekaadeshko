@@ -14,6 +14,7 @@ import { recommendStyleFromIdea } from './prompts/storyEngine'
 import { LANGUAGE_OPTIONS } from './i18n/resources'
 import { suggestUiLanguageFromText } from './utils/detectLang'
 import { useBackendGenerate } from './hooks/useBackendGenerate'
+import { pushStoryToHistory } from './utils/storyHistory'
 
 const STYLE_KEYS: Record<VisualStyleId, string> = {
   soft_anime_fantasy: 'styleSoftAnimeFantasy',
@@ -78,6 +79,10 @@ export default function App() {
   const [projectsMeta, setProjectsMeta] = useState<
     { id: string; title: string; status: string; updatedAt: string }[]
   >([])
+  const [storyHistoryOpen, setStoryHistoryOpen] = useState(false)
+  const [storyHistoryItems, setStoryHistoryItems] = useState<
+    { id: string; title: string; status: string; updatedAt: string }[]
+  >([])
   const [editMode, setEditMode] = useState(false)
   const [renderJobId, setRenderJobId] = useState<string | null>(null)
   const [renderStatus, setRenderStatus] = useState<any | null>(null)
@@ -118,16 +123,35 @@ export default function App() {
     return () => mq.removeEventListener('change', fn)
   }, [])
 
-  const refreshProjects = async () => {
+  const refreshProjects = useCallback(async () => {
     const k = window.katha
-    if (!k) return
-    const list = await k.projectsList()
-    setProjectsMeta(list)
-  }
+    if (!k?.projectsList) return
+    try {
+      const list = await k.projectsList()
+      setProjectsMeta(list)
+    } catch {
+      setProjectsMeta([])
+    }
+  }, [])
+
+  const refreshStoryHistory = useCallback(async () => {
+    const k = window.katha
+    if (!k?.storyHistoryList) {
+      setStoryHistoryItems([])
+      return
+    }
+    try {
+      const list = await k.storyHistoryList()
+      setStoryHistoryItems(list)
+    } catch {
+      setStoryHistoryItems([])
+    }
+  }, [])
 
   useEffect(() => {
     void refreshProjects()
-  }, [])
+    void refreshStoryHistory()
+  }, [refreshProjects, refreshStoryHistory])
 
   useEffect(() => {
     if (!renderJobId) return
@@ -242,8 +266,42 @@ export default function App() {
   const saveProject = async () => {
     const k = window.katha
     if (!k || !project) return
-    await k.projectsSave({ ...project, updatedAt: new Date().toISOString() })
+    setError(null)
+    const payload = { ...project, updatedAt: new Date().toISOString() }
+    try {
+      await k.projectsSave(payload)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (!msg.includes('Not authenticated')) setError(msg)
+    }
+    await pushStoryToHistory(payload)
     await refreshProjects()
+    await refreshStoryHistory()
+  }
+
+  const loadStoryFromHistory = async (id: string) => {
+    const k = window.katha
+    if (!k?.storyHistoryLoad) return
+    try {
+      const p = await k.storyHistoryLoad(id)
+      setProject(p)
+      setStoryHistoryOpen(false)
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  const deleteStoryFromHistory = async (id: string) => {
+    const k = window.katha
+    if (!k?.storyHistoryDelete) return
+    try {
+      await k.storyHistoryDelete(id)
+      await refreshStoryHistory()
+      if (project?.id === id) setProject(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
   }
 
   const loadProject = async (id: string) => {
@@ -448,6 +506,16 @@ export default function App() {
             }}
           >
             {t('projects')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              void refreshStoryHistory()
+              setStoryHistoryOpen(true)
+            }}
+          >
+            {t('storyHistory')}
           </button>
           <button
             type="button"
@@ -1011,6 +1079,15 @@ export default function App() {
         />
       ) : null}
 
+      {storyHistoryOpen ? (
+        <StoryHistoryModal
+          items={storyHistoryItems}
+          onClose={() => setStoryHistoryOpen(false)}
+          onOpen={(id) => void loadStoryFromHistory(id)}
+          onDelete={(id) => void deleteStoryFromHistory(id)}
+        />
+      ) : null}
+
       {authModalOpen ? (
         <div className="modal-backdrop" onClick={() => setAuthModalOpen(false)} role="presentation">
           <div className="modal" role="dialog" onClick={(e) => e.stopPropagation()}>
@@ -1088,6 +1165,59 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             {t('close')}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function StoryHistoryModal({
+  items,
+  onClose,
+  onOpen,
+  onDelete
+}: {
+  items: { id: string; title: string; status: string; updatedAt: string }[]
+  onClose: () => void
+  onOpen: (id: string) => void
+  onDelete: (id: string) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+      <div className="modal" role="dialog" onClick={(e) => e.stopPropagation()}>
+        <h2>{t('storyHistory')}</h2>
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: 6 }}>{t('storyHistoryHint')}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+          {items.length === 0 ? (
+            <p style={{ color: 'var(--muted)' }}>{t('storyHistoryEmpty')}</p>
+          ) : (
+            items.map((p) => (
+              <div
+                key={p.id}
+                className="row"
+                style={{ justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700 }}>{p.title}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                    {p.status} · {p.updatedAt ? p.updatedAt.slice(0, 19).replace('T', ' ') : ''}
+                  </div>
+                </div>
+                <div className="row" style={{ flexShrink: 0 }}>
+                  <button type="button" className="btn btn-small" onClick={() => onOpen(p.id)}>
+                    {t('storyHistoryOpen')}
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-small" onClick={() => onDelete(p.id)}>
+                    {t('storyHistoryDelete')}
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <button type="button" className="btn btn-ghost" style={{ marginTop: 14 }} onClick={onClose}>
+          {t('close')}
+        </button>
       </div>
     </div>
   )

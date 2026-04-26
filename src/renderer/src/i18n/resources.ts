@@ -54,6 +54,12 @@ const en = {
   providerUsed: 'Model',
   detectLanguage: 'Auto-detect',
   projects: 'Projects',
+  storyHistory: 'Story history',
+  storyHistoryHint:
+    'Each generated story is saved on this device. Open one to continue or edit; delete removes it from this list only.',
+  storyHistoryEmpty: 'No entries yet. Generate a story to create your first one.',
+  storyHistoryOpen: 'Open',
+  storyHistoryDelete: 'Remove',
   close: 'Close',
   deleteProject: 'Delete',
   openDocs: 'API docs'

@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { defaultProject, newProjectId } from '../types/story'
 import type { AssetRef, StoryBible, StoryEpisode, StoryScene } from '../types/story'
 import { useStudioStore } from '../store/useStudioStore'
+import { pushStoryToCloudIfSignedIn, pushStoryToHistory } from '../utils/storyHistory'
 
 export function useBackendGenerate() {
   const setBusy = useStudioStore((s) => s.setBusy)
@@ -147,17 +148,18 @@ export function useBackendGenerate() {
         status: 'done'
       }
 
-      setProject(
-        defaultProject({
-          title: bible.title,
-          status: 'in_progress',
-          bible,
-          episodes: [episode1],
-          memorySummary: '',
-          qualityMerge: true,
-          assets: assetsFromPipeline
-        })
-      )
+      const nextProject = defaultProject({
+        title: bible.title,
+        status: 'in_progress',
+        bible,
+        episodes: [episode1],
+        memorySummary: '',
+        qualityMerge: true,
+        assets: assetsFromPipeline
+      })
+      setProject(nextProject)
+      void pushStoryToHistory(nextProject)
+      void pushStoryToCloudIfSignedIn(nextProject)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {

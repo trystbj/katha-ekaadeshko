@@ -13,6 +13,7 @@ import type { StoryBible, StoryEpisode } from '../types/story'
 import { defaultProject } from '../types/story'
 import { LANGUAGE_OPTIONS } from '../i18n/resources'
 import { useStudioStore } from '../store/useStudioStore'
+import { pushStoryToHistory } from '../utils/storyHistory'
 
 function langName(code: string): string {
   return LANGUAGE_OPTIONS.find((l) => l.code === code)?.label || code
@@ -75,6 +76,7 @@ export function useStoryGeneration() {
         episodes: [],
         updatedAt: new Date().toISOString()
       }))
+      void pushStoryToHistory(useStudioStore.getState().project)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -144,6 +146,7 @@ export function useStoryGeneration() {
           }
         }
         touch()
+        void pushStoryToHistory(useStudioStore.getState().project)
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       } finally {
@@ -184,6 +187,7 @@ Output ONLY the Scene ${sceneIndex}: block lines, nothing else.`
           episodes: cur.episodes.map((e) => (e.number === episodeNumber ? merged : e))
         }))
         touch()
+        void pushStoryToHistory(useStudioStore.getState().project)
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       } finally {
