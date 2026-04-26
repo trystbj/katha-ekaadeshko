@@ -67,7 +67,17 @@ const en = {
   imageViewerPrev: 'Previous image',
   imageViewerNext: 'Next image',
   imageViewerHint: 'Esc to close · ← → or buttons to browse',
-  sceneFramesTapHint: 'Tap any image for fullscreen'
+  sceneFramesTapHint: 'Tap any image for fullscreen',
+  renderWorkerQueuedTitle: 'Waiting for your PC worker',
+  renderWorkerQueuedBody:
+    'The job is saved in Supabase as “queued” until a small program on your computer picks it up, runs FFmpeg (1080p → 4K), and uploads the MP4. The website cannot render video by itself.',
+  renderWorkerStep1: 'On your PC, open a terminal in the project folder, then: cd worker',
+  renderWorkerStep2: 'Install once: npm install',
+  renderWorkerStep3:
+    'Set environment variables (same Supabase project as the app): APP_BASE_URL = your live site (e.g. https://….vercel.app), WORKER_TOKEN = same secret as WORKER_TOKEN on Vercel, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.',
+  renderWorkerStep4: 'Run: node worker.js — you should see “Job … claimed” when it picks up this render.',
+  renderWorkerStep5: 'FFmpeg must be installed and on your PATH.',
+  renderRunning: 'Worker is rendering…'
 }
 
 const ne: typeof en = {

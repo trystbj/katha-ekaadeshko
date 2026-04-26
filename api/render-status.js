@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { formatApiError, renderSupabaseAdmin } from './_renderSupabase.js'
+import { formatApiError, renderJobIdSchema, renderSupabaseAdmin } from './_renderSupabase.js'
 
-const QuerySchema = z.object({ id: z.string().min(8) })
+const QuerySchema = z.object({ id: renderJobIdSchema })
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

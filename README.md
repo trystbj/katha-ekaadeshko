@@ -22,11 +22,14 @@ Copy `.env.example` to `.env.local` for Vercel CLI, or set variables in the Verc
 
 ## Local render worker
 
-From the repo root (with env vars set):
+1. Copy **`worker/.env.example`** to **`worker/.env`** and fill in values (same `WORKER_TOKEN` as on Vercel; `APP_BASE_URL` = your deployed site, e.g. `https://….vercel.app`; Supabase URL + **service_role** key for uploads).
+2. Install and run:
 
 ```bash
 cd worker && npm install && node worker.js
 ```
+
+Alternatively, set the same variables in your shell (PowerShell: `$env:APP_BASE_URL="https://…"; $env:WORKER_TOKEN="…";` then `node worker.js`).
 
 Set `WORKER_VERBOSE=1` for idle polling logs. By default you only see startup, **job claimed**, errors, and completion paths.
 
@@ -42,6 +45,10 @@ If **Generate Video (4K)** returns an error like **Could not find the 'progress'
 2. Wait **about one minute** so PostgREST reloads the schema, then try again.
 3. If it still fails: **Project Settings →** pause/restart isn’t always available; creating a trivial migration in **Database → Migrations** or opening a ticket can force a cache refresh. The one-line fix is often enough:  
    `alter table public.render_jobs add column if not exists progress int not null default 0;`
+
+## Troubleshooting: worker **claim** returns **500** / “String must contain at least 8 character(s)” on **`id`**
+
+That response comes from an **older** deploy of `/api/worker-claim` that required UUID-length ids. Your `render_jobs.id` may be a **short numeric** primary key; the worker sends it as a string (e.g. `"5"`). **Redeploy the latest `api/` code to Vercel** (the version that uses `renderJobIdSchema` in `api/_renderSupabase.js` — `min(1)`, not `min(8)`). The local worker alone cannot fix server-side validation.
 
 ## Layout
 

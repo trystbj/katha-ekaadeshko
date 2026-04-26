@@ -1,7 +1,12 @@
 import { z } from 'zod'
-import { formatApiError, renderSupabaseAdmin, requireWorkerToken } from './_renderSupabase.js'
+import {
+  formatApiError,
+  renderJobIdSchema,
+  renderSupabaseAdmin,
+  requireWorkerToken
+} from './_renderSupabase.js'
 
-const BodySchema = z.object({ id: z.string().min(8), workerId: z.string().min(1).max(128) })
+const BodySchema = z.object({ id: renderJobIdSchema, workerId: z.string().min(1).max(128) })
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

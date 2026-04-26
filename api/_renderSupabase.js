@@ -1,4 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
+import { z } from 'zod'
+
+/**
+ * `render_jobs.id`: uuid string, or short numeric string when the PK is bigint/serial.
+ * Do not use `.min(8)` here — the worker sends `String(id)` and small ids are valid.
+ */
+export const renderJobIdSchema = z
+  .union([z.string(), z.number(), z.bigint()])
+  .transform((v) => String(v).trim())
+  .pipe(z.string().min(1).max(128))
 
 export function renderSupabaseAdmin() {
   const url = process.env.SUPABASE_URL

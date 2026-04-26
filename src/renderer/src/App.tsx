@@ -35,6 +35,15 @@ const STYLE_KEYS: Record<VisualStyleId, string> = {
 }
 
 /** Prefer scene/background stills; fall back to character portraits for slideshow render. */
+type RenderJobRow = {
+  status?: string
+  stage?: string
+  progress?: number
+  video_url?: string
+  error?: string
+  updated_at?: string
+}
+
 function collectRenderImageUrls(project: ProjectState | null): string[] {
   if (!project?.assets?.length) return []
   const withUrl = project.assets.filter(
@@ -95,13 +104,8 @@ export default function App() {
   >([])
   const [editMode, setEditMode] = useState(false)
   const [renderJobId, setRenderJobId] = useState<string | null>(null)
-  const [renderStatus, setRenderStatus] = useState<{
-    status?: string
-    stage?: string
-    progress?: number
-    video_url?: string
-    error?: string
-  } | null>(null)
+  const renderJobStartedAtRef = useRef<number | null>(null)
+  const [renderStatus, setRenderStatus] = useState<RenderJobRow | null>(null)
 
   const resolvedTheme = useMemo(() => {
     if (theme === 'system') {
@@ -170,15 +174,29 @@ export default function App() {
   }, [refreshProjects, refreshStoryHistory])
 
   useEffect(() => {
-    if (!renderJobId) return
+    if (!renderJobId) {
+      renderJobStartedAtRef.current = null
+      return
+    }
     let alive = true
     const tick = async () => {
       try {
         const r = await fetch(`/api/render-status?id=${encodeURIComponent(renderJobId)}`)
-        const j = await r.json()
+        const text = await r.text()
+        let j: Record<string, unknown> = {}
+        try {
+          j = JSON.parse(text) as Record<string, unknown>
+        } catch {
+          j = {}
+        }
         if (!alive) return
-        setRenderStatus(j)
-        if (j?.status === 'done' || j?.status === 'error') return
+        if (!r.ok) {
+          setError(typeof j.error === 'string' ? j.error : text.slice(0, 400) || `Status ${r.status}`)
+          return
+        }
+        setRenderStatus(j as RenderJobRow)
+        const st = j.status as string | undefined
+        if (st === 'done' || st === 'error') return
         setTimeout(tick, 1500)
       } catch {
         if (!alive) return
@@ -189,7 +207,7 @@ export default function App() {
     return () => {
       alive = false
     }
-  }, [renderJobId])
+  }, [renderJobId, setError])
 
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authEmailInput, setAuthEmailInput] = useState('')
@@ -303,6 +321,7 @@ export default function App() {
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || 'Render start failed')
       setRenderJobId(j.jobId)
+      renderJobStartedAtRef.current = Date.now()
       setRenderStatus(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -632,6 +651,34 @@ export default function App() {
             {renderStatus?.status === 'error' ? (
               <div style={{ marginTop: 10, color: 'var(--danger)' }}>{renderStatus?.error || 'Render failed'}</div>
             ) : null}
+            {renderStatus?.status === 'queued' ? (
+              <div
+                className="render-worker-callout"
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  borderRadius: 10,
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  fontSize: '0.88rem',
+                  lineHeight: 1.55,
+                  color: 'var(--text)'
+                }}
+              >
+                <strong>{t('renderWorkerQueuedTitle')}</strong>
+                <p style={{ margin: '8px 0 0', color: 'var(--muted)' }}>{t('renderWorkerQueuedBody')}</p>
+                <ol style={{ margin: '10px 0 0', paddingLeft: 20, color: 'var(--text)' }}>
+                  <li style={{ marginBottom: 6 }}>{t('renderWorkerStep1')}</li>
+                  <li style={{ marginBottom: 6 }}>{t('renderWorkerStep2')}</li>
+                  <li style={{ marginBottom: 6 }}>{t('renderWorkerStep3')}</li>
+                  <li style={{ marginBottom: 6 }}>{t('renderWorkerStep4')}</li>
+                  <li>{t('renderWorkerStep5')}</li>
+                </ol>
+              </div>
+            ) : null}
+            {renderStatus?.status === 'running' ? (
+              <p style={{ marginTop: 10, fontSize: '0.88rem', color: 'var(--muted)' }}>{t('renderRunning')}</p>
+            ) : null}
           </div>
         ) : null}
 
@@ -948,8 +995,9 @@ export default function App() {
           <div className="panel" style={{ marginTop: 14 }}>
             <h3>Video (4K)</h3>
             <p style={{ color: 'var(--muted)', fontSize: '0.9rem', margin: '0 0 10px' }}>
-              Builds a slideshow MP4 on your worker from scene stills (Leonardo during story generation)
-              or, if you have none, from character portraits you generate in the sidebar.
+              Queues a render in Supabase. A <strong>local worker</strong> on your PC (see README / “Video
+              render” panel after you start) must run FFmpeg and upload the 4K MP4. Uses scene stills or
+              character portraits from the sidebar.
             </p>
             <button
               type="button"

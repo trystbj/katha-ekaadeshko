@@ -1,7 +1,4 @@
 node_modules/
-backend/node_modules/
-backend/.env
-backend/data/
 out/
 dist/
 release/
@@ -9,3 +6,4 @@ web-dist/
 *.log
 .DS_Store
 api-keys.local.env
+worker/.env

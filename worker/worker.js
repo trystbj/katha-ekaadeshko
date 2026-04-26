@@ -1,8 +1,13 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { fileURLToPath } from 'url'
 import { spawn } from 'child_process'
 import { createClient } from '@supabase/supabase-js'
+import dotenv from 'dotenv'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+dotenv.config({ path: path.join(__dirname, '.env') })
 
 const APP_BASE_URL_RAW = process.env.APP_BASE_URL // e.g. https://your-app.vercel.app
 const WORKER_TOKEN = process.env.WORKER_TOKEN
@@ -14,11 +19,15 @@ const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!APP_BASE_URL_RAW || !WORKER_TOKEN) {
-  console.error('Set APP_BASE_URL and WORKER_TOKEN')
+  console.error('Missing APP_BASE_URL or WORKER_TOKEN.')
+  console.error(
+    'Add them to worker/.env (copy worker/.env.example → worker/.env), or set env vars in your shell before node worker.js'
+  )
   process.exit(1)
 }
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (worker uploads MP4 to Supabase Storage)')
+  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (needed to upload the MP4 to Supabase Storage).')
+  console.error('Same keys as in worker/.env.example — use the service_role key from Supabase → Settings → API.')
   process.exit(1)
 }
 
@@ -136,7 +145,7 @@ async function uploadMp4(jobId, mp4Path) {
 }
 
 async function processJob(job) {
-  const id = job.id
+  const id = String(job.id)
   const p = job.payload || {}
   const images = Array.isArray(p.images) ? p.images : []
   const audio = p.audio || null

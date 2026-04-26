@@ -1,8 +1,13 @@
 import { z } from 'zod'
-import { formatApiError, renderSupabaseAdmin, requireWorkerToken } from './_renderSupabase.js'
+import {
+  formatApiError,
+  renderJobIdSchema,
+  renderSupabaseAdmin,
+  requireWorkerToken
+} from './_renderSupabase.js'
 
 const BodySchema = z.object({
-  id: z.string().min(8),
+  id: renderJobIdSchema,
   progress: z.number().int().min(0).max(100),
   stage: z.string().max(200).optional()
 })
