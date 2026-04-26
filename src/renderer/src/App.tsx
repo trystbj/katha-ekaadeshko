@@ -72,7 +72,7 @@ export default function App() {
   const authEmail = useStudioStore((s) => s.authEmail)
   const setAuthEmail = useStudioStore((s) => s.setAuthEmail)
 
-  const { generateBible, generateEpisode, regenerateScene } = useStoryGeneration()
+  const { generateEpisode, regenerateScene } = useStoryGeneration()
   const { generateCharacterBase } = useLeonardo()
   const { generate: backendGenerate } = useBackendGenerate()
 
@@ -85,7 +85,13 @@ export default function App() {
   >([])
   const [editMode, setEditMode] = useState(false)
   const [renderJobId, setRenderJobId] = useState<string | null>(null)
-  const [renderStatus, setRenderStatus] = useState<any | null>(null)
+  const [renderStatus, setRenderStatus] = useState<{
+    status?: string
+    stage?: string
+    progress?: number
+    video_url?: string
+    error?: string
+  } | null>(null)
 
   const resolvedTheme = useMemo(() => {
     if (theme === 'system') {
@@ -223,10 +229,10 @@ export default function App() {
 
   const renderSourceUrls = useMemo(() => collectRenderImageUrls(project), [project])
 
-  const sceneFrameAssets = useMemo(
-    () => (project?.assets ?? []).filter((a) => a.kind === 'scene' && a.url),
-    [project?.assets]
-  )
+  const sceneFrameAssets = useMemo(() => {
+    const assets = project?.assets ?? []
+    return assets.filter((a) => a.kind === 'scene' && a.url)
+  }, [project])
 
   const startRender4k = useCallback(async () => {
     setError(null)
@@ -760,8 +766,15 @@ export default function App() {
             <button
               type="button"
               className="btn btn-ghost"
-              disabled={Boolean(busy) || !project?.bible || (project.episodes.length ? nextEpisodeNumber > totalEpisodes : false)}
-              onClick={() => void generateEpisode(project.episodes.length ? nextEpisodeNumber : 1)}
+              disabled={
+                Boolean(busy) ||
+                !project?.bible ||
+                (project?.episodes.length ? nextEpisodeNumber > totalEpisodes : false)
+              }
+              onClick={() => {
+                if (!project) return
+                void generateEpisode(project.episodes.length ? nextEpisodeNumber : 1)
+              }}
             >
               {t('continueNext')} ({(project?.episodes?.length ? nextEpisodeNumber : 1)}/{totalEpisodes || '—'})
             </button>

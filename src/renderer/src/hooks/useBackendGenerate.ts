@@ -91,35 +91,37 @@ export function useBackendGenerate() {
       const pipelineImages: { image_url?: string; imageUrl?: string; scene?: string | number; prompt?: string }[] =
         Array.isArray(out.images) ? out.images : []
 
-      const assetsFromPipeline: AssetRef[] = pipelineImages
-        .map((row, i) => {
-          const url = row?.image_url || row?.imageUrl
-          if (!url || typeof url !== 'string') return null
-          return {
-            id: `a_${newProjectId()}`,
-            kind: 'scene' as const,
-            key: `scene:${String(row.scene ?? i + 1)}`,
-            url,
-            prompt: String(row.prompt ?? ''),
-            createdAt: new Date().toISOString()
-          }
+      const assetsFromPipeline: AssetRef[] = []
+      for (let i = 0; i < pipelineImages.length; i++) {
+        const row = pipelineImages[i]
+        const url = row?.image_url || row?.imageUrl
+        if (!url || typeof url !== 'string') continue
+        assetsFromPipeline.push({
+          id: `a_${newProjectId()}`,
+          kind: 'scene',
+          key: `scene:${String(row.scene ?? i + 1)}`,
+          url,
+          prompt: String(row.prompt ?? ''),
+          createdAt: new Date().toISOString()
         })
-        .filter((x): x is AssetRef => x != null)
+      }
 
       const bible: StoryBible = {
         title: out.story.title,
         concept: out.story.setting,
-        characters: out.story.characters.map((c, i) => {
-          const thumb = pipelineImages[i]?.image_url || pipelineImages[i]?.imageUrl
-          return {
-            id: `c${i + 1}`,
-            name: c.name,
-            personality: `${c.role}. ${c.traits}`.trim(),
-            visualIdentity: `${c.traits}`.trim() || c.role,
-            baseImagePrompt: `${c.name}, ${c.role}, ${c.traits}`,
-            ...(thumb ? { baseImageUrl: String(thumb) } : {})
+        characters: out.story.characters.map(
+          (c: { name: string; role: string; traits: string }, i: number) => {
+            const thumb = pipelineImages[i]?.image_url || pipelineImages[i]?.imageUrl
+            return {
+              id: `c${i + 1}`,
+              name: c.name,
+              personality: `${c.role}. ${c.traits}`.trim(),
+              visualIdentity: `${c.traits}`.trim() || c.role,
+              baseImagePrompt: `${c.name}, ${c.role}, ${c.traits}`,
+              ...(thumb ? { baseImageUrl: String(thumb) } : {})
+            }
           }
-        }),
+        ),
         totalEpisodes: 1,
         outline: [{ episode: 1, beat: `${backendCountry} · ${backendTheme} · ${backendGenre}` }],
         userIdea: `${backendCountry} ${backendTheme} ${backendGenre} ${backendLength}`.trim(),

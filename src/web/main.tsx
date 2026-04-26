@@ -5,8 +5,9 @@ import '../renderer/src/i18n/config'
 import App from '../renderer/src/App'
 import '../renderer/src/styles/App.css'
 import './web.css'
+import type { ProjectState } from '../renderer/src/types/story'
 
-type StoredProject = any
+type StoredProject = ProjectState
 
 function lsGet<T>(k: string, fallback: T): T {
   try {
@@ -22,7 +23,6 @@ function lsSet(k: string, v: unknown) {
   localStorage.setItem(k, JSON.stringify(v))
 }
 
-const PROJECTS_KEY = 'katha:web:projects'
 const SETTINGS_KEY = 'katha:web:settings'
 const STORY_HISTORY_KEY = 'katha:web:story-history'
 const STORY_HISTORY_MAX = 80
@@ -42,7 +42,7 @@ function storyHistoryWrite(items: StoredProject[]) {
 }
 
 function ensureBridge() {
-  if ((window as any).katha) return
+  if (window.katha) return
   // In Vercel, we use same-origin serverless functions at /api/*
   // In local dev, you can override with VITE_BACKEND_URL (e.g. http://127.0.0.1:5000)
   const baseUrl = import.meta.env.VITE_BACKEND_URL || ''
@@ -77,7 +77,7 @@ function ensureBridge() {
     }
   }
 
-  ;(window as any).katha = {
+  window.katha = {
     authGetSession: async () => {
       if (!supabase) return { user: null }
       const { data } = await supabase.auth.getSession()
@@ -206,7 +206,7 @@ function ensureBridge() {
 
     storyHistoryList: async () => {
       return storyHistoryRead().map((p) => ({
-        id: p.id,
+        id: String(p.id),
         title: String(p.title || 'Untitled'),
         status: String(p.status || 'new'),
         updatedAt: String(p.updatedAt || p.createdAt || '')
@@ -267,7 +267,7 @@ function ensureBridge() {
   }
 
   // Basic web settings persistence (theme etc.) can be added later.
-  const s = lsGet<any>(SETTINGS_KEY, null)
+  const s = lsGet<unknown>(SETTINGS_KEY, null)
   if (!s) lsSet(SETTINGS_KEY, {})
 }
 

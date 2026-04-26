@@ -7,6 +7,8 @@ import { createClient } from '@supabase/supabase-js'
 const APP_BASE_URL_RAW = process.env.APP_BASE_URL // e.g. https://your-app.vercel.app
 const WORKER_TOKEN = process.env.WORKER_TOKEN
 const WORKER_ID = process.env.WORKER_ID || `pc-${os.hostname()}`
+/** Set `WORKER_VERBOSE=1` for startup details and periodic idle heartbeats (default is quiet). */
+const WORKER_VERBOSE = process.env.WORKER_VERBOSE === '1' || process.env.DEBUG === '1'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -48,6 +50,10 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
+}
+
+function logVerbose(...args) {
+  if (WORKER_VERBOSE) console.log(...args)
 }
 
 async function api(method, route, body) {
@@ -139,6 +145,7 @@ async function processJob(job) {
   const secondsPerImage = Number.isFinite(p.secondsPerImage) ? p.secondsPerImage : 4
 
   await api('POST', '/api/worker-claim', { id, workerId: WORKER_ID })
+  console.log(`Job ${id} claimed (${images.length} images)`)
   await api('POST', '/api/worker-progress', { id, progress: 5, stage: 'downloading' })
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'katha-render-'))
@@ -237,9 +244,8 @@ async function processJob(job) {
 }
 
 async function main() {
-  console.log('Worker running:', WORKER_ID)
-  console.log('APP_BASE_URL:', BASE_URL)
-  console.log('Polling /api/worker-pending every 3s. If nothing prints, that usually means: no queued jobs yet.')
+  console.log(`Worker ${WORKER_ID} started (WORKER_VERBOSE=1 for idle logs)`)
+  logVerbose('APP_BASE_URL:', BASE_URL)
 
   let idlePolls = 0
   while (true) {
@@ -248,8 +254,7 @@ async function main() {
       const job = pending?.job
       if (!job) {
         idlePolls++
-        // Heartbeat so it doesn't look "stuck" when there are no jobs.
-        if (idlePolls % 20 === 0) {
+        if (WORKER_VERBOSE && idlePolls % 20 === 0) {
           console.log(`[${new Date().toISOString()}] idle… no queued jobs (poll #${idlePolls})`)
         }
         await sleep(3000)
