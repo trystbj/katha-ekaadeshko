@@ -258,31 +258,6 @@ function ensureBridge() {
       return JSON.parse(text)
     },
 
-    backendGenerateKatha: async (payload: any) => {
-      const base = (payload?.baseUrl || baseUrl).replace(/\/+$/, '')
-      const url = base ? `${base}/api/generate-katha` : '/api/generate-katha'
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          theme: payload.theme,
-          country: payload.country,
-          genre: payload.genre,
-          length: payload.length
-        })
-      })
-      const text = await res.text()
-      if (!res.ok) {
-        try {
-          const j = JSON.parse(text)
-          throw new Error(j.error || j.message || text)
-        } catch {
-          throw new Error(text)
-        }
-      }
-      return JSON.parse(text)
-    },
-
     uiShowContextMenu: async () => {
       // Browser already provides native context menu.
     },

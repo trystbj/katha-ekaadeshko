@@ -57,19 +57,6 @@ export type KathaAPI = {
     height?: number
     seed?: number
   }) => Promise<{ imageUrl: string; seed?: number; generationId?: string }>
-  backendGenerateKatha: (payload: {
-    theme: string
-    country: string
-    genre: string
-    length: string
-    baseUrl?: string
-  }) => Promise<{
-    story: { title: string; setting: string; characters: { name: string; role: string; traits: string }[]; story: string }
-    script: { scene: number; visual_description: string; narration: string; dialogue: { character: string; line: string }[] }[]
-    images: { scene: number; image_url: string; prompt: string }[]
-    audio: { scene: number; audio_url: string }[]
-    metadata: { country: string; region: string; genre: string; theme: string; length: string }
-  }>
   uiShowContextMenu: (payload: { selectionText?: string; isEditable: boolean }) => Promise<void>
   openExternal: (url: string) => Promise<void>
 }
