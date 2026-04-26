@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { renderSupabaseAdmin, requireWorkerToken } from './_renderSupabase.js'
+import { formatApiError, renderSupabaseAdmin, requireWorkerToken } from './_renderSupabase.js'
 
 const BodySchema = z.object({
   id: z.string().min(8),
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     if (error) throw error
     res.status(200).json({ ok: true })
   } catch (e) {
-    res.status(e?.status || 500).json({ error: e instanceof Error ? e.message : String(e) })
+    res.status(e?.status || 500).json({ error: formatApiError(e) })
   }
 }
 

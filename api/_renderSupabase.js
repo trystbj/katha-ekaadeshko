@@ -21,3 +21,17 @@ export function requireWorkerToken(req) {
   }
 }
 
+export function formatApiError(e) {
+  if (e instanceof Error) return e.message
+  if (e && typeof e === 'object') {
+    // supabase-js PostgrestError-ish
+    if (typeof e.message === 'string' && e.message) return e.message
+    try {
+      return JSON.stringify(e)
+    } catch {
+      return String(e)
+    }
+  }
+  return String(e)
+}
+

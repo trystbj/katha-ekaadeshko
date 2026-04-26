@@ -1,4 +1,4 @@
-import { renderSupabaseAdmin, requireWorkerToken } from './_renderSupabase.js'
+import { formatApiError, renderSupabaseAdmin, requireWorkerToken } from './_renderSupabase.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     if (error) throw error
     res.status(200).json({ job: data?.[0] ?? null })
   } catch (e) {
-    res.status(e?.status || 500).json({ error: e instanceof Error ? e.message : String(e) })
+    res.status(e?.status || 500).json({ error: formatApiError(e) })
   }
 }
 

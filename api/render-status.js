@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { renderSupabaseAdmin } from './_renderSupabase.js'
+import { formatApiError, renderSupabaseAdmin } from './_renderSupabase.js'
 
 const QuerySchema = z.object({ id: z.string().min(8) })
 
@@ -20,13 +20,7 @@ export default async function handler(req, res) {
     if (error) throw error
     res.status(200).json(data)
   } catch (e) {
-    const msg =
-      e instanceof Error
-        ? e.message
-        : typeof e === 'object' && e && 'message' in e
-          ? String(e.message)
-          : JSON.stringify(e)
-    res.status(500).json({ error: msg })
+    res.status(500).json({ error: formatApiError(e) })
   }
 }
 
