@@ -16,7 +16,7 @@ export function useLeonardo() {
   const generateCharacterBase = useCallback(
     async (characterId: string, emotionNote?: string) => {
       const k = window.katha
-      if (!k) throw new Error('Desktop bridge not available')
+      if (!k?.leonardoGenerate) throw new Error('Image generation is not available in this build.')
       const p = useStudioStore.getState().project
       if (!p?.bible) return
       const ch = p.bible.characters.find((c) => c.id === characterId)

@@ -4,6 +4,7 @@ import {
   STYLE_PRESETS,
   type VisualStyleId,
   type ProjectStatus,
+  type ProjectState,
   defaultProject
 } from './types/story'
 import { useStudioStore } from './store/useStudioStore'
@@ -20,6 +21,17 @@ const STYLE_KEYS: Record<VisualStyleId, string> = {
   comic_panel: 'styleComicPanel',
   dark_anime: 'styleDarkAnime',
   romantic_glow: 'styleRomanticGlow'
+}
+
+/** Prefer scene/background stills; fall back to character portraits for slideshow render. */
+function collectRenderImageUrls(project: ProjectState | null): string[] {
+  if (!project?.assets?.length) return []
+  const withUrl = project.assets.filter(
+    (a): a is (typeof a & { url: string }) => typeof a.url === 'string' && a.url.length > 0
+  )
+  const sceneBg = withUrl.filter((a) => a.kind === 'scene' || a.kind === 'background').map((a) => a.url)
+  if (sceneBg.length) return sceneBg
+  return withUrl.filter((a) => a.kind === 'character').map((a) => a.url)
 }
 
 export default function App() {
@@ -184,6 +196,48 @@ export default function App() {
     if (!project || selectedEpisode == null) return null
     return project.episodes.find((e) => e.number === selectedEpisode) ?? null
   }, [project, selectedEpisode])
+
+  const renderSourceUrls = useMemo(() => collectRenderImageUrls(project), [project])
+
+  const sceneFrameAssets = useMemo(
+    () => (project?.assets ?? []).filter((a) => a.kind === 'scene' && a.url),
+    [project?.assets]
+  )
+
+  const startRender4k = useCallback(async () => {
+    setError(null)
+    try {
+      const p = useStudioStore.getState().project
+      const ep = p?.episodes?.[0]
+      const imgs = collectRenderImageUrls(p)
+      if (!imgs.length) {
+        throw new Error(
+          'No images yet. Set LEONARDO_API_KEY on Vercel for scene stills during generation, or use Leonardo: base portrait on each character in the sidebar.'
+        )
+      }
+      const res = await fetch('/api/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyTitle: p?.title,
+          images: imgs,
+          subtitles: ep?.scenes?.map((s, i) => ({
+            startMs: i * 4000,
+            endMs: (i + 1) * 4000,
+            text: `${s.character}: ${s.text}`
+          })),
+          fps: 30,
+          secondsPerImage: 4
+        })
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error || 'Render start failed')
+      setRenderJobId(j.jobId)
+      setRenderStatus(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }, [setError])
 
   const saveProject = async () => {
     const k = window.katha
@@ -674,45 +728,6 @@ export default function App() {
             >
               {editMode ? 'Done editing' : 'Edit story'}
             </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              disabled={Boolean(busy) || !project?.episodes?.length}
-              onClick={async () => {
-                setError(null)
-                try {
-                  const ep = project?.episodes?.[0]
-                  const imgs = (project?.assets || [])
-                    .filter((a) => a.url && (a.kind === 'scene' || a.kind === 'background'))
-                    .map((a) => a.url)
-                    .filter(Boolean)
-                  if (!imgs.length) throw new Error('No scene images found yet. Generate images first.')
-                  const res = await fetch('/api/render', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      storyTitle: project.title,
-                      images: imgs,
-                      subtitles: ep?.scenes?.map((s, i) => ({
-                        startMs: i * 4000,
-                        endMs: (i + 1) * 4000,
-                        text: `${s.character}: ${s.text}`
-                      })),
-                      fps: 30,
-                      secondsPerImage: 4
-                    })
-                  })
-                  const j = await res.json()
-                  if (!res.ok) throw new Error(j.error || 'Render start failed')
-                  setRenderJobId(j.jobId)
-                  setRenderStatus(null)
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : String(e))
-                }
-              }}
-            >
-              Generate Video (4K)
-            </button>
           </div>
         </div>
 
@@ -803,6 +818,30 @@ export default function App() {
             <p>
               <strong>Cliffhanger:</strong> {activeEpisode.cliffhanger}
             </p>
+          </div>
+        ) : null}
+
+        {project?.episodes?.length ? (
+          <div className="panel" style={{ marginTop: 14 }}>
+            <h3>Video (4K)</h3>
+            <p style={{ color: 'var(--muted)', fontSize: '0.9rem', margin: '0 0 10px' }}>
+              Builds a slideshow MP4 on your worker from scene stills (Leonardo during story generation)
+              or, if you have none, from character portraits you generate in the sidebar.
+            </p>
+            <button
+              type="button"
+              className="btn"
+              disabled={Boolean(busy) || !renderSourceUrls.length}
+              onClick={() => void startRender4k()}
+            >
+              Generate Video (4K)
+            </button>
+            {!renderSourceUrls.length ? (
+              <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: 8 }}>
+                No images on this project yet. Add <code>LEONARDO_API_KEY</code> on Vercel and generate the
+                story again for scene frames, or use Leonardo: base portrait per character.
+              </p>
+            ) : null}
           </div>
         ) : null}
       </main>
@@ -915,6 +954,32 @@ export default function App() {
                   </div>
                 </div>
               )) ?? null}
+            </div>
+
+            <div className="panel">
+              <h3>Scene frames</h3>
+              {sceneFrameAssets.length ? (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    gap: 8
+                  }}
+                >
+                  {sceneFrameAssets.map((a) => (
+                    <img
+                      key={a.id}
+                      src={a.url}
+                      alt={a.key}
+                      style={{ width: '100%', height: 'auto', borderRadius: 8, objectFit: 'cover' }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: 0 }}>
+                  Scene stills appear here when the server generates Leonardo images for each script beat.
+                </p>
+              )}
             </div>
 
             <div className="panel">

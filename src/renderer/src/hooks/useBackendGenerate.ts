@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
-import { defaultProject } from '../types/story'
-import type { StoryBible, StoryEpisode, StoryScene } from '../types/story'
+import { defaultProject, newProjectId } from '../types/story'
+import type { AssetRef, StoryBible, StoryEpisode, StoryScene } from '../types/story'
 import { useStudioStore } from '../store/useStudioStore'
 
 export function useBackendGenerate() {
@@ -87,16 +87,38 @@ export function useBackendGenerate() {
         throw new Error('No result returned (stream ended without a result event)')
       }
 
+      const pipelineImages: { image_url?: string; imageUrl?: string; scene?: string | number; prompt?: string }[] =
+        Array.isArray(out.images) ? out.images : []
+
+      const assetsFromPipeline: AssetRef[] = pipelineImages
+        .map((row, i) => {
+          const url = row?.image_url || row?.imageUrl
+          if (!url || typeof url !== 'string') return null
+          return {
+            id: `a_${newProjectId()}`,
+            kind: 'scene' as const,
+            key: `scene:${String(row.scene ?? i + 1)}`,
+            url,
+            prompt: String(row.prompt ?? ''),
+            createdAt: new Date().toISOString()
+          }
+        })
+        .filter((x): x is AssetRef => x != null)
+
       const bible: StoryBible = {
         title: out.story.title,
         concept: out.story.setting,
-        characters: out.story.characters.map((c, i) => ({
-          id: `c${i + 1}`,
-          name: c.name,
-          personality: `${c.role}. ${c.traits}`.trim(),
-          visualIdentity: `${c.traits}`.trim() || c.role,
-          baseImagePrompt: `${c.name}, ${c.role}, ${c.traits}`
-        })),
+        characters: out.story.characters.map((c, i) => {
+          const thumb = pipelineImages[i]?.image_url || pipelineImages[i]?.imageUrl
+          return {
+            id: `c${i + 1}`,
+            name: c.name,
+            personality: `${c.role}. ${c.traits}`.trim(),
+            visualIdentity: `${c.traits}`.trim() || c.role,
+            baseImagePrompt: `${c.name}, ${c.role}, ${c.traits}`,
+            ...(thumb ? { baseImageUrl: String(thumb) } : {})
+          }
+        }),
         totalEpisodes: 1,
         outline: [{ episode: 1, beat: `${backendCountry} · ${backendTheme} · ${backendGenre}` }],
         userIdea: `${backendCountry} ${backendTheme} ${backendGenre} ${backendLength}`.trim(),
@@ -132,7 +154,8 @@ export function useBackendGenerate() {
           bible,
           episodes: [episode1],
           memorySummary: '',
-          qualityMerge: true
+          qualityMerge: true,
+          assets: assetsFromPipeline
         })
       )
     } catch (e) {
