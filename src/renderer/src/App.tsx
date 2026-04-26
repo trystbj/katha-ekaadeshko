@@ -67,6 +67,8 @@ export default function App() {
     { id: string; title: string; status: string; updatedAt: string }[]
   >([])
   const [editMode, setEditMode] = useState(false)
+  const [renderJobId, setRenderJobId] = useState<string | null>(null)
+  const [renderStatus, setRenderStatus] = useState<any | null>(null)
 
   const resolvedTheme = useMemo(() => {
     if (theme === 'system') {
@@ -114,6 +116,28 @@ export default function App() {
   useEffect(() => {
     void refreshProjects()
   }, [])
+
+  useEffect(() => {
+    if (!renderJobId) return
+    let alive = true
+    const tick = async () => {
+      try {
+        const r = await fetch(`/api/render-status?id=${encodeURIComponent(renderJobId)}`)
+        const j = await r.json()
+        if (!alive) return
+        setRenderStatus(j)
+        if (j?.status === 'done' || j?.status === 'error') return
+        setTimeout(tick, 1500)
+      } catch {
+        if (!alive) return
+        setTimeout(tick, 2000)
+      }
+    }
+    void tick()
+    return () => {
+      alive = false
+    }
+  }, [renderJobId])
 
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authEmailInput, setAuthEmailInput] = useState('')
@@ -421,6 +445,26 @@ export default function App() {
           </div>
         ) : null}
 
+        {renderJobId ? (
+          <div className="panel" style={{ marginBottom: 14 }}>
+            <h3>Video render</h3>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--muted)' }}>{renderStatus?.stage || 'queued'}</span>
+              <span className="badge">{Number(renderStatus?.progress ?? 0)}%</span>
+            </div>
+            {renderStatus?.status === 'done' && renderStatus?.video_url ? (
+              <div style={{ marginTop: 10 }}>
+                <a className="btn" href={renderStatus.video_url} target="_blank" rel="noreferrer">
+                  Download 4K MP4
+                </a>
+              </div>
+            ) : null}
+            {renderStatus?.status === 'error' ? (
+              <div style={{ marginTop: 10, color: 'var(--danger)' }}>{renderStatus?.error || 'Render failed'}</div>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="panel" style={{ marginBottom: 14 }}>
           <h3>{t('style')}</h3>
           <div className="style-grid">
@@ -629,6 +673,45 @@ export default function App() {
               title="Edit generated story"
             >
               {editMode ? 'Done editing' : 'Edit story'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={Boolean(busy) || !project?.episodes?.length}
+              onClick={async () => {
+                setError(null)
+                try {
+                  const ep = project?.episodes?.[0]
+                  const imgs = (project?.assets || [])
+                    .filter((a) => a.url && (a.kind === 'scene' || a.kind === 'background'))
+                    .map((a) => a.url)
+                    .filter(Boolean)
+                  if (!imgs.length) throw new Error('No scene images found yet. Generate images first.')
+                  const res = await fetch('/api/render', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      storyTitle: project.title,
+                      images: imgs,
+                      subtitles: ep?.scenes?.map((s, i) => ({
+                        startMs: i * 4000,
+                        endMs: (i + 1) * 4000,
+                        text: `${s.character}: ${s.text}`
+                      })),
+                      fps: 30,
+                      secondsPerImage: 4
+                    })
+                  })
+                  const j = await res.json()
+                  if (!res.ok) throw new Error(j.error || 'Render start failed')
+                  setRenderJobId(j.jobId)
+                  setRenderStatus(null)
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : String(e))
+                }
+              }}
+            >
+              Generate Video (4K)
             </button>
           </div>
         </div>
