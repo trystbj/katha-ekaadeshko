@@ -68,12 +68,14 @@ export function useBackendGenerate() {
               } else if (evt.type === 'result') {
                 out = evt.result
               } else if (evt.type === 'error') {
-                lastError = String(evt.error || 'Generation failed')
-                throw new Error(lastError)
+                const errMsg = String(evt.error || 'Generation failed')
+                lastError = errMsg
+                throw new Error(errMsg)
               }
             } catch (e) {
-              // ignore parse noise
-              if (e instanceof Error && e.message.includes('Generation failed')) throw e
+              // Ignore JSON parse noise, but always propagate explicit stream errors.
+              if (e instanceof SyntaxError) return
+              if (e instanceof Error && lastError && e.message === lastError) throw e
             }
           }
           idx = buf.indexOf('\n\n')
