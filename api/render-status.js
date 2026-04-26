@@ -20,7 +20,13 @@ export default async function handler(req, res) {
     if (error) throw error
     res.status(200).json(data)
   } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : String(e) })
+    const msg =
+      e instanceof Error
+        ? e.message
+        : typeof e === 'object' && e && 'message' in e
+          ? String(e.message)
+          : JSON.stringify(e)
+    res.status(500).json({ error: msg })
   }
 }
 

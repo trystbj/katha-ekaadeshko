@@ -62,8 +62,22 @@ async function api(method, route, body) {
       body: method === 'GET' ? undefined : body ? JSON.stringify(body) : undefined
     })
     const text = await res.text()
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`)
-    return text ? JSON.parse(text) : {}
+    if (!res.ok) {
+      // If Vercel returns HTML (SPA fallback), surface a clearer message.
+      if (text.trimStart().toLowerCase().startsWith('<!doctype')) {
+        throw new Error(`HTTP ${res.status}: got HTML instead of JSON (route not deployed yet?)`)
+      }
+      throw new Error(`HTTP ${res.status}: ${text}`)
+    }
+    if (!text) return {}
+    try {
+      return JSON.parse(text)
+    } catch {
+      if (text.trimStart().toLowerCase().startsWith('<!doctype')) {
+        throw new Error(`Got HTML instead of JSON from ${method} ${url} (route not deployed yet?)`)
+      }
+      throw new Error(`Invalid JSON from ${method} ${url}: ${text.slice(0, 200)}`)
+    }
   } catch (e) {
     const cause = e?.cause ? ` cause=${String(e.cause)}` : ''
     throw new Error(`fetch failed for ${method} ${url}${cause} (${e instanceof Error ? e.message : String(e)})`)
