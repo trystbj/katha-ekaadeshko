@@ -15,6 +15,8 @@ import { LANGUAGE_OPTIONS } from './i18n/resources'
 import { suggestUiLanguageFromText } from './utils/detectLang'
 import { useBackendGenerate } from './hooks/useBackendGenerate'
 import { pushStoryToHistory } from './utils/storyHistory'
+import type { IdeaSpeechRecognition } from './utils/speechInput'
+import { getSpeechRecognitionCtor, speechRecognitionAvailable } from './utils/speechInput'
 
 const STYLE_KEYS: Record<VisualStyleId, string> = {
   soft_anime_fantasy: 'styleSoftAnimeFantasy',
@@ -344,16 +346,14 @@ export default function App() {
   }
 
   const speechRef = useRef<{
-    rec: any | null
+    rec: IdeaSpeechRecognition | null
     listening: boolean
   }>({ rec: null, listening: false })
   const [voiceListening, setVoiceListening] = useState(false)
   const ideaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const canUseClipboard = typeof navigator !== 'undefined' && !!navigator.clipboard
-  const canUseSpeech =
-    typeof window !== 'undefined' &&
-    (Boolean((window as any).SpeechRecognition) || Boolean((window as any).webkitSpeechRecognition))
+  const canUseSpeech = speechRecognitionAvailable()
 
   const copyIdea = useCallback(async () => {
     setError(null)
@@ -416,7 +416,7 @@ export default function App() {
         !!target &&
         (target instanceof HTMLInputElement ||
           target instanceof HTMLTextAreaElement ||
-          (target as any).isContentEditable === true)
+          (target instanceof HTMLElement && target.isContentEditable))
       const selectionText = window.getSelection()?.toString() || ''
       void k.uiShowContextMenu({ isEditable, selectionText })
     }
@@ -429,13 +429,14 @@ export default function App() {
     try {
       if (!canUseSpeech) throw new Error('Voice input not supported on this system')
 
-      const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      const SR = getSpeechRecognitionCtor()
+      if (!SR) throw new Error('Voice input not supported on this system')
       if (!speechRef.current.rec) {
         const rec = new SR()
         rec.continuous = true
         rec.interimResults = true
         rec.lang = uiLanguage || 'en'
-        rec.onresult = (event: any) => {
+        rec.onresult = (event) => {
           let interim = ''
           let finalText = ''
           for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -447,10 +448,10 @@ export default function App() {
           const next = (finalText || interim || '').trim()
           if (next) setIdea(next)
         }
-        rec.onerror = (e: any) => {
+        rec.onerror = (e) => {
           setVoiceListening(false)
           speechRef.current.listening = false
-          setError(e?.error ? `Voice error: ${e.error}` : 'Voice error')
+          setError(e.error ? `Voice error: ${e.error}` : 'Voice error')
         }
         rec.onend = () => {
           setVoiceListening(false)
@@ -459,19 +460,22 @@ export default function App() {
         speechRef.current.rec = rec
       }
 
+      const activeRec = speechRef.current.rec
+      if (!activeRec) return
+
       // Update language on each start (if user switches UI language).
       try {
-        speechRef.current.rec.lang = uiLanguage || 'en'
+        activeRec.lang = uiLanguage || 'en'
       } catch {
         // ignore
       }
 
       if (speechRef.current.listening) {
-        speechRef.current.rec.stop()
+        activeRec.stop()
         speechRef.current.listening = false
         setVoiceListening(false)
       } else {
-        speechRef.current.rec.start()
+        activeRec.start()
         speechRef.current.listening = true
         setVoiceListening(true)
       }

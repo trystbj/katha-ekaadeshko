@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { defaultProject, newProjectId } from '../types/story'
+import type { JobsStreamGenerateResult } from '../types/kathaGenerate'
 import type { AssetRef, StoryBible, StoryEpisode, StoryScene } from '../types/story'
 import { useStudioStore } from '../store/useStudioStore'
 import { pushStoryToCloudIfSignedIn, pushStoryToHistory } from '../utils/storyHistory'
@@ -39,7 +40,7 @@ export function useBackendGenerate() {
       const reader = res.body.getReader()
       const dec = new TextDecoder()
       let buf = ''
-      let out: any | null = null
+      let out: JobsStreamGenerateResult | null = null
       let lastError: string | null = null
       const log: string[] = []
 
@@ -67,7 +68,7 @@ export function useBackendGenerate() {
                   log: log.slice(-60)
                 })
               } else if (evt.type === 'result') {
-                out = evt.result
+                out = evt.result as JobsStreamGenerateResult
               } else if (evt.type === 'error') {
                 const errMsg = String(evt.error || 'Generation failed')
                 lastError = errMsg
