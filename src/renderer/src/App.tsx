@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   STYLE_PRESETS,
@@ -235,6 +243,36 @@ export default function App() {
     const assets = project?.assets ?? []
     return assets.filter((a) => a.kind === 'scene' && a.url)
   }, [project])
+
+  type VisualGalleryItem = { id: string; url: string; caption: string }
+
+  const visualGalleryItems = useMemo((): VisualGalleryItem[] => {
+    if (!project?.bible) return []
+    const items: VisualGalleryItem[] = []
+    for (const c of project.bible.characters) {
+      if (c.baseImageUrl) {
+        items.push({
+          id: `char:${c.id}`,
+          url: c.baseImageUrl,
+          caption: `Character · ${c.name}`
+        })
+      }
+    }
+    let sceneNum = 0
+    for (const a of sceneFrameAssets) {
+      if (!a.url) continue
+      sceneNum += 1
+      items.push({
+        id: `scene:${a.id}`,
+        url: a.url,
+        caption: `Scene ${sceneNum} · ${a.key}`
+      })
+    }
+    return items
+  }, [project, sceneFrameAssets])
+
+  const [visualViewerOpen, setVisualViewerOpen] = useState(false)
+  const [visualViewerIndex, setVisualViewerIndex] = useState(0)
 
   const startRender4k = useCallback(async () => {
     setError(null)
@@ -975,7 +1013,19 @@ export default function App() {
               {project.bible?.characters.map((c) => (
                 <div key={c.id} className="char-card">
                   {c.baseImageUrl ? (
-                    <img src={c.baseImageUrl} alt={c.name} />
+                    <button
+                      type="button"
+                      className="char-card__thumb-btn"
+                      aria-label={`Fullscreen: ${c.name}`}
+                      onClick={() => {
+                        const idx = visualGalleryItems.findIndex((x) => x.id === `char:${c.id}`)
+                        if (idx < 0) return
+                        setVisualViewerIndex(idx)
+                        setVisualViewerOpen(true)
+                      }}
+                    >
+                      <img src={c.baseImageUrl} alt={c.name} />
+                    </button>
                   ) : (
                     <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--surface-2)' }} />
                   )}
@@ -1044,7 +1094,13 @@ export default function App() {
             <div className="panel">
               <h3>Scene frames</h3>
               {sceneFrameAssets.length ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0 0 8px' }}>
+                  {t('sceneFramesTapHint')}
+                </p>
+              ) : null}
+              {sceneFrameAssets.length ? (
                 <div
+                  className="scene-frames-grid"
                   style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -1052,12 +1108,20 @@ export default function App() {
                   }}
                 >
                   {sceneFrameAssets.map((a) => (
-                    <img
+                    <button
                       key={a.id}
-                      src={a.url}
-                      alt={a.key}
-                      style={{ width: '100%', height: 'auto', borderRadius: 8, objectFit: 'cover' }}
-                    />
+                      type="button"
+                      className="scene-frame-thumb"
+                      aria-label={`${t('sceneFramesTapHint')}: ${a.key}`}
+                      onClick={() => {
+                        const idx = visualGalleryItems.findIndex((x) => x.id === `scene:${a.id}`)
+                        if (idx < 0) return
+                        setVisualViewerIndex(idx)
+                        setVisualViewerOpen(true)
+                      }}
+                    >
+                      <img src={a.url} alt={a.key} />
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -1083,6 +1147,14 @@ export default function App() {
       </aside>
 
       <footer className="foot">{t('footer')}</footer>
+
+      <ImageFullscreenViewer
+        items={visualGalleryItems}
+        index={visualViewerIndex}
+        open={visualViewerOpen}
+        onClose={() => setVisualViewerOpen(false)}
+        setIndex={setVisualViewerIndex}
+      />
 
       {settingsOpen ? (
         <SettingsModal onClose={() => setSettingsOpen(false)} />
@@ -1182,6 +1254,115 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             {t('close')}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function ImageFullscreenViewer({
+  items,
+  index,
+  open,
+  onClose,
+  setIndex
+}: {
+  items: Array<{ id: string; url: string; caption: string }>
+  index: number
+  open: boolean
+  onClose: () => void
+  setIndex: Dispatch<SetStateAction<number>>
+}) {
+  const { t } = useTranslation()
+  const touchStartX = useRef<number | null>(null)
+  const current = items[index]
+
+  useEffect(() => {
+    if (!open) return
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowLeft') setIndex((i) => Math.max(0, i - 1))
+      if (e.key === 'ArrowRight') setIndex((i) => Math.min(items.length - 1, i + 1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open, items.length, onClose, setIndex])
+
+  if (!open || items.length === 0 || !current?.url) return null
+
+  const goPrev = () => setIndex((i) => Math.max(0, i - 1))
+  const goNext = () => setIndex((i) => Math.min(items.length - 1, i + 1))
+
+  return (
+    <div
+      className="image-fs"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Image preview"
+      onClick={onClose}
+    >
+      <div className="image-fs__toolbar" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="btn btn-ghost image-fs__close" onClick={onClose}>
+          {t('imageViewerClose')}
+        </button>
+        <span className="image-fs__counter">
+          {index + 1} / {items.length}
+        </span>
+      </div>
+
+      <div
+        className="image-fs__stage"
+        onClick={onClose}
+        onTouchStart={(e) => {
+          touchStartX.current = e.changedTouches[0]?.clientX ?? null
+        }}
+        onTouchEnd={(e) => {
+          if (touchStartX.current == null) return
+          const endX = e.changedTouches[0]?.clientX ?? touchStartX.current
+          const dx = endX - touchStartX.current
+          touchStartX.current = null
+          if (dx > 56) goPrev()
+          else if (dx < -56) goNext()
+        }}
+      >
+        <button
+          type="button"
+          className="image-fs__chev image-fs__chev--prev"
+          disabled={index <= 0}
+          aria-label={t('imageViewerPrev')}
+          onClick={(e) => {
+            e.stopPropagation()
+            goPrev()
+          }}
+        >
+          ‹
+        </button>
+        <img
+          className="image-fs__img"
+          src={current.url}
+          alt={current.caption}
+          onClick={(e) => e.stopPropagation()}
+        />
+        <button
+          type="button"
+          className="image-fs__chev image-fs__chev--next"
+          disabled={index >= items.length - 1}
+          aria-label={t('imageViewerNext')}
+          onClick={(e) => {
+            e.stopPropagation()
+            goNext()
+          }}
+        >
+          ›
+        </button>
+      </div>
+
+      <div className="image-fs__footer" onClick={(e) => e.stopPropagation()}>
+        <div className="image-fs__caption">{current.caption}</div>
+        <div className="image-fs__subhint">{t('imageViewerHint')}</div>
       </div>
     </div>
   )

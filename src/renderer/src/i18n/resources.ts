@@ -62,7 +62,12 @@ const en = {
   storyHistoryDelete: 'Remove',
   close: 'Close',
   deleteProject: 'Delete',
-  openDocs: 'API docs'
+  openDocs: 'API docs',
+  imageViewerClose: 'Close',
+  imageViewerPrev: 'Previous image',
+  imageViewerNext: 'Next image',
+  imageViewerHint: 'Esc to close · ← → or buttons to browse',
+  sceneFramesTapHint: 'Tap any image for fullscreen'
 }
 
 const ne: typeof en = {
