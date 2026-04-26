@@ -34,6 +34,15 @@ Set `WORKER_VERBOSE=1` for idle polling logs. By default you only see startup, *
 
 Most reported issues come from the **`vercel` dev CLI** (transitive deps). Production traffic serves the **static Vite build** plus serverless handlers, not the full Vercel builder graph. Run `npm audit` periodically; use `npm audit fix` without `--force` first. Upgrading `vercel` major versions may require adjusting the `dev` script.
 
+## Troubleshooting: `render_jobs` / `progress` / schema cache
+
+If **Generate Video (4K)** returns an error like **Could not find the 'progress' column of 'render_jobs' in the schema cache**:
+
+1. In **Supabase** → **SQL Editor**, run the full script: **`supabase/render_jobs_add_missing_columns.sql`** (from this repo).
+2. Wait **about one minute** so PostgREST reloads the schema, then try again.
+3. If it still fails: **Project Settings →** pause/restart isn’t always available; creating a trivial migration in **Database → Migrations** or opening a ticket can force a cache refresh. The one-line fix is often enough:  
+   `alter table public.render_jobs add column if not exists progress int not null default 0;`
+
 ## Layout
 
 - `src/web/` — app entry, `window.katha` bridge, Supabase wiring.

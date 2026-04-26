@@ -22,16 +22,24 @@ export function requireWorkerToken(req) {
 }
 
 export function formatApiError(e) {
-  if (e instanceof Error) return e.message
-  if (e && typeof e === 'object') {
-    // supabase-js PostgrestError-ish
-    if (typeof e.message === 'string' && e.message) return e.message
+  let msg = ''
+  if (e instanceof Error) msg = e.message
+  else if (e && typeof e === 'object' && typeof e.message === 'string' && e.message) msg = e.message
+  else if (e && typeof e === 'object') {
     try {
-      return JSON.stringify(e)
+      msg = JSON.stringify(e)
     } catch {
-      return String(e)
+      msg = String(e)
     }
+  } else msg = String(e)
+
+  if (/render_jobs/i.test(msg) && /progress/i.test(msg) && /schema cache/i.test(msg)) {
+    return (
+      'Supabase table render_jobs is missing the progress column (or the API cache is stale). ' +
+      'In Supabase: SQL Editor → run the file supabase/render_jobs_add_missing_columns.sql from this repo. ' +
+      'Then wait 60 seconds and try Generate Video again. If it persists: Dashboard → Settings → API → restart project or contact support to reload schema.'
+    )
   }
-  return String(e)
+  return msg
 }
 

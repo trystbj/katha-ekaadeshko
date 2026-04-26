@@ -1,5 +1,13 @@
--- Run in Supabase SQL Editor if you already have `render_jobs` but see:
--- "Could not find the 'progress' column of 'render_jobs' in the schema cache"
+-- =============================================================================
+-- FIX: "Could not find the 'progress' column of 'render_jobs' in the schema cache"
+-- =============================================================================
+-- 1. Supabase Dashboard → SQL Editor → New query
+-- 2. Paste this ENTIRE file → Run
+-- 3. Wait ~60 seconds (PostgREST schema cache), then retry "Generate Video (4K)"
+--
+-- Minimal fix (only progress) if you prefer a single statement:
+--   alter table public.render_jobs add column if not exists progress int not null default 0;
+--
 -- Safe to run multiple times (IF NOT EXISTS).
 
 create table if not exists public.render_jobs (
