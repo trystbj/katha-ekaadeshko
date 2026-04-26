@@ -239,15 +239,23 @@ async function processJob(job) {
 async function main() {
   console.log('Worker running:', WORKER_ID)
   console.log('APP_BASE_URL:', BASE_URL)
+  console.log('Polling /api/worker-pending every 3s. If nothing prints, that usually means: no queued jobs yet.')
 
+  let idlePolls = 0
   while (true) {
     try {
       const pending = await api('GET', '/api/worker-pending')
       const job = pending?.job
       if (!job) {
+        idlePolls++
+        // Heartbeat so it doesn't look "stuck" when there are no jobs.
+        if (idlePolls % 20 === 0) {
+          console.log(`[${new Date().toISOString()}] idle… no queued jobs (poll #${idlePolls})`)
+        }
         await sleep(3000)
         continue
       }
+      idlePolls = 0
       await processJob(job)
     } catch (e) {
       console.error('Worker error:', e?.message || e)
