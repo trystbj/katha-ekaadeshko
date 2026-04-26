@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { createClient } from '@supabase/supabase-js'
 import '../renderer/src/i18n/config'
 import App from '../renderer/src/App'
 import '../renderer/src/styles/App.css'
@@ -33,6 +34,25 @@ function ensureBridge() {
   // In Vercel, we use same-origin serverless functions at /api/*
   // In local dev, you can override with VITE_BACKEND_URL (e.g. http://127.0.0.1:5000)
   const baseUrl = import.meta.env.VITE_BACKEND_URL || ''
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+  const supabase =
+    supabaseUrl && supabaseAnonKey
+      ? createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true
+          }
+        })
+      : null
+
+  async function authHeader(): Promise<Record<string, string>> {
+    if (!supabase) return {}
+    const { data } = await supabase.auth.getSession()
+    const token = data?.session?.access_token
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
 
   async function fetchHealth() {
     const base = baseUrl.replace(/\/+$/, '')
@@ -46,6 +66,31 @@ function ensureBridge() {
   }
 
   ;(window as any).katha = {
+    authGetSession: async () => {
+      if (!supabase) return { user: null }
+      const { data } = await supabase.auth.getSession()
+      const u = data?.session?.user
+      return { user: u ? { id: u.id, email: u.email || undefined } : null }
+    },
+    authSignInMagicLink: async (payload: any) => {
+      if (!supabase) throw new Error('Supabase is not configured (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).')
+      const email = String(payload?.email || '').trim()
+      if (!email.includes('@')) throw new Error('Enter a valid email.')
+      const redirectTo = String(payload?.redirectTo || window.location.origin).trim()
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: redirectTo }
+      })
+      if (error) throw error
+      return true
+    },
+    authSignOut: async () => {
+      if (!supabase) return true
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      return true
+    },
+
     // Settings are stored locally in web mode (no secrets are auto-read from disk).
     settingsGetApiKeys: async () => {
       try {
@@ -107,37 +152,72 @@ function ensureBridge() {
     },
 
     projectsList: async () => {
-      const m = lsGet<Record<string, StoredProject>>(PROJECTS_KEY, {})
-      return Object.keys(m)
-        .map((id) => {
-          const p = m[id] || {}
-          return { id, title: p.title || 'Untitled', status: p.status || 'new', updatedAt: p.updatedAt || '' }
-        })
-        .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
+      const base = baseUrl.replace(/\/+$/, '')
+      const url = base ? `${base}/api/projects-list` : '/api/projects-list'
+      const res = await fetch(url, { method: 'GET', headers: await authHeader() })
+      const text = await res.text()
+      if (!res.ok) throw new Error(text)
+      return JSON.parse(text)
     },
     projectsLoad: async (id: string) => {
-      const m = lsGet<Record<string, StoredProject>>(PROJECTS_KEY, {})
-      return m[id]
+      const base = baseUrl.replace(/\/+$/, '')
+      const url = base ? `${base}/api/projects-get?id=${encodeURIComponent(id)}` : `/api/projects-get?id=${encodeURIComponent(id)}`
+      const res = await fetch(url, { method: 'GET', headers: await authHeader() })
+      const text = await res.text()
+      if (!res.ok) throw new Error(text)
+      return JSON.parse(text)
     },
     projectsSave: async (project: any) => {
-      const m = lsGet<Record<string, StoredProject>>(PROJECTS_KEY, {})
-      const id = project?.id || `p_${Math.random().toString(16).slice(2)}`
-      m[id] = { ...project, id, updatedAt: nowIso() }
-      lsSet(PROJECTS_KEY, m)
+      const base = baseUrl.replace(/\/+$/, '')
+      const url = base ? `${base}/api/projects-save` : '/api/projects-save'
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ project: { ...project, updatedAt: nowIso() } })
+      })
+      const text = await res.text()
+      if (!res.ok) throw new Error(text)
       return true
     },
     projectsDelete: async (id: string) => {
-      const m = lsGet<Record<string, StoredProject>>(PROJECTS_KEY, {})
-      delete m[id]
-      lsSet(PROJECTS_KEY, m)
+      const base = baseUrl.replace(/\/+$/, '')
+      const url = base ? `${base}/api/projects-delete` : '/api/projects-delete'
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ id })
+      })
+      const text = await res.text()
+      if (!res.ok) throw new Error(text)
       return true
     },
 
     aiComplete: async () => {
       throw new Error('AI complete is not available in web mode yet.')
     },
-    leonardoGenerate: async () => {
-      throw new Error('Leonardo image generation is not available in web mode yet.')
+    leonardoGenerate: async (payload: any) => {
+      const base = (payload?.baseUrl || baseUrl).replace(/\/+$/, '')
+      const url = base ? `${base}/api/leonardo-generate` : '/api/leonardo-generate'
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: payload.prompt,
+          width: payload.width,
+          height: payload.height,
+          seed: payload.seed
+        })
+      })
+      const text = await res.text()
+      if (!res.ok) {
+        try {
+          const j = JSON.parse(text)
+          throw new Error(j.error || j.message || text)
+        } catch {
+          throw new Error(text)
+        }
+      }
+      return JSON.parse(text)
     },
 
     backendGenerateKatha: async (payload: any) => {

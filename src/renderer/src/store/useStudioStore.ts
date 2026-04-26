@@ -20,6 +20,8 @@ interface StudioState {
   settingsOpen: boolean
   projectPickerOpen: boolean
   selectedEpisode: number | null
+  authEmail: string | null
+  job: { id: string; stage: string; progress: number; log: string[] } | null
   setTheme: (t: ThemeChoice) => void
   setUiLanguage: (lng: string) => void
   setIdea: (s: string) => void
@@ -36,6 +38,8 @@ interface StudioState {
   setSettingsOpen: (v: boolean) => void
   setProjectPickerOpen: (v: boolean) => void
   setSelectedEpisode: (n: number | null) => void
+  setAuthEmail: (email: string | null) => void
+  setJob: (j: StudioState['job']) => void
   newBlankProject: () => void
 }
 
@@ -55,6 +59,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   settingsOpen: false,
   projectPickerOpen: false,
   selectedEpisode: null,
+  authEmail: null,
+  job: null,
   setTheme: (theme) => set({ theme }),
   setUiLanguage: (uiLanguage) => set({ uiLanguage }),
   setIdea: (idea) => set({ idea }),
@@ -79,10 +85,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setProjectPickerOpen: (projectPickerOpen) => set({ projectPickerOpen }),
   setSelectedEpisode: (selectedEpisode) => set({ selectedEpisode }),
+  setAuthEmail: (authEmail) => set({ authEmail }),
+  setJob: (job) => set({ job }),
   newBlankProject: () =>
     set({
       project: defaultProject({ title: 'Untitled Story', status: 'new' }),
       selectedEpisode: null,
-      lastError: null
+      lastError: null,
+      job: null
     })
 }))

@@ -10,7 +10,7 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-export async function leonardoGenerateForScript({ script, input }) {
+export async function leonardoGenerateForScript({ script, input, onProgress }) {
   // Serverless-safe: Leonardo returns hosted URLs; no local storage required.
   // You can disable explicitly if desired.
   if (process.env.KATHA_DISABLE_LEONARDO === '1') return []
@@ -19,12 +19,34 @@ export async function leonardoGenerateForScript({ script, input }) {
   const modelId = process.env.LEONARDO_MODEL_ID || '7b592283-e8a7-4c5a-9ba6-d18c31f258b9'
 
   const out = []
-  for (const s of script) {
+  for (let i = 0; i < script.length; i++) {
+    const s = script[i]
     const prompt = buildScenePrompt(s, input)
     const { imageUrl } = await generateOne({ prompt, modelId })
     out.push({ scene: s.scene, image_url: imageUrl, prompt })
+    if (onProgress) {
+      onProgress({
+        stage: 'images',
+        progress: Math.round(((i + 1) / Math.max(1, script.length)) * 100),
+        message: `Image ${i + 1}/${script.length}`
+      })
+    }
   }
   return out
+}
+
+export async function leonardoGenerateOne({ prompt, width, height, seed }) {
+  if (process.env.KATHA_DISABLE_LEONARDO === '1') return { imageUrl: '', seed }
+  if (!process.env.LEONARDO_API_KEY) throw new Error('LEONARDO_API_KEY is missing')
+  const modelId = process.env.LEONARDO_MODEL_ID || '7b592283-e8a7-4c5a-9ba6-d18c31f258b9'
+  const r = await generateOne({
+    prompt,
+    modelId,
+    width: typeof width === 'number' ? width : 832,
+    height: typeof height === 'number' ? height : 1216,
+    seed
+  })
+  return { imageUrl: r.imageUrl, seed: r.seed ?? seed }
 }
 
 function buildScenePrompt(scene, input) {
@@ -36,7 +58,7 @@ function buildScenePrompt(scene, input) {
   ].join('. ')
 }
 
-async function generateOne({ prompt, modelId }) {
+async function generateOne({ prompt, modelId, width, height, seed }) {
   const key = requireKey()
   const modelName = String(process.env.LEONARDO_MODEL_NAME || '').toLowerCase().trim()
   // Some Leonardo models (e.g. Kino 2.1) don't support Alchemy.
@@ -53,10 +75,11 @@ async function generateOne({ prompt, modelId }) {
         prompt,
         modelId,
         num_images: 1,
-        width: 832,
-        height: 1216,
+        width,
+        height,
         alchemy: alchemyFlag,
-        contrast: 3.5
+        contrast: 3.5,
+        ...(typeof seed === 'number' ? { seed } : {})
       })
     })
     const txt = await createRes.text()
@@ -99,7 +122,8 @@ async function generateOne({ prompt, modelId }) {
     const root = g?.generations_by_pk || g?.generation || g
     const status = root?.status
     const imgs = root?.generated_images
-    if (status === 'COMPLETE' && imgs?.[0]?.url) return { imageUrl: imgs[0].url, generationId }
+    if (status === 'COMPLETE' && imgs?.[0]?.url)
+      return { imageUrl: imgs[0].url, generationId, seed: root?.seed }
     if (status === 'FAILED') throw new Error('Leonardo: generation failed')
   }
   throw new Error('Leonardo: timeout')

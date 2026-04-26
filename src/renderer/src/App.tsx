@@ -48,6 +48,7 @@ export default function App() {
   const busy = useStudioStore((s) => s.busy)
   const lastError = useStudioStore((s) => s.lastError)
   const setError = useStudioStore((s) => s.setError)
+  const job = useStudioStore((s) => s.job)
   const settingsOpen = useStudioStore((s) => s.settingsOpen)
   const setSettingsOpen = useStudioStore((s) => s.setSettingsOpen)
   const projectPickerOpen = useStudioStore((s) => s.projectPickerOpen)
@@ -55,6 +56,8 @@ export default function App() {
   const selectedEpisode = useStudioStore((s) => s.selectedEpisode)
   const setSelectedEpisode = useStudioStore((s) => s.setSelectedEpisode)
   const newBlankProject = useStudioStore((s) => s.newBlankProject)
+  const authEmail = useStudioStore((s) => s.authEmail)
+  const setAuthEmail = useStudioStore((s) => s.setAuthEmail)
 
   const { generateBible, generateEpisode, regenerateScene } = useStoryGeneration()
   const { generateCharacterBase } = useLeonardo()
@@ -63,6 +66,7 @@ export default function App() {
   const [projectsMeta, setProjectsMeta] = useState<
     { id: string; title: string; status: string; updatedAt: string }[]
   >([])
+  const [editMode, setEditMode] = useState(false)
 
   const resolvedTheme = useMemo(() => {
     if (theme === 'system') {
@@ -110,6 +114,39 @@ export default function App() {
   useEffect(() => {
     void refreshProjects()
   }, [])
+
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authEmailInput, setAuthEmailInput] = useState('')
+
+  useEffect(() => {
+    const k = window.katha
+    if (!k?.authGetSession) return
+    void (async () => {
+      try {
+        const s = await k.authGetSession()
+        setAuthEmail(s.user?.email || null)
+      } catch {
+        setAuthEmail(null)
+      }
+    })()
+  }, [setAuthEmail])
+
+  const signIn = useCallback(async () => {
+    const k = window.katha
+    if (!k?.authSignInMagicLink) throw new Error('Auth not available')
+    const email = authEmailInput.trim()
+    if (!email.includes('@')) throw new Error('Enter a valid email')
+    await k.authSignInMagicLink({ email, redirectTo: window.location.origin })
+    setAuthEmail(email)
+    setAuthModalOpen(false)
+  }, [authEmailInput, setAuthEmail])
+
+  const signOut = useCallback(async () => {
+    const k = window.katha
+    if (!k?.authSignOut) return
+    await k.authSignOut()
+    setAuthEmail(null)
+  }, [setAuthEmail])
 
   const nextEpisodeNumber = useMemo(() => {
     if (!project?.bible) return 1
@@ -354,12 +391,35 @@ export default function App() {
           >
             {t('continueProject')}
           </button>
+          {authEmail ? (
+            <button type="button" className="btn btn-ghost" onClick={() => void signOut()} title={authEmail}>
+              Sign out
+            </button>
+          ) : (
+            <button type="button" className="btn btn-ghost" onClick={() => setAuthModalOpen(true)}>
+              Sign in
+            </button>
+          )}
         </div>
       </header>
 
       <main className="main">
         {lastError ? <div className="error-banner">{lastError}</div> : null}
         {busy ? <div className="busy-bar">{t('loading')} — {busy}</div> : null}
+        {job ? (
+          <div className="panel" style={{ marginBottom: 14 }}>
+            <h3>Live monitor</h3>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--muted)' }}>{job.stage || '—'}</span>
+              <span className="badge">{job.progress}%</span>
+            </div>
+            {job.log?.length ? (
+              <pre className="script-pre" style={{ maxHeight: 140 }}>
+                {job.log.slice(-20).join('\n')}
+              </pre>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="panel" style={{ marginBottom: 14 }}>
           <h3>{t('style')}</h3>
@@ -534,18 +594,10 @@ export default function App() {
             <button
               type="button"
               className="btn btn-ghost"
-              disabled={Boolean(busy) || !project?.bible}
-              onClick={() => void generateEpisode(1)}
+              disabled={Boolean(busy) || !project?.bible || (project.episodes.length ? nextEpisodeNumber > totalEpisodes : false)}
+              onClick={() => void generateEpisode(project.episodes.length ? nextEpisodeNumber : 1)}
             >
-              {t('generateEpisode1')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              disabled={Boolean(busy) || !project?.bible || nextEpisodeNumber > totalEpisodes}
-              onClick={() => void generateEpisode(nextEpisodeNumber)}
-            >
-              {t('continueNext')} ({nextEpisodeNumber}/{totalEpisodes || '—'})
+              {t('continueNext')} ({(project?.episodes?.length ? nextEpisodeNumber : 1)}/{totalEpisodes || '—'})
             </button>
             <button
               type="button"
@@ -569,12 +621,44 @@ export default function App() {
             <button type="button" className="btn btn-ghost" disabled={!project} onClick={() => void saveProject()}>
               {t('saveProject')}
             </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={!project?.bible}
+              onClick={() => setEditMode((v) => !v)}
+              title="Edit generated story"
+            >
+              {editMode ? 'Done editing' : 'Edit story'}
+            </button>
           </div>
         </div>
 
         {project?.bible ? (
           <div className="panel" style={{ marginTop: 14 }}>
-            <h3>{project.title}</h3>
+            {editMode ? (
+              <input
+                className="select"
+                style={{ width: '100%', fontWeight: 800 }}
+                value={project.title}
+                onChange={(e) => patchProject((p) => ({ ...p, title: e.target.value }))}
+                placeholder="Project title"
+              />
+            ) : (
+              <h3>{project.title}</h3>
+            )}
+            {editMode ? (
+              <textarea
+                className="idea-input"
+                style={{ marginTop: 10, minHeight: 70 }}
+                value={project.bible.concept || ''}
+                onChange={(e) =>
+                  patchProject((p) =>
+                    !p.bible ? p : { ...p, bible: { ...p.bible, concept: e.target.value } }
+                  )
+                }
+                placeholder="Story setting / concept"
+              />
+            ) : null}
             <div className="row">
               <span className="badge">{statusLabel(project.status)}</span>
               <span className="badge">
@@ -593,10 +677,34 @@ export default function App() {
               {activeEpisode.scenes.map((s) => (
                 <li key={s.index} style={{ marginBottom: 8 }}>
                   <strong>{s.character}</strong>{' '}
-                  <span className={s.lineType === 'Thought' ? 'thought' : ''}>
-                    {s.lineType === 'Thought' ? '(thought)' : ':'} {s.text}{' '}
-                    {s.emoji ? <span aria-hidden>{s.emoji}</span> : null}
-                  </span>
+                  {editMode ? (
+                    <textarea
+                      className="idea-input"
+                      style={{ display: 'block', marginTop: 6, minHeight: 56 }}
+                      value={s.text}
+                      onChange={(e) =>
+                        patchProject((p) => {
+                          const ep = p.episodes.find((x) => x.number === activeEpisode.number)
+                          if (!ep) return p
+                          const episodes = p.episodes.map((x) => {
+                            if (x.number !== activeEpisode.number) return x
+                            return {
+                              ...x,
+                              scenes: x.scenes.map((sc) =>
+                                sc.index === s.index ? { ...sc, text: e.target.value } : sc
+                              )
+                            }
+                          })
+                          return { ...p, episodes, updatedAt: new Date().toISOString() }
+                        })
+                      }
+                    />
+                  ) : (
+                    <span className={s.lineType === 'Thought' ? 'thought' : ''}>
+                      {s.lineType === 'Thought' ? '(thought)' : ':'} {s.text}{' '}
+                      {s.emoji ? <span aria-hidden>{s.emoji}</span> : null}
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="btn btn-ghost btn-small"
@@ -665,8 +773,53 @@ export default function App() {
                     <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--surface-2)' }} />
                   )}
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700 }}>{c.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{c.personality}</div>
+                    {editMode ? (
+                      <>
+                        <input
+                          className="select"
+                          style={{ width: '100%', fontWeight: 700 }}
+                          value={c.name}
+                          onChange={(e) =>
+                            patchProject((p) => {
+                              if (!p.bible) return p
+                              return {
+                                ...p,
+                                bible: {
+                                  ...p.bible,
+                                  characters: p.bible.characters.map((x) =>
+                                    x.id === c.id ? { ...x, name: e.target.value } : x
+                                  )
+                                }
+                              }
+                            })
+                          }
+                        />
+                        <textarea
+                          className="idea-input"
+                          style={{ marginTop: 6, minHeight: 52 }}
+                          value={c.personality}
+                          onChange={(e) =>
+                            patchProject((p) => {
+                              if (!p.bible) return p
+                              return {
+                                ...p,
+                                bible: {
+                                  ...p.bible,
+                                  characters: p.bible.characters.map((x) =>
+                                    x.id === c.id ? { ...x, personality: e.target.value } : x
+                                  )
+                                }
+                              }
+                            })
+                          }
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontWeight: 700 }}>{c.name}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{c.personality}</div>
+                      </>
+                    )}
                     <button
                       type="button"
                       className="btn btn-ghost btn-small"
@@ -708,6 +861,32 @@ export default function App() {
           onLoad={(id) => void loadProject(id)}
           onDelete={(id) => void deleteProject(id)}
         />
+      ) : null}
+
+      {authModalOpen ? (
+        <div className="modal-backdrop" onClick={() => setAuthModalOpen(false)} role="presentation">
+          <div className="modal" role="dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>Sign in</h2>
+            <p style={{ color: 'var(--muted)', marginTop: 6 }}>We’ll send a secure magic link to your email.</p>
+            <div className="row" style={{ marginTop: 12 }}>
+              <input
+                className="select"
+                style={{ flex: 1 }}
+                value={authEmailInput}
+                onChange={(e) => setAuthEmailInput(e.target.value)}
+                placeholder="you@example.com"
+              />
+              <button type="button" className="btn" onClick={() => void signIn()} disabled={Boolean(busy)}>
+                Send link
+              </button>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setAuthModalOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   )

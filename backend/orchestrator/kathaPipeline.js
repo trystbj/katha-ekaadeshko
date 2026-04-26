@@ -84,13 +84,15 @@ async function aiJsonAuto({ purpose, schemaHint, prompt, order = ['openai', 'gem
  * 4) OpenAI generates script JSON array
  * 5) Parallel: Leonardo images + TTS audio
  */
-export async function runKathaPipeline(input, req) {
+export async function runKathaPipeline(input, req, opts = {}) {
+  const onProgress = typeof opts?.onProgress === 'function' ? opts.onProgress : null
   const region = getRegionForCountry(input.country)
   const memory = await getMemoryStore()
 
   const providersUsed = {}
 
   // Stage 1 — Story generation (auto: OpenAI → Gemini → DeepSeek)
+  if (onProgress) onProgress({ stage: 'story', progress: 5, message: 'Drafting story' })
   const storyPrompt = buildStoryPrompt({ ...input, region, memory })
   const { json: story, provider: storyProvider } = await aiJsonAuto({
     purpose: 'story',
@@ -133,11 +135,12 @@ export async function runKathaPipeline(input, req) {
 
   await recordFingerprint(fp, { country: input.country, theme: input.theme, genre: input.genre })
   await recordSignature(sig, { country: input.country, theme: input.theme, genre: input.genre })
-  return await continuePipelineFromStory(input, region, story, req, providersUsed)
+  return await continuePipelineFromStory(input, region, story, req, providersUsed, onProgress)
 }
 
-async function continuePipelineFromStory(input, region, story, req, providersUsed) {
+async function continuePipelineFromStory(input, region, story, req, providersUsed, onProgress) {
   // Stage 2 — Parallel processing
+  if (onProgress) onProgress({ stage: 'validate', progress: 20, message: 'Validating + enhancing' })
   const validationPrompt = buildValidationPrompt({ story, input, region })
   const enhancementPrompt = buildEnhancementPrompt({ story, input, region })
 
@@ -162,9 +165,11 @@ async function continuePipelineFromStory(input, region, story, req, providersUse
   providersUsed.enhance = enhanceProvider
 
   // Stage 3 — Merge results
+  if (onProgress) onProgress({ stage: 'merge', progress: 35, message: 'Merging results' })
   const finalStory = mergeResults(story, validated, enhanced)
 
   // Stage 4 — Script generation (auto: OpenAI → Gemini → DeepSeek)
+  if (onProgress) onProgress({ stage: 'script', progress: 50, message: 'Writing script' })
   const { json: script, provider: scriptProvider } = await aiJsonAuto({
     purpose: 'script',
     schemaHint: 'Script',
@@ -174,11 +179,13 @@ async function continuePipelineFromStory(input, region, story, req, providersUse
   providersUsed.script = scriptProvider
 
   // Stage 5 — Parallel content generation
+  if (onProgress) onProgress({ stage: 'images', progress: 65, message: 'Generating images + audio' })
   const [images, audio] = await Promise.all([
-    leonardoGenerateForScript({ script, input, region }),
+    leonardoGenerateForScript({ script, input, region, onProgress }),
     ttsGenerateForScript({ script, input, region, req })
   ])
 
+  if (onProgress) onProgress({ stage: 'done', progress: 100, message: 'Done' })
   return {
     story: finalStory,
     script,

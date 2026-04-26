@@ -14,6 +14,9 @@ export type ApiKeyMask = {
 }
 
 export type KathaAPI = {
+  authGetSession: () => Promise<{ user: { id: string; email?: string } | null }>
+  authSignInMagicLink: (payload: { email: string; redirectTo?: string }) => Promise<boolean>
+  authSignOut: () => Promise<boolean>
   settingsGetApiKeys: () => Promise<ApiKeyMask>
   settingsSetApiKeys: (p: {
     openai?: string

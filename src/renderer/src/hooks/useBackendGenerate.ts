@@ -7,6 +7,7 @@ export function useBackendGenerate() {
   const setBusy = useStudioStore((s) => s.setBusy)
   const setError = useStudioStore((s) => s.setError)
   const setProject = useStudioStore((s) => s.setProject)
+  const setJob = useStudioStore((s) => s.setJob)
 
   const backendCountry = useStudioStore((s) => s.backendCountry)
   const backendTheme = useStudioStore((s) => s.backendTheme)
@@ -18,17 +19,65 @@ export function useBackendGenerate() {
 
   const generate = useCallback(async () => {
     setError(null)
-    setBusy('backend generate')
+    setBusy('generating')
+    setJob(null)
     try {
-      const k = window.katha
-      if (!k) throw new Error('Desktop bridge not available')
-
-      const out = await k.backendGenerateKatha({
-        theme: backendTheme,
-        country: backendCountry,
-        genre: backendGenre,
-        length: backendLength
+      const res = await fetch('/api/jobs-stream-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          theme: backendTheme,
+          country: backendCountry,
+          genre: backendGenre,
+          length: backendLength
+        })
       })
+      if (!res.ok || !res.body) throw new Error(await res.text())
+
+      const reader = res.body.getReader()
+      const dec = new TextDecoder()
+      let buf = ''
+      let out: any | null = null
+      const log: string[] = []
+
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buf += dec.decode(value, { stream: true })
+        let idx = buf.indexOf('\n\n')
+        while (idx !== -1) {
+          const raw = buf.slice(0, idx).trim()
+          buf = buf.slice(idx + 2)
+          if (raw.startsWith('data:')) {
+            const json = raw.slice(5).trim()
+            try {
+              const evt = JSON.parse(json)
+              if (evt.type === 'job') {
+                setJob({ id: evt.id, stage: 'starting', progress: 0, log: [] })
+              } else if (evt.type === 'progress') {
+                const msg = evt.message ? String(evt.message) : String(evt.stage || '')
+                log.push(msg)
+                setJob({
+                  id: useStudioStore.getState().job?.id || 'job',
+                  stage: String(evt.stage || ''),
+                  progress: Number(evt.progress || 0),
+                  log: log.slice(-60)
+                })
+              } else if (evt.type === 'result') {
+                out = evt.result
+              } else if (evt.type === 'error') {
+                throw new Error(String(evt.error || 'Generation failed'))
+              }
+            } catch (e) {
+              // ignore parse noise
+              if (e instanceof Error && e.message.includes('Generation failed')) throw e
+            }
+          }
+          idx = buf.indexOf('\n\n')
+        }
+      }
+
+      if (!out) throw new Error('No result returned')
 
       const bible: StoryBible = {
         title: out.story.title,
@@ -87,6 +136,7 @@ export function useBackendGenerate() {
     setBusy,
     setError,
     setProject,
+    setJob,
     backendTheme,
     backendCountry,
     backendGenre,
