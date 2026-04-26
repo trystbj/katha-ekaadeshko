@@ -55,6 +55,28 @@ create trigger jobs_set_updated_at
 before update on public.jobs
 for each row execute function public.set_updated_at();
 
+-- FFmpeg / worker render queue (service role writes; no user RLS required)
+create table if not exists public.render_jobs (
+  id uuid primary key default gen_random_uuid(),
+  status text not null default 'queued',
+  progress int not null default 0,
+  stage text not null default '',
+  payload jsonb not null default '{}'::jsonb,
+  worker_id text,
+  video_url text,
+  error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists render_jobs_status_created_idx
+  on public.render_jobs (status, created_at asc);
+
+drop trigger if exists render_jobs_set_updated_at on public.render_jobs;
+create trigger render_jobs_set_updated_at
+before update on public.render_jobs
+for each row execute function public.set_updated_at();
+
 -- RLS
 alter table public.projects enable row level security;
 alter table public.jobs enable row level security;
