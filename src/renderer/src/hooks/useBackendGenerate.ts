@@ -32,12 +32,14 @@ export function useBackendGenerate() {
           length: backendLength
         })
       })
-      if (!res.ok || !res.body) throw new Error(await res.text())
+      if (!res.ok) throw new Error(await res.text())
+      if (!res.body) throw new Error('No response body (browser blocked streaming?)')
 
       const reader = res.body.getReader()
       const dec = new TextDecoder()
       let buf = ''
       let out: any | null = null
+      let lastError: string | null = null
       const log: string[] = []
 
       while (true) {
@@ -66,7 +68,8 @@ export function useBackendGenerate() {
               } else if (evt.type === 'result') {
                 out = evt.result
               } else if (evt.type === 'error') {
-                throw new Error(String(evt.error || 'Generation failed'))
+                lastError = String(evt.error || 'Generation failed')
+                throw new Error(lastError)
               }
             } catch (e) {
               // ignore parse noise
@@ -77,7 +80,10 @@ export function useBackendGenerate() {
         }
       }
 
-      if (!out) throw new Error('No result returned')
+      if (!out) {
+        if (lastError) throw new Error(lastError)
+        throw new Error('No result returned (stream ended without a result event)')
+      }
 
       const bible: StoryBible = {
         title: out.story.title,
