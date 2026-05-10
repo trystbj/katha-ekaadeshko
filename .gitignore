@@ -3,7 +3,11 @@ out/
 dist/
 release/
 web-dist/
+build/
 *.log
+*.tsbuildinfo
 .DS_Store
+.env.local
+.env.*.local
 api-keys.local.env
 worker/.env
