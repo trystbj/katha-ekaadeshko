@@ -3,6 +3,11 @@
   "installCommand": "npm install",
   "buildCommand": "npm run web:build",
   "outputDirectory": "web-dist",
+  "functions": {
+    "api/gateway.js": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     { "source": "/api/health", "destination": "/api/gateway?target=health" },
     { "source": "/api/jobs-stream-generate", "destination": "/api/gateway?target=jobs-stream-generate" },

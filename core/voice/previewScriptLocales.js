@@ -129,16 +129,27 @@ export const CINEMATIC_PREVIEW_BY_LANG = {
   }
 }
 
+/** First N sentence-like clauses — faster API TTS (Vercel 10s hobby limit). */
+function clipForApiPreview(fullText, maxClauses = 3) {
+  const t = String(fullText || '').trim()
+  if (!t) return t
+  const parts = t.split(/(?<=[।.!?])\s+/).filter(Boolean)
+  if (parts.length <= maxClauses) return t
+  return parts.slice(0, maxClauses).join(' ')
+}
+
 /**
  * @param {string} narratorId
  * @param {string} [languageCode]
+ * @param {{ forApi?: boolean }} [opts]
  * @returns {string}
  */
-export function getCinematicPreviewScript(narratorId, languageCode) {
+export function getCinematicPreviewScript(narratorId, languageCode, opts = {}) {
   const id = String(narratorId || 'tryst_bj').trim()
   const lang = basePreviewLang(languageCode)
   const bucket = CINEMATIC_PREVIEW_BY_LANG[lang] || CINEMATIC_PREVIEW_BY_LANG.en || CINEMATIC_PREVIEW_BY_LANG.ne
-  return bucket[id] || bucket._default || bucket.tryst_bj || CINEMATIC_PREVIEW_BY_LANG.ne.tryst_bj
+  const full = bucket[id] || bucket._default || bucket.tryst_bj || CINEMATIC_PREVIEW_BY_LANG.ne.tryst_bj
+  return opts.forApi ? clipForApiPreview(full, 3) : full
 }
 
 export function getCinematicPreviewDisplayText(narratorId, languageCode) {

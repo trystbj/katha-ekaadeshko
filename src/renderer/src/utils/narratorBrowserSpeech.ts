@@ -1,7 +1,11 @@
 import { getNarratorIntroSampleDisplay } from '../constants/narratorIntroSamples'
 import { normalizeNarratorId } from '../constants/narrators'
 import { narratorIdentityForId } from '../constants/narratorVoiceProfiles'
-import { bcp47FromLangId, narrationLangVoiceHints } from './narrationSpeechPreview'
+import {
+  bcp47FromLangId,
+  narrationLangVoiceHints,
+  splitPreviewUtterances
+} from './narrationSpeechPreview'
 import { storyLanguageToPreviewLang } from '../constants/narratorIntroSamples'
 import type { NarrationLanguageId } from '../types/story'
 
@@ -61,38 +65,30 @@ export function pickNarratorVoice(narratorId: string, voices: SpeechSynthesisVoi
 
 export function pickSouthAsianNameVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
   if (!voices.length) return null
-  const ne = voices.filter((v) => v.lang.toLowerCase().startsWith('ne') || /nepal|nepali|नेपा/i.test(v.name))
+  const ne = voices.filter((v) => /^ne(-|$)/i.test(v.lang || ''))
   if (ne.length) return ne[0]!
-  const hi = voices.filter((v) => v.lang.toLowerCase().startsWith('hi') || /hindi|हिंदी/i.test(v.name))
+  const hi = voices.filter((v) => /^hi(-|$)/i.test(v.lang || ''))
   if (hi.length) return hi[0]!
-  const enIn = voices.filter((v) => v.lang.toLowerCase().startsWith('en-in'))
-  return enIn[0] ?? null
+  const named = voices.filter((v) =>
+    /nepali|hindi|neerja|aarti|kajal|madhur|hemant|kalpana/i.test(v.name || '')
+  )
+  return named[0] ?? null
 }
 
-function pickSouthAsianNameVoiceByGender(
+export function pickSouthAsianNameVoiceByGender(
   voices: SpeechSynthesisVoice[],
-  wantGender: 'male' | 'female'
+  gender: 'male' | 'female'
 ): SpeechSynthesisVoice | null {
-  if (!voices.length) return null
-  const pool = voices.filter((v) => {
-    const l = v.lang.toLowerCase()
-    return (
-      l.startsWith('ne') ||
-      l.startsWith('hi') ||
-      l.startsWith('en-in') ||
-      /nepal|nepali|नेपा|hindi|हिंदी/i.test(v.name)
-    )
-  })
-  if (!pool.length) return null
-
-  const preferred =
-    wantGender === 'male'
-      ? pool.filter((v) => isProbablyMale(v.name) && !isProbablyFemale(v.name))
-      : pool.filter((v) => isProbablyFemale(v.name) && !isProbablyMale(v.name))
-  if (preferred.length) return preferred[0]!
-
-  // If we can’t infer gender, at least choose a stable but varied option.
-  return pool[0] ?? null
+  const ne = voices.filter((v) => /^ne(-|$)/i.test(v.lang || ''))
+  const hi = voices.filter((v) => /^hi(-|$)/i.test(v.lang || ''))
+  const pool = [...ne, ...hi]
+  if (!pool.length) return pickSouthAsianNameVoice(voices)
+  if (gender === 'female') {
+    const f = pool.find((v) => isProbablyFemale(v.name))
+    return f || pool[0]!
+  }
+  const m = pool.find((v) => isProbablyMale(v.name) && !isProbablyFemale(v.name))
+  return m || pool[0]!
 }
 
 type SpeakOpts = {
@@ -100,22 +96,22 @@ type SpeakOpts = {
   storyLanguage?: string
   isCancelled: () => boolean
   onError: (e: unknown) => void
+  onEnd?: () => void
 }
 
-function speakOne(utt: SpeechSynthesisUtterance, s: SpeechSynthesis) {
-  return new Promise<void>((resolve) => {
-    const done = () => resolve()
-    utt.onend = done
-    utt.onerror = done
+function speakOne(utt: SpeechSynthesisUtterance, s: SpeechSynthesis): Promise<void> {
+  return new Promise((resolve, reject) => {
+    utt.onend = () => resolve()
+    utt.onerror = (ev) => reject(ev.error || new Error('speech synthesis error'))
     s.speak(utt)
   })
 }
 
 /**
- * Fallback when OpenAI preview fails — speaks the same Nepali intro line as the server would use.
+ * Fallback when OpenAI preview fails — chunked utterances for reliable playback.
  */
 export async function speakNarratorBrowserPreview(opts: SpeakOpts): Promise<void> {
-  const { narratorId, storyLanguage, isCancelled, onError } = opts
+  const { narratorId, storyLanguage, isCancelled, onError, onEnd } = opts
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     onError(new Error('no tts'))
     return
@@ -148,18 +144,26 @@ export async function speakNarratorBrowserPreview(opts: SpeakOpts): Promise<void
     ? storyLanguageToPreviewLang(storyLanguage)
     : 'ne'
   const hints = narrationLangVoiceHints(langId)
-
-  const u = new SpeechSynthesisUtterance(intro)
-  u.voice = vNep
-  const vl = (vNep.lang || '').toLowerCase()
-  u.lang =
-    hints.some((h) => vl.startsWith(h.toLowerCase().slice(0, 2))) && vNep.lang
+  const utterLang =
+    vNep.lang && hints.some((h) => (vNep.lang || '').toLowerCase().startsWith(h.toLowerCase().slice(0, 2)))
       ? vNep.lang
       : bcp47FromLangId(langId)
-  u.rate = identity?.browserTts.rate ?? 0.92
-  u.pitch = identity?.browserTts.pitch ?? 1
+
+  const parts = splitPreviewUtterances(intro)
+  const rate = identity?.browserTts.rate ?? 0.92
+  const pitch = identity?.browserTts.pitch ?? 1
+
   try {
-    await speakOne(u, s)
+    for (const part of parts) {
+      if (isCancelled()) return
+      const u = new SpeechSynthesisUtterance(part)
+      u.voice = vNep
+      u.lang = utterLang
+      u.rate = rate
+      u.pitch = pitch
+      await speakOne(u, s)
+    }
+    if (!isCancelled()) onEnd?.()
   } catch (e) {
     onError(e)
   }

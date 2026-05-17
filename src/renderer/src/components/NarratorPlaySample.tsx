@@ -96,18 +96,29 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
       narratorId,
       storyLanguage,
       isCancelled: () => browserCancel.current,
-      onError: () => setErr(true)
-    })
-      .catch(() => setErr(true))
-      .finally(() => {
+      onError: () => {
+        setErr(true)
+        setMode('idle')
+        setUsedBrowser(false)
+        setPreviewSource(null)
+        speechPlanned.current = false
+        resetStopRefs()
+        if (globalStop === stop) globalStop = null
+      },
+      onEnd: () => {
         speechPlanned.current = false
         if (!browserCancel.current) {
           setMode('idle')
           setUsedBrowser(false)
+          setPreviewSource(null)
         }
         resetStopRefs()
         if (globalStop === stop) globalStop = null
-      })
+      }
+    }).catch(() => {
+      setErr(true)
+      setMode('idle')
+    })
   }
 
   useEffect(() => {
@@ -303,6 +314,7 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
             stop()
           }
         }
+        setMode('playing')
         try {
           await audio.play()
         } catch {

@@ -5,6 +5,7 @@ import { getNarratorPreset } from '../utils/narratorPresets.js'
 import { getCinematicPreviewScript } from '../voice/narratorPreviewScripts.js'
 import { buildGlobalNarrationPlan } from '../voice/cinematicNarrationDirector.js'
 import { resolvePreviewLanguage } from '../../core/voice/previewLanguage.js'
+import { withTimeout } from '../../api/_lib/http.js'
 
 /**
  * @param {string} narratorId
@@ -25,7 +26,7 @@ export async function generateNarratorPreviewMp3(narratorId, options = {}) {
     narrationLanguage: options.narrationLanguage,
     uiLang: options.uiLang
   })
-  const text = getCinematicPreviewScript(narratorId, previewLang)
+  const text = getCinematicPreviewScript(narratorId, previewLang, { forApi: true })
 
   const plan = buildGlobalNarrationPlan(
     {
@@ -59,14 +60,18 @@ export async function generateNarratorPreviewMp3(narratorId, options = {}) {
   }
   if (instructions) payload.instructions = instructions
 
-  const res = await fetch('https://api.openai.com/v1/audio/speech', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  })
+  const res = await withTimeout(
+    fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    }),
+    25_000,
+    'OpenAI narrator preview'
+  )
   if (!res.ok) {
     const t = await res.text()
     const e = new Error(t || 'OpenAI TTS failed')
@@ -75,4 +80,4 @@ export async function generateNarratorPreviewMp3(narratorId, options = {}) {
   }
   return Buffer.from(await res.arrayBuffer())
 }
-
+

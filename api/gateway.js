@@ -48,6 +48,11 @@ const ROUTES = {
   'worker-complete': workerComplete
 }
 
+/** Allow longer OpenAI TTS preview (Pro: up to 300s; Hobby capped by plan). */
+export const config = {
+  maxDuration: 60
+}
+
 export default async function handler(req, res) {
   const target = String(req.query?.target || '').trim()
   const route = ROUTES[target]

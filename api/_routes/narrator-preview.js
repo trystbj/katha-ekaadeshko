@@ -1,7 +1,7 @@
 import { normalizeNarratorId } from '../../backend/utils/narratorPresets.js'
 import { generateNarratorPreviewMp3 } from '../../backend/services/narratorPreviewTts.js'
 import { PREVIEW_UI_LANGS } from '../../backend/utils/narratorPreviewI18n.js'
-import { setSecurityHeaders } from '../_lib/http.js'
+import { json, setSecurityHeaders } from '../_lib/http.js'
 import { checkRateLimit, clientIp } from '../_lib/rateLimit.js'
 import { publicErrorMessage, safeLog } from '../_lib/log.js'
 
@@ -63,13 +63,13 @@ export default async function handler(req, res) {
   const rl = checkRateLimit(`narrator-preview:${clientIp(req)}`, { max: 40, windowMs: 60_000 })
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfterSec))
-    res.status(429).json({ error: 'Too many preview requests' })
+    json(res, 429, { error: 'Too many preview requests' })
     return
   }
 
   const narratorId = pickNarratorId(req)
   if (!narratorId) {
-    res.status(400).json({ error: 'Invalid or missing narratorId' })
+    json(res, 400, { error: 'Invalid or missing narratorId' })
     return
   }
   const uiLang = pickUiLang(req)
@@ -83,13 +83,13 @@ export default async function handler(req, res) {
     })
     res.setHeader('Content-Type', 'audio/mpeg')
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
-    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v8-nepali')
+    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v9-playfix')
     res.setHeader('X-Katha-Preview-Bytes', String(buf.length))
     res.status(200).send(buf)
   } catch (e) {
     safeLog('warn', 'narrator-preview failed', { message: e instanceof Error ? e.message : String(e) })
     const status = e?.status && typeof e.status === 'number' ? e.status : 500
     if (res.headersSent) return
-    res.status(status).json({ error: publicErrorMessage(e) })
+    json(res, status, { error: publicErrorMessage(e) })
   }
 }
