@@ -750,6 +750,24 @@ input.select:focus-visible {
   gap: 6px;
 }
 
+.narrator-list__play-progress {
+  flex: 1 1 4rem;
+  min-width: 3rem;
+  max-width: 6rem;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  overflow: hidden;
+}
+
+.narrator-list__play-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.15s linear;
+}
+
 .narrator-list__play-intro {
   width: 100%;
   margin: 0;
@@ -783,6 +801,10 @@ input.select:focus-visible {
   font-size: 0.7rem;
   line-height: 1.3;
   color: var(--muted);
+}
+
+.narrator-list__play-intro-hint--warn {
+  color: color-mix(in srgb, var(--accent) 55%, #c45c2a);
 }
 
 .narrator-list__play-btn {

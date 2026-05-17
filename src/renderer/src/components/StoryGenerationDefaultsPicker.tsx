@@ -87,6 +87,7 @@ export function StoryGenerationDefaultsPicker({
   const narrationDraft = useStudioStore((s) => s.narrationDraft)
   const setNarrationDraft = useStudioStore((s) => s.setNarrationDraft)
   const narratorId = useStudioStore((s) => s.narratorId)
+  const storyLanguage = useStudioStore((s) => s.storyLanguage)
   const backendGenre = useStudioStore((s) => s.backendGenre)
 
   const narration = project?.narration ?? narrationDraft
@@ -393,8 +394,7 @@ export function StoryGenerationDefaultsPicker({
                     narratorId,
                     genre: backendGenre,
                     storyTone,
-                    languageId: narration.languageId,
-                    storyLanguage: narration.languageId,
+                    storyLanguage,
                     autoVoiceDirector: narration.autoVoiceDirector,
                     narratorGenderPreference: narration.narratorGenderPreference
                   }

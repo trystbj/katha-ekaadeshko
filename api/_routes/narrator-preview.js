@@ -32,6 +32,26 @@ function pickUiLang(req) {
   return PREVIEW_UI_LANGS.includes(l) ? l : 'en'
 }
 
+function pickStoryLanguage(req) {
+  const raw =
+    req.query?.storyLanguage ||
+    req.query?.storyLang ||
+    (req.method === 'POST' && req.body && typeof req.body === 'object' && req.body.storyLanguage
+      ? req.body.storyLanguage
+      : null)
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : ''
+}
+
+function pickNarrationLanguage(req) {
+  const raw =
+    req.query?.narrationLanguage ||
+    req.query?.narrationLang ||
+    (req.method === 'POST' && req.body && typeof req.body === 'object' && req.body.narrationLanguage
+      ? req.body.narrationLanguage
+      : null)
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : ''
+}
+
 export default async function handler(req, res) {
   setSecurityHeaders(res)
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -53,10 +73,18 @@ export default async function handler(req, res) {
     return
   }
   const uiLang = pickUiLang(req)
+  const storyLanguage = pickStoryLanguage(req)
+  const narrationLanguage = pickNarrationLanguage(req)
   try {
-    const buf = await generateNarratorPreviewMp3(narratorId, { uiLang })
+    const buf = await generateNarratorPreviewMp3(narratorId, {
+      uiLang,
+      storyLanguage: storyLanguage || undefined,
+      narrationLanguage: narrationLanguage || undefined
+    })
     res.setHeader('Content-Type', 'audio/mpeg')
-    res.setHeader('Cache-Control', 'public, s-maxage=3600, max-age=300')
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
+    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v7')
+    res.setHeader('X-Katha-Preview-Bytes', String(buf.length))
     res.status(200).send(buf)
   } catch (e) {
     safeLog('warn', 'narrator-preview failed', { message: e instanceof Error ? e.message : String(e) })

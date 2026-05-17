@@ -1,5 +1,8 @@
 import type { NarrationLanguageId, NarrationSettings } from '../types/story'
 import { sanitizeNarrationLanguageId } from '../constants/narrationLanguages'
+import { getCinematicPreviewScript } from '@core/voice/previewScriptLocales.js'
+import { normalizeNarratorId } from '../constants/narrators'
+import { resolvePreviewLanguage } from '@core/voice/previewLanguage.js'
 import type { SmartNarrationPreviewContext } from './smartNarrationVoice'
 import {
   applySmartProsodyModifiers,
@@ -284,68 +287,11 @@ export function splitPreviewUtterances(text: string): string[] {
   return [t]
 }
 
-/** Long enough samples for every narration language. */
-export function narrationSampleText(lang: NarrationLanguageId): string {
-  switch (lang) {
-    case 'ne':
-      return 'यो कथाले तपाईंलाई एक नयाँ संसारमा लैजान्छ। त्यहाँ तपाईंले आफ्नो कल्पना र भावनाहरू स्वतन्त्र रूपमा उडान भर्न पाउनुहुनेछ।'
-    case 'hi':
-      return 'यह कहानी आपको एक नई दुनिया में ले जाएगी। वहाँ आप अपनी कल्पना को खुलकर महसूस कर पाएँगे और नए रंग देखेंगे।'
-    case 'ja':
-      return 'この物語は、あなたを新しい世界へ連れていきます。そこでは想像が羽ばたき、心が静かにほどけていくでしょう。'
-    case 'ko':
-      return '이 이야기는 당신을 새로운 세계로 데려갑니다. 그곳에서 상상은 더 넓게 펼쳐지고 마음은 천천히 열립니다.'
-    case 'zh':
-    case 'zh-CN':
-      return '这个故事会带你走进一个全新的世界。在那里，想象可以自由延展，情感会慢慢苏醒。'
-    case 'es':
-      return 'Esta historia te llevará a un mundo nuevo. Allí podrás escuchar voces distintas y dejar volar tu imaginación con calma.'
-    case 'fr':
-      return 'Cette histoire vous emmènera dans un nouveau monde. Vous y entendrez des voix différentes et pourrez suivre le récit à votre rythme.'
-    case 'de':
-      return 'Diese Geschichte nimmt dich mit in eine neue Welt. Dort kannst du genauer hinhören und deiner Fantasie etwas mehr Zeit geben.'
-    case 'ar':
-      return 'هذه القصة ستأخذك إلى عالم جديد. ستسمع فيه أصواتًا مختلفة وتمنح خيالك وقتًا أطول ليتبع الحديث.'
-    case 'ru':
-      return 'Эта история перенесёт вас в новый мир. Там можно спокойнее вслушаться в голос и дать воображению чуть больше времени.'
-    case 'th':
-      return 'เรื่องราวนี้จะพาคุณไปสู่โลกใบใหม่ คุณจะได้ยินเสียงที่หลากหลายและให้จินตนาการได้ไหลไปพร้อมบทเล่า'
-    case 'bn':
-      return 'এই গল্প আপনাকে একটি নতুন জগতে নিয়ে যাবে। সেখানে আপনি শান্ত শ্বাসে কথাগুলো অনুসরণ করতে পারবেন।'
-    case 'nl':
-      return 'Dit verhaal brengt je naar een nieuwe wereld. Je kunt er rustig luisteren hoe elke zin klinkt.'
-    case 'ms':
-      return 'Cerita ini membawa anda ke dunia baru. Di sana anda boleh mendengar dengan tenang setiap frasa dibacakan.'
-    case 'pt':
-      return 'Esta história leva você a um mundo novo. Você pode ouvir com calma como cada frase soa na sua língua.'
-    case 'cs':
-      return 'Tento příběh vás zavede do nového světa. Klidně poslouchejte, jak každá věta zní.'
-    case 'el':
-      return 'Αυτή η ιστορία θα σας ταξιδέψει σε έναν νέο κόσμο. Ακούστε ήρεμα κάθε φράση.'
-    case 'id':
-      return 'Cerita ini membawa Anda ke dunia baru. Dengarkan dengan tenang setiap frasa dalam bahasa pilihan Anda.'
-    case 'fa':
-      return 'این داستان شما را به دنیایی تازه می‌برد. با آرامش به هر جمله گوش دهید.'
-    case 'he':
-      return 'הסיפור הזה ייקח אותך לעולם חדש. האזינו ברוגע לכל משפט.'
-    case 'it':
-      return 'Questa storia ti porta in un mondo nuovo. Ascolta con calma come suona ogni frase.'
-    case 'pl':
-      return 'Ta opowieść zaprowadzi cię w nowy świat. Spokojnie wsłuchaj się w każdą frazę.'
-    case 'sv':
-      return 'Den här berättelsen för dig till en ny värld. Lyssna lugnt på hur varje mening låter.'
-    case 'tr':
-      return 'Bu hikâye sizi yeni bir dünyaya götürür. Her cümleyi sakinçe dinleyin.'
-    case 'uk':
-      return 'Ця історія перенесе вас у новий світ. Спокійно послухайте кожну фразу.'
-    case 'ur':
-      return 'یہ کہانی آپ کو ایک نئی دنیا میں لے جاتی ہے۔ ہر جملے کو سکون سے سنیں۔'
-    case 'vi':
-      return 'Câu chuyện này đưa bạn đến một thế giới mới. Hãy lắng nghe từng câu một cách nhẹ nhàng.'
-    case 'en':
-    default:
-      return 'This story will take you to a new world. Listen for a moment to how the voice carries each phrase, in your chosen language.'
-  }
+/** Cinematic preview sample in the selected story language. */
+export function narrationSampleText(lang: NarrationLanguageId, narratorId?: string): string {
+  const id = normalizeNarratorId(narratorId || 'tryst_bj')
+  const code = resolvePreviewLanguage({ storyLanguage: lang })
+  return getCinematicPreviewScript(id, code)
 }
 
 export function narrationPreviewSafetyMs(text: string, rate: number): number {
@@ -395,9 +341,12 @@ export function runNarrationSpeechPreview(
   narrationPreviewGeneration += 1
   const gen = narrationPreviewGeneration
 
+  const previewLangId = sanitizeNarrationLanguageId(
+    (adaptiveCtx?.storyLanguage as NarrationLanguageId | undefined) || rawNarration.languageId
+  )
   const narration: NarrationSettings = {
     ...rawNarration,
-    languageId: sanitizeNarrationLanguageId(rawNarration.languageId)
+    languageId: previewLangId
   }
 
   const smartCtx = buildSmartCtx(adaptiveCtx)
@@ -431,7 +380,7 @@ export function runNarrationSpeechPreview(
     const hints = narrationLangVoiceHints(narration.languageId)
     voice = attachVoiceOnlyIfConsistent(voice, narration.languageId, hints)
 
-    const sample = narrationSampleText(narration.languageId)
+    const sample = narrationSampleText(narration.languageId, smartCtx.narratorId)
     const parts = splitPreviewUtterances(sample)
 
     const base = smartPreviewBaseline(smartCtx.narratorId)

@@ -9,20 +9,8 @@ function compactJoin(parts, maxLen = 420) {
   return s.length <= maxLen ? s : `${s.slice(0, maxLen - 1)}…`
 }
 
-function languageAccentInstructions(storyLanguage) {
-  const raw = String(storyLanguage || '')
-    .trim()
-    .toLowerCase()
-  const base = raw.split(/[-_]/)[0] || ''
-  if (base === 'ne') {
-    return 'Accent lock: natural Nepali — authentic vowels/retroflex contrast; conversational clarity unless rural cues appear in the text.'
-  }
-  if (base === 'en') {
-    return 'Accent lock: clean neutral English — articulate cinematic narration; avoid caricatured regional affect.'
-  }
-  if (base) {
-    return `Accent lock: natural native prosody for primary language ${base}; minimize unintended English prosody bleed-through unless bilingual cues are explicit in text.`
-  }
+/** Language accent is owned by `languageDeliveryProfiles` via cinematic director — scene layer adds genre/emotion only. */
+function languageAccentInstructions() {
   return ''
 }
 
@@ -48,7 +36,9 @@ function genreStyleBaseline(genre) {
     lines.push('Genre baseline: airy epic lift — spacious vowels, restrained spectacle peaks.')
   }
   if (/myth|folklore|legend|epic\s+tale/.test(g)) {
-    lines.push('Genre baseline: regal mythic cadence — measured gravitas, reverent clause endings.')
+    lines.push(
+      'Genre baseline: folklore warmth — lyrical reverence with natural pacing; avoid slow trailer gravitas or dragging clauses.'
+    )
   }
   if (/children|kids|family/.test(g)) {
     lines.push('Genre baseline: bright gentle storytelling — welcoming warmth without shouting.')
@@ -95,7 +85,7 @@ export function narrationSceneAdaptationInstructions(ctx) {
   const storyTone = String(ctx?.storyTone || '').toLowerCase()
   const blob = `${narration}\n${visual}\n${genre}\n${theme}\n${storyTone}`.toLowerCase()
 
-  const langLine = languageAccentInstructions(ctx?.storyLanguage)
+  const langLine = languageAccentInstructions()
   const genreLine = genreStyleBaseline(ctx?.genre)
 
   const toneHints = []

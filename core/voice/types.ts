@@ -50,6 +50,13 @@ export interface VoiceDirection {
   emphasis: 'low' | 'medium' | 'high'
   whisperBias: number
   subtitleRevealBias: number
+  /** Preprocessed narration text for TTS (optional). */
+  processedText?: string
+}
+
+/** Global cinematic narration plan (backend). */
+export interface GlobalNarrationPlan extends VoiceDirection {
+  profile: VoiceProfile
 }
 
 export interface VoiceDirectorContext {

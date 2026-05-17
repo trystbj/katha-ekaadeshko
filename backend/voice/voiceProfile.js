@@ -176,5 +176,10 @@ function inferAgeGroup(gender, blob, styleId) {
  * @param {VoiceProfile} profile
  */
 export function summarizeVoiceProfileForBlueprint(profile) {
-  return `AI voice director lock: language=${profile.language}; gender=${profile.gender}; age=${profile.ageGroup}; emotion=${profile.emotionStyle}; pacing=${profile.pacingStyle}; intensity=${profile.intensityLevel}; cinematicStyle=${profile.cinematicStyle}. Narration must feel ${profile.emotionStyle} with ${profile.pacingStyle} pacing — cinematic, not flat TTS.`
+  return [
+    `AI cinematic narrator lock: language=${profile.language}; gender=${profile.gender}; age=${profile.ageGroup}; emotion=${profile.emotionStyle}; pacing=${profile.pacingStyle}; intensity=${profile.intensityLevel}; cinematicStyle=${profile.cinematicStyle}.`,
+    'Write narration for premium audiobook delivery — natural breath rhythm, emotional arcs, native pronunciation, soft phrase endings, suspense pauses before reveals.',
+    'Avoid flat list-like sentences, robotic rhythm, and English stress patterns when language is not English.',
+    `Scene feel: ${profile.emotionStyle} emotion, ${profile.pacingStyle} pacing — immersive storyteller, not announcer.`
+  ].join(' ')
 }

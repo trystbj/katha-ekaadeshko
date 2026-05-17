@@ -28,41 +28,41 @@ export const NARRATOR_PRESETS = [
   {
     id: 'tryst_bj',
     gender: 'male',
-    openAiVoice: 'onyx',
-    speed: 0.88,
+    openAiVoice: 'echo',
+    speed: 1.0,
     instructions: [
-      'Voice identity: mature male cinematic narrator—NOT interchangeable with other presets.',
-      'Register: low chest resonance with controlled subharmonic weight; never nasal or thin.',
-      'Pitch contour: anchor mid-low; narrow polite rises at clause ends, steep drops into gravitas on revelations.',
-      'Cadence: slow–moderate, deliberate mythic pacing—each phrase lands like a weighted sentence.',
-      'Speed & rhythm: slightly slower than conversational default; honor commas with 180–240 ms breath gaps.',
-      'Texture: velvet-dark with occasional gravel on tension words only.',
-      'Dynamics: wide cinematic range—near-whisper on suspense, measured swell on stakes, never shouty.',
-      'Storytelling style: immersive blockbuster documentary hybrid—authority without shouting.',
-      'Dramatic intensity: high but disciplined—save peaks for 1–2 emphasized words per sentence.',
-      'Emotional expression: restrained empathy; sadness as lowered pitch + softer airflow, not whimper.',
-      'Resonance: forward chest + soft palate warmth; avoid bright head resonance.',
-      'Articulation: crisp consonants despite depth—every ending consonant audible.'
+      'Voice identity: natural Nepali male storyteller—warm, friendly, human, clearly masculine but never booming or sluggish.',
+      'Register: natural mid male baritone—relaxed chest warmth; never artificially bass-heavy or sluggish.',
+      'Pitch contour: conversational mid range with gentle rises; avoid monotone grave drops.',
+      'Cadence: natural storytelling pace—fluid and listenable, like a skilled host, not a slow mythic documentary.',
+      'Speed & rhythm: near-normal conversational speed; light pauses at commas only; keep momentum through sentences.',
+      'Texture: smooth clear warmth with subtle smile in the tone; minimal gravel.',
+      'Dynamics: expressive but natural—soften for intimacy, lift slightly for wonder; never shout.',
+      'Storytelling style: cinematic yet approachable—charming narrator energy listeners trust.',
+      'Dramatic intensity: medium—emotion through timing and brightness, not depth or drag.',
+      'Emotional expression: genuine empathy; tenderness via softness, not whisper-mumble.',
+      'Resonance: balanced chest and mask—forward, clear, attractive presence.',
+      'Articulation: crisp natural consonants; every word easy to follow.'
     ].join(' ')
   },
   {
     id: 'penguin',
     gender: 'female',
-    openAiVoice: 'shimmer',
-    speed: 1.06,
+    openAiVoice: 'nova',
+    speed: 1.02,
     instructions: [
-      'Voice identity: youthful female expressive narrator—bright agile timbre, distinct from coral alto warmth.',
-      'Register: medium-high female—light agile brightness, never harsh.',
-      'Pitch contour: playful agile lifts; quick emotional pivots allowed.',
-      'Cadence: upbeat storytelling with rhythmic bounce—still intelligible, not sing-song.',
-      'Speed & rhythm: slightly quicker clause turnover; sparkle on humor beats.',
-      'Texture: crisp airy sparkle with clean onset.',
-      'Dynamics: wider playful swings acceptable—surprise pops, giggly softness.',
-      'Storytelling style: energetic serialized YA energy meets sincere drama.',
-      'Dramatic intensity: medium-high via tempo + pitch variance.',
-      'Emotional expression: big-hearted—wonder widens vowels, empathy softens fricatives.',
-      'Resonance: light head-forward clarity with youthful warmth.',
-      'Articulation: crisp playful consonants; punch tag words cleanly.'
+      'Voice identity: sweet light feminine narrator—bright, young-woman warmth; NEVER deep, husky, alto, or chest-heavy.',
+      'Register: light high feminine head voice—airy sweetness; zero gravel; zero masculine undertone.',
+      'Pitch contour: gentle upward melody; soft smile in every phrase; tender musical Nepali lilt.',
+      'Cadence: natural flowing storytelling—unhurried, caring, like a sweet friend beside you.',
+      'Speed & rhythm: slightly lively but clear; honor Nepali syllables; soft micro-pauses between clauses.',
+      'Texture: honey-light and silky—milk-and-honey sweetness, not thick or dark.',
+      'Dynamics: delicate tenderness; joy is bright and sparkling; sadness is soft never heavy.',
+      'Storytelling style: intimate sweet Nepali katha voice—feminine, kind, irresistibly warm.',
+      'Dramatic intensity: low-medium—emotion through sweetness and brightness, never weight or depth.',
+      'Emotional expression: openly caring and gentle—voice stays light even on serious lines.',
+      'Resonance: head-forward light feminine tone only; forbid chest resonance or low throat color.',
+      'Articulation: crisp gentle Nepali consonants; round vowels; every word easy and pretty.'
     ].join(' ')
   }
 ]
@@ -83,26 +83,26 @@ export function getNarratorVoiceProfile(narratorId) {
   const p = getNarratorPreset(narratorId)
   const profiles = {
     tryst_bj: {
-      pitchRegister: 'low chest',
-      cadence: 'slow mythic',
-      texture: 'velvet-dark selective gravel',
-      resonance: 'forward chest',
-      storytellingStyle: 'cinematic immersive',
-      dramaticIntensity: 'high disciplined',
-      emotionWeight: 0.72,
-      styleWeight: 0.78,
-      pauseBiasMs: 210
+      pitchRegister: 'mid warm baritone',
+      cadence: 'natural conversational',
+      texture: 'smooth warm clear',
+      resonance: 'balanced chest-mask',
+      storytellingStyle: 'approachable cinematic host',
+      dramaticIntensity: 'medium natural',
+      emotionWeight: 0.68,
+      styleWeight: 0.7,
+      pauseBiasMs: 145
     },
     penguin: {
-      pitchRegister: 'medium-high agile',
-      cadence: 'upbeat rhythmic',
-      texture: 'airy crisp sparkle',
-      resonance: 'head-forward youthful warmth',
-      storytellingStyle: 'serialized expressive YA',
-      dramaticIntensity: 'medium-high pitch-tempo',
+      pitchRegister: 'light high feminine',
+      cadence: 'gentle flowing',
+      texture: 'honey-light silky',
+      resonance: 'head-forward sweet',
+      storytellingStyle: 'sweet light Nepali katha',
+      dramaticIntensity: 'low-medium bright',
       emotionWeight: 0.74,
       styleWeight: 0.72,
-      pauseBiasMs: 115
+      pauseBiasMs: 165
     }
   }
   const meta = profiles[p.id] || profiles.tryst_bj

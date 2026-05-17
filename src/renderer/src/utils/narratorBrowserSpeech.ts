@@ -1,6 +1,9 @@
 import { getNarratorIntroSampleDisplay } from '../constants/narratorIntroSamples'
 import { normalizeNarratorId } from '../constants/narrators'
 import { narratorIdentityForId } from '../constants/narratorVoiceProfiles'
+import { bcp47FromLangId, narrationLangVoiceHints } from './narrationSpeechPreview'
+import { storyLanguageToPreviewLang } from '../constants/narratorIntroSamples'
+import type { NarrationLanguageId } from '../types/story'
 
 export function loadVoices(): Promise<SpeechSynthesisVoice[]> {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -94,6 +97,7 @@ function pickSouthAsianNameVoiceByGender(
 
 type SpeakOpts = {
   narratorId: string
+  storyLanguage?: string
   isCancelled: () => boolean
   onError: (e: unknown) => void
 }
@@ -111,12 +115,12 @@ function speakOne(utt: SpeechSynthesisUtterance, s: SpeechSynthesis) {
  * Fallback when OpenAI preview fails — speaks the same Nepali intro line as the server would use.
  */
 export async function speakNarratorBrowserPreview(opts: SpeakOpts): Promise<void> {
-  const { narratorId, isCancelled, onError } = opts
+  const { narratorId, storyLanguage, isCancelled, onError } = opts
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     onError(new Error('no tts'))
     return
   }
-  const intro = getNarratorIntroSampleDisplay(narratorId)
+  const intro = getNarratorIntroSampleDisplay(narratorId, storyLanguage)
   if (!intro) {
     onError(new Error('no intro line'))
     return
@@ -140,10 +144,18 @@ export async function speakNarratorBrowserPreview(opts: SpeakOpts): Promise<void
   }
   if (isCancelled()) return
 
+  const langId: NarrationLanguageId = storyLanguage
+    ? storyLanguageToPreviewLang(storyLanguage)
+    : 'ne'
+  const hints = narrationLangVoiceHints(langId)
+
   const u = new SpeechSynthesisUtterance(intro)
   u.voice = vNep
-  const l = vNep.lang.toLowerCase()
-  u.lang = l.startsWith('ne') ? vNep.lang : l.startsWith('hi') ? vNep.lang : 'ne-NP'
+  const vl = (vNep.lang || '').toLowerCase()
+  u.lang =
+    hints.some((h) => vl.startsWith(h.toLowerCase().slice(0, 2))) && vNep.lang
+      ? vNep.lang
+      : bcp47FromLangId(langId)
   u.rate = identity?.browserTts.rate ?? 0.92
   u.pitch = identity?.browserTts.pitch ?? 1
   try {

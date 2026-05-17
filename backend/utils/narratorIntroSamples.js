@@ -1,25 +1,16 @@
 import { normalizeNarratorId } from './narratorVoiceEngine.js'
+import { getCinematicPreviewScript } from '../voice/narratorPreviewScripts.js'
+import { resolvePreviewLanguage } from '../../core/voice/previewLanguage.js'
 
 /**
- * Fixed Nepali intro lines for narrator preview TTS — same preset/voice as full-video narration.
- * Keep in sync with `src/renderer/src/constants/narratorIntroSamples.ts` (display + browser fallback).
- */
-
-/** @type {Record<string, string>} */
-export const NARRATOR_INTRO_SAMPLE_NE = {
-  tryst_bj:
-    'नमस्ते, म तपाईँको कथाको साथी। आज हामी एक रोमाञ्चक यात्रामा जाँदै छौँ।',
-  penguin:
-    'समयको पारि, कल्पनाको संसारमा। एउटा अद्भुत कथा तपाईँलाई पर्खँदै छ।'
-}
-
-/**
+ * Cinematic intro for narrator preview — sync with `src/renderer/src/constants/narratorIntroSamples.ts`.
  * @param {string} narratorId
- * @returns {string}
+ * @param {string} [languageCode] story / narration language (BCP-47 or id)
  */
-export function getNarratorIntroSampleText(narratorId) {
+export function getNarratorIntroSampleText(narratorId, languageCode = 'ne') {
   const id = normalizeNarratorId(narratorId)
-  const text = NARRATOR_INTRO_SAMPLE_NE[id]
+  const lang = resolvePreviewLanguage({ storyLanguage: languageCode })
+  const text = getCinematicPreviewScript(id, lang)
   if (!text) throw new Error(`Unknown narrator intro: ${id}`)
   return text
 }

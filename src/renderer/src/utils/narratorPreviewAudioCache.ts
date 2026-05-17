@@ -1,7 +1,13 @@
-/** Blob URLs keyed by full preview request URL (includes narratorId + uiLang). Do not revoke until reload. */
+/** Blob URLs keyed by full preview request URL. Bust when PREVIEW_CACHE_GEN changes. */
+
+export const PREVIEW_CACHE_GEN = 'v7'
 
 const blobUrls = new Map<string, string>()
 const inflight = new Map<string, Promise<void>>()
+
+function cacheKey(previewUrl: string) {
+  return `${PREVIEW_CACHE_GEN}|${previewUrl}`
+}
 
 async function blobLooksLikeMp3(blob: Blob): Promise<boolean> {
   if (blob.size < 4) return false
@@ -12,21 +18,36 @@ async function blobLooksLikeMp3(blob: Blob): Promise<boolean> {
 }
 
 export function getCachedNarratorPreviewBlobUrl(previewUrl: string): string | undefined {
-  return blobUrls.get(previewUrl)
+  return blobUrls.get(cacheKey(previewUrl))
+}
+
+/** Drop in-memory preview blobs (e.g. after deploy). */
+export function clearNarratorPreviewAudioCache() {
+  for (const url of blobUrls.values()) {
+    try {
+      URL.revokeObjectURL(url)
+    } catch {
+      // ignore
+    }
+  }
+  blobUrls.clear()
+  inflight.clear()
 }
 
 /**
  * Warm cache in background — safe to call repeatedly per narrator row mount.
  */
 export function prefetchNarratorPreviewMp3(previewUrl: string): Promise<void> {
-  if (blobUrls.has(previewUrl)) return Promise.resolve()
-  const pending = inflight.get(previewUrl)
+  const key = cacheKey(previewUrl)
+  if (blobUrls.has(key)) return Promise.resolve()
+  const pending = inflight.get(key)
   if (pending) return pending
 
   const work = (async () => {
     try {
       const r = await fetch(previewUrl, {
         method: 'GET',
+        cache: 'no-store',
         headers: { Accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.8' }
       })
       const ct = (r.headers.get('content-type') || '').toLowerCase()
@@ -36,12 +57,12 @@ export function prefetchNarratorPreviewMp3(previewUrl: string): Promise<void> {
       if (blob.size < 64 || !(await blobLooksLikeMp3(blob))) return
 
       const url = URL.createObjectURL(blob)
-      blobUrls.set(previewUrl, url)
+      blobUrls.set(key, url)
     } finally {
-      inflight.delete(previewUrl)
+      inflight.delete(key)
     }
   })()
 
-  inflight.set(previewUrl, work)
+  inflight.set(key, work)
   return work
 }
