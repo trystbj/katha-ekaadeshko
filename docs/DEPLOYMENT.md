@@ -5,7 +5,7 @@
 1. Connect the Git repository to [Vercel](https://vercel.com).
 2. **Root directory:** repository root (folder containing `vercel.json`).
 3. **Build command:** `npm run build` (or leave empty to use `vercel.json`).
-4. **Output directory:** `web-dist` (not `dist`).
+4. **Output directory:** `dist` (from `vercel.json`; built via `web-dist` → `dist` sync). Disable dashboard overrides or set Output to `dist`.
 5. Set environment variables from `.env.example` in the Vercel dashboard.
 6. Deploy. Confirm the header build badge shows the current stamp (`src/renderer/src/config/uiBuild.ts`).
 
