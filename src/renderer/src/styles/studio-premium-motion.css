@@ -1,0 +1,22 @@
+/* Ambient frame pulse (non-fullscreen layouts) */
+
+.app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-frame {
+  animation: studio-frame-pulse 10s ease-in-out infinite;
+}
+
+@keyframes studio-frame-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(212, 175, 55, 0.2),
+      0 16px 56px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(212, 175, 55, 0.32),
+      0 18px 62px rgba(0, 0, 0, 0.48),
+      0 0 42px rgba(212, 175, 55, 0.07),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+}

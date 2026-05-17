@@ -1,10 +1,13 @@
 import { z } from 'zod'
-import { formatApiError, renderSupabaseAdmin } from './_renderSupabase.js'
+import { createJsonHandler } from './_lib/http.js'
+import { renderSupabaseAdmin } from './_renderSupabase.js'
 
 const BodySchema = z.object({
   storyTitle: z.string().optional(),
   images: z.array(z.string().url()).min(1),
   audio: z.string().url().optional(),
+  backgroundMusic: z.string().url().optional(),
+  storyAudioPlan: z.any().optional(),
   subtitles: z
     .array(
       z.object({
@@ -18,31 +21,23 @@ const BodySchema = z.object({
   secondsPerImage: z.number().min(1).max(15).optional()
 })
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST')
-    res.status(405).send('Method not allowed')
-    return
-  }
-  try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body ?? {}
-    const payload = BodySchema.parse(body)
+export default createJsonHandler({
+  methods: ['POST'],
+  schema: BodySchema,
+  rateLimit: { max: 20, windowMs: 60_000 },
+  async run({ body }) {
     const supabase = renderSupabaseAdmin()
-
     const { data, error } = await supabase
       .from('render_jobs')
       .insert({
         status: 'queued',
         progress: 0,
         stage: 'queued',
-        payload
+        payload: body
       })
       .select('id')
       .single()
     if (error) throw error
-    res.status(200).json({ jobId: data.id })
-  } catch (e) {
-    res.status(500).json({ error: formatApiError(e) })
+    return { jobId: data.id }
   }
-}
-
+})

@@ -1,15 +1,31 @@
 -- =============================================================================
--- FIX: "Could not find the 'progress' column of 'render_jobs' in the schema cache"
+-- FULL SYNC: public.render_jobs (Supabase SQL Editor — paste all, Run once)
 -- =============================================================================
--- 1. Supabase Dashboard → SQL Editor → New query
--- 2. Paste this ENTIRE file → Run
--- 3. Wait ~60 seconds (PostgREST schema cache), then retry "Generate Video (4K)"
+-- Fixes missing columns (video_url, progress, stage, payload, …) and adds
+-- the updated_at trigger used by the app and worker.
 --
--- Minimal fix (only progress) if you prefer a single statement:
---   alter table public.render_jobs add column if not exists progress int not null default 0;
+-- Steps:
+--   1. Supabase Dashboard → SQL Editor → New query
+--   2. Paste this ENTIRE file → Run
+--   3. Wait ~60 seconds (PostgREST schema cache), then retry Generate Video / worker
 --
--- Safe to run multiple times (IF NOT EXISTS).
+-- Safe to run multiple times.
+-- =============================================================================
 
+create extension if not exists pgcrypto;
+
+-- Shared trigger helper (also used by projects / jobs in schema.sql)
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+-- Base table (no-op if you already have render_jobs from an older migration)
 create table if not exists public.render_jobs (
   id uuid primary key default gen_random_uuid(),
   status text not null default 'queued',
@@ -23,6 +39,7 @@ create table if not exists public.render_jobs (
   updated_at timestamptz not null default now()
 );
 
+-- Backfill any column missing on an existing table (idempotent)
 alter table public.render_jobs add column if not exists status text not null default 'queued';
 alter table public.render_jobs add column if not exists progress int not null default 0;
 alter table public.render_jobs add column if not exists stage text not null default '';
@@ -36,4 +53,7 @@ alter table public.render_jobs add column if not exists updated_at timestamptz n
 create index if not exists render_jobs_status_created_idx
   on public.render_jobs (status, created_at asc);
 
--- PostgREST picks up new columns within about a minute. Retry Generate Video if needed.
+drop trigger if exists render_jobs_set_updated_at on public.render_jobs;
+create trigger render_jobs_set_updated_at
+before update on public.render_jobs
+for each row execute function public.set_updated_at();

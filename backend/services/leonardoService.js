@@ -1,4 +1,12 @@
+import { buildLeonardoScenePrompt } from '../utils/visualStyleLock.js'
+
 const LEONARDO_API = 'https://cloud.leonardo.ai/api/rest/v1'
+
+/** Leonardo-friendly sizes (multiples of 8), matched to the studio aspect control. */
+export function leonardoDimensionsForAspectMode(aspectMode) {
+  if (aspectMode === 'horizontal_16_9') return { width: 1280, height: 720 }
+  return { width: 720, height: 1280 }
+}
 
 function requireKey() {
   const key = process.env.LEONARDO_API_KEY
@@ -17,12 +25,13 @@ export async function leonardoGenerateForScript({ script, input, onProgress }) {
   // If no key, just return empty array (backend still returns story/script/audio).
   if (!process.env.LEONARDO_API_KEY) return []
   const modelId = process.env.LEONARDO_MODEL_ID || '7b592283-e8a7-4c5a-9ba6-d18c31f258b9'
+  const { width, height } = leonardoDimensionsForAspectMode(input.aspectMode)
 
   const out = []
   for (let i = 0; i < script.length; i++) {
     const s = script[i]
-    const prompt = buildScenePrompt(s, input)
-    const { imageUrl } = await generateOne({ prompt, modelId })
+    const prompt = buildLeonardoScenePrompt(s, input)
+    const { imageUrl } = await generateOne({ prompt, modelId, width, height })
     out.push({ scene: s.scene, image_url: imageUrl, prompt })
     if (onProgress) {
       onProgress({
@@ -35,27 +44,22 @@ export async function leonardoGenerateForScript({ script, input, onProgress }) {
   return out
 }
 
-export async function leonardoGenerateOne({ prompt, width, height, seed }) {
+export async function leonardoGenerateOne({ prompt, width, height, seed, aspectMode }) {
   if (process.env.KATHA_DISABLE_LEONARDO === '1') return { imageUrl: '', seed }
   if (!process.env.LEONARDO_API_KEY) throw new Error('LEONARDO_API_KEY is missing')
   const modelId = process.env.LEONARDO_MODEL_ID || '7b592283-e8a7-4c5a-9ba6-d18c31f258b9'
+  const dims =
+    typeof width === 'number' && typeof height === 'number'
+      ? { width, height }
+      : leonardoDimensionsForAspectMode(aspectMode)
   const r = await generateOne({
     prompt,
     modelId,
-    width: typeof width === 'number' ? width : 832,
-    height: typeof height === 'number' ? height : 1216,
+    width: dims.width,
+    height: dims.height,
     seed
   })
   return { imageUrl: r.imageUrl, seed: r.seed ?? seed }
-}
-
-function buildScenePrompt(scene, input) {
-  // Keep it deterministic-ish so visuals stay coherent.
-  return [
-    `cinematic illustration, ${input.genre}, ${input.theme}`,
-    `Scene: ${scene.visual_description}`,
-    `No text, no watermark, high detail, consistent characters`
-  ].join('. ')
 }
 
 async function generateOne({ prompt, modelId, width, height, seed }) {

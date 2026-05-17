@@ -1,0 +1,41 @@
+/**
+ * Stable unicode / iconic glyphs — not locale prose.
+ * Centralizes symbols so JSX avoids raw literal nodes (`react/jsx-no-literals`).
+ */
+export const Glyphs = {
+  sparkles: '✨',
+  bulb: '💡',
+  navSearch: '🔎',
+  saveDisk: '💾',
+  clock: '🕐',
+  gear: '⚙',
+  multiply: '×',
+  slash: '/',
+  space: ' ',
+  chevronLeft: '‹',
+  chevronRight: '›',
+  charsMax500: '500',
+  prevTrack: '⏮',
+  nextChapter: '⏭',
+  pauseMedia: '⏸',
+  playTriangle: '▶',
+  minus: '−',
+  plus: '+',
+  lowerX: 'x',
+  fullscreen: '⛶',
+  pip: '⧉',
+  camera: '📷',
+  infoCircled: 'ⓘ',
+  arrowRight: '→',
+  caretDown: '▼',
+  pipeMarker: '▍',
+  colon: ':',
+  ldquo: '\u201C',
+  rdquo: '\u201D',
+  arrowLeft: '←',
+  download: '⤓',
+  asterisk: '*',
+  middot: '·',
+  cc: 'CC',
+  percent: '%'
+} as const

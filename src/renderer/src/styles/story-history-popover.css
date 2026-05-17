@@ -1,0 +1,152 @@
+/* Cursor-like compact dropdown for local story history */
+.story-history-popover {
+  position: fixed;
+  z-index: 10050;
+  box-sizing: border-box;
+  max-height: min(420px, calc(100vh - 24px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  background: linear-gradient(
+    165deg,
+    rgba(14, 38, 42, 0.97) 0%,
+    rgba(4, 14, 18, 0.98) 100%
+  );
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.story-history-popover__head {
+  flex-shrink: 0;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.story-history-popover__title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(236, 242, 248, 0.88);
+}
+
+.story-history-popover__hint {
+  margin: 5px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgba(200, 215, 222, 0.62);
+}
+
+.story-history-popover__list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.story-history-popover__empty {
+  margin: 12px 8px;
+  font-size: 0.82rem;
+  color: rgba(200, 215, 222, 0.58);
+}
+
+.story-history-popover__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.14);
+  background: rgba(0, 28, 32, 0.35);
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.story-history-popover__row:hover {
+  border-color: rgba(212, 175, 55, 0.32);
+  background: rgba(0, 40, 46, 0.48);
+}
+
+.story-history-popover__row--current {
+  border-color: rgba(130, 210, 255, 0.35);
+  box-shadow: 0 0 0 1px rgba(120, 210, 255, 0.12);
+}
+
+.story-history-popover__main {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.story-history-popover__name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.86rem;
+  line-height: 1.25;
+  color: rgba(255, 250, 242, 0.98);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-history-popover__meta {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.68rem;
+  color: rgba(200, 215, 222, 0.68);
+}
+
+.story-history-popover__status {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(212, 175, 55, 0.12);
+  color: rgba(244, 214, 140, 0.95);
+}
+
+.story-history-popover__trash {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(220, 100, 90, 0.28);
+  background: rgba(80, 18, 14, 0.4);
+  color: rgba(255, 200, 190, 0.92);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.story-history-popover__trash:hover {
+  border-color: rgba(255, 140, 120, 0.45);
+  background: rgba(140, 32, 24, 0.55);
+  color: #fff;
+}

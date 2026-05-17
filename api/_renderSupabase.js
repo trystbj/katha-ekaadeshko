@@ -43,6 +43,17 @@ export function formatApiError(e) {
     }
   } else msg = String(e)
 
+  if (
+    /render_jobs/i.test(msg) &&
+    /video_url/i.test(msg) &&
+    (/does not exist/i.test(msg) || /schema cache/i.test(msg))
+  ) {
+    return (
+      'Supabase table render_jobs is missing the video_url column (the worker writes it when the MP4 is ready). ' +
+      'In Supabase → SQL Editor run: alter table public.render_jobs add column if not exists video_url text; ' +
+      'Or run the full script supabase/render_jobs_add_missing_columns.sql from this repo. Wait ~60 seconds, then retry.'
+    )
+  }
   if (/render_jobs/i.test(msg) && /progress/i.test(msg) && /schema cache/i.test(msg)) {
     return (
       'Supabase table render_jobs is missing the progress column (or the API cache is stale). ' +

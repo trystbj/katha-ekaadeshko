@@ -19,6 +19,15 @@ import {
 import { fingerprintStory, jaccard, ngramSignature } from '../utils/similarity.js'
 import { leonardoGenerateForScript } from '../services/leonardoService.js'
 import { ttsGenerateForScript } from '../services/ttsService.js'
+import { resolveAmbientBedUrl } from '../utils/storyAudioCatalog.js'
+import { buildStoryAudioPlan } from '../utils/buildStoryAudioPlan.js'
+import { buildSceneOrchestratedPlan } from '../cinematic/pipeline/sceneOrchestrationPipeline.js'
+import { detectStyleHybridRequested, resolveStyleProfile } from '../utils/visualStyleLock.js'
+import {
+  buildBlueprintCompliancePrompt,
+  buildGenerationBlueprint,
+  normalizePipelineInput
+} from '../utils/generationBlueprint.js'
 
 const PROVIDERS = [
   {
@@ -77,6 +86,64 @@ async function aiJsonAuto({ purpose, schemaHint, prompt, order = ['openai', 'gem
 }
 
 /**
+ * Optional second pass when KATHA_BLUEPRINT_COMPLIANCE_RETRY=1 — QC story vs blueprint, regenerate once if needed.
+ */
+async function maybeBlueprintRepairStory({ pinnedInput, region, memory, finalStory, providersUsed, onProgress }) {
+  if (process.env.KATHA_BLUEPRINT_COMPLIANCE_RETRY !== '1') return finalStory
+  try {
+    const { json, provider } = await aiJsonAuto({
+      purpose: 'blueprint_compliance',
+      schemaHint: 'BlueprintCompliance',
+      prompt: buildBlueprintCompliancePrompt(pinnedInput, finalStory),
+      order: ['deepseek', 'openai', 'gemini']
+    })
+    providersUsed.blueprintCompliance = provider
+    if (!json || json.compliant !== false) return finalStory
+    const violations = String(json.violations || '').trim()
+    if (!violations) return finalStory
+
+    if (onProgress) {
+      onProgress({
+        stage: 'blueprint_repair',
+        progress: 38,
+        message: 'Re-aligning story with locked preferences'
+      })
+    }
+    const repairPrompt = buildStoryPrompt({
+      ...pinnedInput,
+      region,
+      memory,
+      blueprintRepairNotes: violations
+    })
+    const { json: story2, provider: storyRepairProvider } = await aiJsonAuto({
+      purpose: 'story',
+      schemaHint: 'Story',
+      prompt: repairPrompt,
+      order: ['openai', 'gemini', 'deepseek']
+    })
+    providersUsed.storyRepair = storyRepairProvider
+
+    const [{ json: validated2 }, { json: enhanced2 }] = await Promise.all([
+      aiJsonAuto({
+        purpose: 'validate',
+        schemaHint: 'ValidatedStory',
+        prompt: buildValidationPrompt({ story: story2, input: pinnedInput, region }),
+        order: ['deepseek', 'openai', 'gemini']
+      }),
+      aiJsonAuto({
+        purpose: 'enhance',
+        schemaHint: 'EnhancedStory',
+        prompt: buildEnhancementPrompt({ story: story2, input: pinnedInput, region }),
+        order: ['gemini', 'openai', 'deepseek']
+      })
+    ])
+    return mergeResults(story2, validated2, enhanced2)
+  } catch {
+    return finalStory
+  }
+}
+
+/**
  * Pipeline:
  * 1) OpenAI generates story JSON
  * 2) Parallel: DeepSeek validates (logic only) + Gemini enhances (cultural/dialogue)
@@ -86,14 +153,22 @@ async function aiJsonAuto({ purpose, schemaHint, prompt, order = ['openai', 'gem
  */
 export async function runKathaPipeline(input, req, opts = {}) {
   const onProgress = typeof opts?.onProgress === 'function' ? opts.onProgress : null
-  const region = getRegionForCountry(input.country)
+  const normalized = normalizePipelineInput(input)
+  const region = getRegionForCountry(normalized.country)
+  const blueprintPack = buildGenerationBlueprint(normalized)
+  const pinnedInput = {
+    ...normalized,
+    __generationBlueprint: blueprintPack.blueprintBlock,
+    __storyLanguageDisplay: blueprintPack.languageDisplayName,
+    __generationBlueprintMeta: blueprintPack.compactMeta
+  }
   const memory = await getMemoryStore()
 
   const providersUsed = {}
 
   // Stage 1 — Story generation (auto: OpenAI → Gemini → DeepSeek)
   if (onProgress) onProgress({ stage: 'story', progress: 5, message: 'Drafting story' })
-  const storyPrompt = buildStoryPrompt({ ...input, region, memory })
+  const storyPrompt = buildStoryPrompt({ ...pinnedInput, region, memory })
   const { json: story, provider: storyProvider } = await aiJsonAuto({
     purpose: 'story',
     schemaHint: 'Story',
@@ -114,7 +189,7 @@ export async function runKathaPipeline(input, req, opts = {}) {
       purpose: 'story',
       schemaHint: 'Story',
       prompt: buildStoryPrompt({
-        ...input,
+        ...pinnedInput,
         region,
         memory,
         forceVariation: true
@@ -128,21 +203,45 @@ export async function runKathaPipeline(input, req, opts = {}) {
     if ((await shouldRejectAsRepetitive(fp2)) || tooSimilar2) {
       throw new Error('Repetition guard: generated story is too similar to recent outputs. Try changing inputs.')
     }
-    await recordFingerprint(fp2, { country: input.country, theme: input.theme, genre: input.genre })
-    await recordSignature(sig2, { country: input.country, theme: input.theme, genre: input.genre })
-    return await continuePipelineFromStory(input, region, story2, req, providersUsed)
+    await recordFingerprint(fp2, {
+      country: pinnedInput.country,
+      theme: pinnedInput.theme,
+      genre: pinnedInput.genre
+    })
+    await recordSignature(sig2, {
+      country: pinnedInput.country,
+      theme: pinnedInput.theme,
+      genre: pinnedInput.genre
+    })
+    return await continuePipelineFromStory(
+      pinnedInput,
+      region,
+      story2,
+      req,
+      providersUsed,
+      onProgress,
+      memory
+    )
   }
 
-  await recordFingerprint(fp, { country: input.country, theme: input.theme, genre: input.genre })
-  await recordSignature(sig, { country: input.country, theme: input.theme, genre: input.genre })
-  return await continuePipelineFromStory(input, region, story, req, providersUsed, onProgress)
+  await recordFingerprint(fp, {
+    country: pinnedInput.country,
+    theme: pinnedInput.theme,
+    genre: pinnedInput.genre
+  })
+  await recordSignature(sig, {
+    country: pinnedInput.country,
+    theme: pinnedInput.theme,
+    genre: pinnedInput.genre
+  })
+  return await continuePipelineFromStory(pinnedInput, region, story, req, providersUsed, onProgress, memory)
 }
 
-async function continuePipelineFromStory(input, region, story, req, providersUsed, onProgress) {
+async function continuePipelineFromStory(pinnedInput, region, story, req, providersUsed, onProgress, memory) {
   // Stage 2 — Parallel processing
   if (onProgress) onProgress({ stage: 'validate', progress: 20, message: 'Validating + enhancing' })
-  const validationPrompt = buildValidationPrompt({ story, input, region })
-  const enhancementPrompt = buildEnhancementPrompt({ story, input, region })
+  const validationPrompt = buildValidationPrompt({ story, input: pinnedInput, region })
+  const enhancementPrompt = buildEnhancementPrompt({ story, input: pinnedInput, region })
 
   const [{ json: validated, provider: validateProvider }, { json: enhanced, provider: enhanceProvider }] =
     await Promise.all([
@@ -166,14 +265,23 @@ async function continuePipelineFromStory(input, region, story, req, providersUse
 
   // Stage 3 — Merge results
   if (onProgress) onProgress({ stage: 'merge', progress: 35, message: 'Merging results' })
-  const finalStory = mergeResults(story, validated, enhanced)
+  let finalStory = mergeResults(story, validated, enhanced)
+
+  finalStory = await maybeBlueprintRepairStory({
+    pinnedInput,
+    region,
+    memory,
+    finalStory,
+    providersUsed,
+    onProgress
+  })
 
   // Stage 4 — Script generation (auto: OpenAI → Gemini → DeepSeek)
   if (onProgress) onProgress({ stage: 'script', progress: 50, message: 'Writing script' })
   const { json: script, provider: scriptProvider } = await aiJsonAuto({
     purpose: 'script',
     schemaHint: 'Script',
-    prompt: buildScriptPrompt({ story: finalStory, input, region }),
+    prompt: buildScriptPrompt({ story: finalStory, input: pinnedInput, region }),
     order: ['openai', 'gemini', 'deepseek']
   })
   providersUsed.script = scriptProvider
@@ -181,23 +289,99 @@ async function continuePipelineFromStory(input, region, story, req, providersUse
   // Stage 5 — Parallel content generation
   if (onProgress) onProgress({ stage: 'images', progress: 65, message: 'Generating images + audio' })
   const [images, audio] = await Promise.all([
-    leonardoGenerateForScript({ script, input, region, onProgress }),
-    ttsGenerateForScript({ script, input, region, req })
+    leonardoGenerateForScript({ script, input: pinnedInput, region, onProgress }),
+    ttsGenerateForScript({ script, input: pinnedInput, region, req })
   ])
 
   if (onProgress) onProgress({ stage: 'done', progress: 100, message: 'Done' })
+  const ambientBedUrl = resolveAmbientBedUrl({
+    genre: pinnedInput.genre,
+    theme: pinnedInput.theme,
+    tone: pinnedInput.storyTone,
+    seedLine: pinnedInput.seedLine,
+    setting: typeof finalStory?.setting === 'string' ? finalStory.setting : '',
+    country: pinnedInput.country
+  })
+  let storyAudioPlan = buildStoryAudioPlan({
+    genre: pinnedInput.genre,
+    theme: pinnedInput.theme,
+    storyTone: pinnedInput.storyTone,
+    seedLine: pinnedInput.seedLine,
+    setting: typeof finalStory?.setting === 'string' ? finalStory.setting : '',
+    country: pinnedInput.country,
+    script,
+    overrides:
+      pinnedInput.audioMix && typeof pinnedInput.audioMix === 'object' ? pinnedInput.audioMix : {}
+  })
+
+  let cinematicDirectorPlan = null
+  let cinematicDirectorDegraded = false
+  let storyMemorySnapshot = null
+  let memorySummaryForClient = null
+  let worldStateSnapshot = null
+  let relationshipSnapshot = null
+  let creatorPreferencesPatch = null
+  let sceneOrchestration = null
+  let renderAssemblyPlan = null
+  try {
+    const evolution = buildSceneOrchestratedPlan({
+      script,
+      input: {
+        ...pinnedInput,
+        priorMemorySummary: pinnedInput.priorMemorySummary || '',
+        priorWorldState: pinnedInput.priorWorldState || null,
+        priorRelationships: pinnedInput.priorRelationships || [],
+        creatorPreferences: pinnedInput.creatorPreferences || null,
+        directorPersonalityPreference: pinnedInput.directorPersonalityPreference || 'auto',
+        performancePreferLow: pinnedInput.performancePreferLow
+      },
+      storyAudioPlan,
+      story: finalStory,
+      priorMemorySummary: pinnedInput.priorMemorySummary || '',
+      projectId: pinnedInput.projectId
+    })
+    cinematicDirectorPlan = evolution.cinematicDirectorPlan
+    storyAudioPlan = evolution.storyAudioPlan
+    storyMemorySnapshot = evolution.storyMemorySnapshot
+    memorySummaryForClient = evolution.memorySummaryPatch
+    worldStateSnapshot = evolution.worldStateSnapshot
+    relationshipSnapshot = evolution.relationshipSnapshot
+    creatorPreferencesPatch = evolution.creatorPreferencesPatch
+    sceneOrchestration = evolution.sceneOrchestration ?? null
+    renderAssemblyPlan = evolution.renderAssemblyPlan ?? null
+  } catch (e) {
+    cinematicDirectorDegraded = true
+    console.warn('[sceneOrchestrationPipeline] fallback to base audio plan:', e?.message || e)
+  }
+  const vsProfile = resolveStyleProfile(pinnedInput)
+  const vsHybrid = detectStyleHybridRequested(pinnedInput)
   return {
     story: finalStory,
     script,
     images,
     audio,
     metadata: {
-      country: input.country,
+      country: pinnedInput.country,
       region,
-      genre: input.genre,
-      theme: input.theme,
-      length: input.length,
-      aiProviders: providersUsed
+      genre: pinnedInput.genre,
+      theme: pinnedInput.theme,
+      length: pinnedInput.length,
+      storyLanguage: pinnedInput.storyLanguage,
+      generationBlueprint: pinnedInput.__generationBlueprintMeta,
+      aiProviders: providersUsed,
+      ambientBedUrl,
+      storyAudioPlan,
+      ...(cinematicDirectorPlan ? { cinematicDirectorPlan } : {}),
+      ...(cinematicDirectorDegraded ? { cinematicDirectorDegraded: true } : {}),
+      ...(storyMemorySnapshot ? { storyMemorySnapshot } : {}),
+      ...(memorySummaryForClient ? { memorySummaryPatch: memorySummaryForClient } : {}),
+      ...(worldStateSnapshot ? { worldStateSnapshot } : {}),
+      ...(relationshipSnapshot?.length ? { relationshipSnapshot } : {}),
+      ...(creatorPreferencesPatch ? { creatorPreferencesPatch } : {}),
+      ...(sceneOrchestration ? { sceneOrchestration } : {}),
+      ...(renderAssemblyPlan ? { renderAssemblyPlan } : {}),
+      visualStyleProfileKey: vsProfile.key,
+      visualStyleHybrid: vsHybrid
     }
   }
 }

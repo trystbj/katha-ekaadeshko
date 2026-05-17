@@ -1,0 +1,72 @@
+.monitor-settings-panel {
+  padding-top: 2px;
+}
+
+.monitor-settings-panel__head {
+  margin-bottom: 6px !important;
+}
+
+/* Must not use flex-grow when parent height is intrinsic (`panel-embed`); flex:1 would collapse to 0 */
+.monitor-settings-panel__scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 2px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.monitor-settings-panel__scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.monitor-settings-panel__block {
+  margin-bottom: 0 !important;
+}
+
+.monitor-settings-panel__block h3 {
+  margin-top: 0;
+  font-size: 0.82rem;
+}
+
+.monitor-settings-panel__subhead {
+  margin: 12px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.monitor-settings-panel__subhead:first-child {
+  margin-top: 0;
+}
+
+.monitor-settings-panel__select {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.monitor-settings-panel__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.monitor-settings-panel__toggle input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.monitor-settings-panel__locale {
+  margin-top: 8px;
+}

@@ -9,6 +9,7 @@ export interface IdeaSpeechRecognition extends EventTarget {
   lang: string
   start(): void
   stop(): void
+  abort?(): void
   onresult: ((ev: IdeaSpeechRecognitionEvent) => void) | null
   onerror: ((ev: IdeaSpeechErrorEvent) => void) | null
   onend: (() => void) | null

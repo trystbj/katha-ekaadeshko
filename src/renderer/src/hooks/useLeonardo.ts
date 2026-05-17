@@ -1,6 +1,8 @@
 import { useCallback } from 'react'
-import type { AspectMode, StoryCharacter } from '../types/story'
+import type { AspectMode, StoryCharacter, VisualStyleId } from '../types/story'
+import { getStylePromptSuffix } from '../types/story'
 import { useStudioStore } from '../store/useStudioStore'
+import { getVisualPackExtraPrompt } from '../utils/visualThemePackExtras'
 
 function dims(aspect: AspectMode): { width: number; height: number } {
   return aspect === 'vertical_9_16'
@@ -11,10 +13,10 @@ function dims(aspect: AspectMode): { width: number; height: number } {
 export function useLeonardo() {
   const setBusy = useStudioStore((s) => s.setBusy)
   const setError = useStudioStore((s) => s.setError)
-  const patchProject = useStudioStore((s) => s.patchProject)
 
   const generateCharacterBase = useCallback(
     async (characterId: string, emotionNote?: string) => {
+      const workspaceIx = useStudioStore.getState().activeWorkspaceSlotIndex
       const k = window.katha
       if (!k?.leonardoGenerate) throw new Error('Image generation is not available in this build.')
       const p = useStudioStore.getState().project
@@ -24,12 +26,27 @@ export function useLeonardo() {
       setBusy('leonardo')
       setError(null)
       try {
-        const { width, height } = dims(p.bible.aspectMode)
+        const { width, height } = dims('vertical_9_16')
+        const st = useStudioStore.getState()
+        const sid = (st.styleId || 'soft_anime_fantasy') as VisualStyleId
+        const styleLock = getStylePromptSuffix(sid, sid === 'custom' ? st.customVisualPrompt : undefined)
+        const vaccent = getVisualPackExtraPrompt(st.visualPackId).trim()
+        const cref = p.characterReference
+        const crefLine =
+          cref?.images?.length
+            ? `CHARACTER REFERENCE: match uploaded references (face, hairstyle, clothing, age, expression). Strength=${cref.strength || 'balanced'}.`
+            : ''
         const prompt = [
+          `VISUAL STYLE LOCK — single unified medium only: ${styleLock}.`,
+          vaccent ? `Ambient mood accent (preserve medium — no style swap): ${vaccent}` : '',
+          'Forbidden: mixing unrelated render families (e.g. photoreal face + unrelated cartoon body) unless idea explicitly requests hybrid blend.',
+          crefLine,
           ch.baseImagePrompt,
           emotionNote ? `expression: ${emotionNote}` : 'neutral expression, clear face',
           'single character, waist-up or portrait, no text, no watermark'
-        ].join(', ')
+        ]
+          .filter(Boolean)
+          .join(' ')
         const res = await k.leonardoGenerate({
           prompt,
           width,
@@ -37,7 +54,7 @@ export function useLeonardo() {
           seed: ch.leonardoSeed
         })
         const seed = res.seed ?? ch.leonardoSeed
-        patchProject((cur) => {
+        useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
           if (!cur.bible) return cur
           const characters = cur.bible.characters.map((c: StoryCharacter) =>
             c.id === characterId
@@ -66,10 +83,11 @@ export function useLeonardo() {
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       } finally {
-        setBusy(null)
+        useStudioStore.getState().setWorkspaceBusy(workspaceIx, null)
+        if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) setBusy(null)
       }
     },
-    [patchProject, setBusy, setError]
+    [setBusy, setError]
   )
 
   return { generateCharacterBase }

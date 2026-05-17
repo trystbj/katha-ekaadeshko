@@ -1,12 +1,17 @@
-export default function handler(_req, res) {
-  res.status(200).json({
-    ok: true,
-    providers: {
-      openai: Boolean(process.env.OPENAI_API_KEY),
-      gemini: Boolean(process.env.GEMINI_API_KEY),
-      deepseek: Boolean(process.env.DEEPSEEK_API_KEY),
-      leonardo: Boolean(process.env.LEONARDO_API_KEY)
-    }
-  })
-}
+import { createJsonHandler } from './_lib/http.js'
+import { providerAvailability } from '../core/providers/aiProviderRegistry.js'
 
+export default createJsonHandler({
+  methods: ['GET', 'HEAD'],
+  async run() {
+    const providers = providerAvailability()
+    return {
+      ok: true,
+      version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local',
+      env: process.env.VERCEL_ENV || 'development',
+      providers,
+      tts: providers.tts,
+      ready: Boolean(providers.openai || providers.gemini || providers.deepseek)
+    }
+  }
+})

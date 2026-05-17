@@ -1,7 +1,12 @@
+import { createRequire } from 'node:module'
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
+import reactPlugin from 'eslint-plugin-react'
 import tseslint from 'typescript-eslint'
+
+const require = createRequire(import.meta.url)
+const kathaI18nPlugin = require('./eslint-rules/katha-i18n-plugin.cjs')
 
 export default tseslint.config(
   {
@@ -41,10 +46,46 @@ export default tseslint.config(
       '@typescript-eslint/triple-slash-reference': 'off'
     }
   },
+  /** Mandatory localization path — forbid destructuring `t` from useTranslation outside i18n shell files (handled in rule). */
   {
-    files: ['src/web/main.tsx'],
+    files: ['src/renderer/src/**/*.ts'],
+    plugins: { 'katha-i18n': kathaI18nPlugin },
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off'
+      'katha-i18n/forbid-use-translation-t': 'error'
+    }
+  },
+  /** JSX literal ban + raw accessibility/tooltip props (technical attrs remain strings via ignoreProps). */
+  {
+    files: ['src/renderer/src/**/*.{tsx,jsx}'],
+    plugins: {
+      react: reactPlugin,
+      'katha-i18n': kathaI18nPlugin
+    },
+    settings: {
+      react: { version: '18.3' }
+    },
+    rules: {
+      'react/jsx-no-literals': [
+        'error',
+        {
+          noStrings: true,
+          ignoreProps: true,
+          allowedStrings: [
+            'कथा एकादेशको',
+            'Tryst BJ',
+            'Penguin',
+            '✨',
+            '⏭',
+            '✏️',
+            '▮',
+            '▶',
+            ' ',
+            '✓'
+          ]
+        }
+      ],
+      'katha-i18n/no-raw-ui-string-props': 'error',
+      'katha-i18n/forbid-use-translation-t': 'error'
     }
   }
 )

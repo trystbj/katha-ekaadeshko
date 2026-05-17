@@ -1,0 +1,351 @@
+.narrator-voice-details {
+  margin-top: 8px;
+}
+
+.narrator-voice-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.narrator-voice-details summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease;
+}
+
+.narrator-voice-details summary:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.narrator-voice-details[open] summary {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.narrator-voice-details__summary-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.narrator-voice-details__title {
+  font-weight: 700;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  color: rgba(255, 218, 156, 0.96);
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 12px rgba(212, 175, 55, 0.28);
+}
+
+.narrator-voice-details__picked {
+  color: rgba(142, 226, 218, 0.92);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Ensure flag emoji render on Windows `<select>`/inline text */
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', system-ui, sans-serif;
+}
+
+.narrator-voice-details__flag {
+  width: 16px;
+  height: 12px;
+  border-radius: 2px;
+  display: inline-block;
+  vertical-align: -1px;
+  margin-right: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.narrator-voice-details__flag-emoji {
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', system-ui, sans-serif;
+}
+
+.narrator-voice-details__lang-picker {
+  position: relative;
+  overflow: visible;
+}
+
+.narrator-voice-details__lang-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.narrator-voice-details__lang-trigger-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.narrator-voice-details__lang-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.narrator-voice-details__lang-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  background: #1e2430;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: clip;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.narrator-voice-details__lang-menu::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+.narrator-voice-details__lang-menu::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.narrator-voice-details__lang-option {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 245, 228, 0.98);
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.narrator-voice-details__lang-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.narrator-voice-details__lang-option--on {
+  background: rgba(95, 195, 185, 0.14);
+}
+
+.narrator-voice-details__body {
+  padding: 10px 2px 2px;
+  display: grid;
+  gap: 10px;
+}
+
+.narrator-voice-details__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  min-width: 0;
+}
+
+.narrator-voice-details__dropdown-zone .post-export-dock__field {
+  min-width: 0;
+}
+
+.narrator-voice-details__grid--single {
+  grid-template-columns: 1fr;
+}
+
+/* Language, voice style, accent, emotion — glass panel (transparent, studio gold + teal) */
+.narrator-voice-details__dropdown-zone {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  /*
+   * Never use overflow-x: hidden without overflow-y — browsers force overflow-y: auto,
+   * which draws a vertical scrollbar next to the Voice style / Emotion column when the
+   * language list opens (absolutely positioned tall menu).
+   */
+  overflow-x: clip;
+  overflow-y: visible;
+  max-width: 100%;
+  border-radius: 12px;
+  /* Remove background panel behind the 4 pickers (language/voice style/accent/emotion). */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.narrator-voice-details__dropdown-zone .post-export-dock__field span {
+  color: rgba(255, 224, 168, 0.94);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.narrator-voice-details__dropdown-zone .select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: clip;
+  overflow-y: visible;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(212, 175, 55, 0.35);
+  color: rgba(255, 248, 232, 0.98);
+  color-scheme: dark;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* Helps country-flag emoji render inside the control on Windows */
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', system-ui, sans-serif;
+}
+
+button.select.narrator-voice-details__lang-trigger {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-color: rgba(255, 255, 255, 0.06);
+  background-image: var(--studio-dropdown-caret-svg);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 11px 7px;
+}
+
+.narrator-voice-details__lang-trigger > span[aria-hidden]:last-child {
+  display: none !important;
+}
+
+.narrator-voice-details__dropdown-zone .select::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.narrator-voice-details__dropdown-zone .select:hover {
+  border-color: rgba(172, 228, 218, 0.55);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.narrator-voice-details__dropdown-zone select.select:hover {
+  background-image: var(--studio-dropdown-caret-svg);
+}
+
+.narrator-voice-details__dropdown-zone button.select.narrator-voice-details__lang-trigger:hover {
+  background-image: var(--studio-dropdown-caret-svg);
+}
+
+.narrator-voice-details__dropdown-zone .select:focus {
+  border-color: rgba(212, 175, 55, 0.65);
+  box-shadow:
+    0 0 0 2px rgba(212, 175, 55, 0.22),
+    0 0 14px rgba(95, 195, 185, 0.15);
+  outline: none;
+}
+
+.narrator-voice-details .select,
+.narrator-voice-details input[type='range'] {
+  transition:
+    box-shadow 200ms ease,
+    transform 160ms ease,
+    border-color 200ms ease;
+}
+
+.narrator-voice-details .select:focus,
+.narrator-voice-details input[type='range']:focus {
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.18);
+}
+
+.narrator-voice-details__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.narrator-voice-details__toggle-list {
+  display: grid;
+  gap: 6px;
+}
+
+.narrator-voice-details__toggle {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.84rem;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.narrator-voice-details__toggle input {
+  margin-top: 3px;
+}
+
+.narrator-voice-details__wave {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.narrator-voice-details__wave-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.narrator-voice-details__auto-summary {
+  display: grid;
+  gap: 6px;
+  padding: 4px 2px 2px;
+}
+
+.narrator-voice-details__readonly-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  font-size: 0.82rem;
+}
+
+.narrator-voice-details__readonly-label {
+  flex: 0 0 auto;
+  color: rgba(255, 224, 168, 0.94);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.narrator-voice-details__readonly-value {
+  flex: 1 1 auto;
+  text-align: right;
+  color: rgba(255, 248, 232, 0.96);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.narrator-voice-details__hint {
+  margin: 2px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.62);
+}
+

@@ -1,10 +1,4 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
 import { createClient } from '@supabase/supabase-js'
-import '../renderer/src/i18n/config'
-import App from '../renderer/src/App'
-import '../renderer/src/styles/App.css'
-import './web.css'
 import type { ProjectState } from '../renderer/src/types/story'
 
 type StoredProject = ProjectState
@@ -41,10 +35,9 @@ function storyHistoryWrite(items: StoredProject[]) {
   lsSet(STORY_HISTORY_KEY, { items: items.slice(0, STORY_HISTORY_MAX) })
 }
 
-function ensureBridge() {
+/** Idempotent: installs `window.katha` for web / Vercel (localStorage story history + Supabase + APIs). */
+export function ensureKathaBridge() {
   if (window.katha) return
-  // In Vercel, we use same-origin serverless functions at /api/*
-  // In local dev, you can override with VITE_BACKEND_URL (e.g. http://127.0.0.1:5000)
   const baseUrl = import.meta.env.VITE_BACKEND_URL || ''
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
@@ -84,11 +77,11 @@ function ensureBridge() {
       const u = data?.session?.user
       return { user: u ? { id: u.id, email: u.email || undefined } : null }
     },
-    authSignInMagicLink: async (payload: any) => {
+    authSignInMagicLink: async (payload: unknown) => {
       if (!supabase) throw new Error('Supabase is not configured (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).')
-      const email = String(payload?.email || '').trim()
+      const email = String((payload as { email?: string })?.email || '').trim()
       if (!email.includes('@')) throw new Error('Enter a valid email.')
-      const redirectTo = String(payload?.redirectTo || window.location.origin).trim()
+      const redirectTo = String((payload as { redirectTo?: string })?.redirectTo || window.location.origin).trim()
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: redirectTo }
@@ -103,7 +96,6 @@ function ensureBridge() {
       return true
     },
 
-    // Settings are stored locally in web mode (no secrets are auto-read from disk).
     settingsGetApiKeys: async () => {
       try {
         const h = await fetchHealth()
@@ -179,13 +171,13 @@ function ensureBridge() {
       if (!res.ok) throw new Error(text)
       return JSON.parse(text)
     },
-    projectsSave: async (project: any) => {
+    projectsSave: async (project: unknown) => {
       const base = baseUrl.replace(/\/+$/, '')
       const url = base ? `${base}/api/projects-save` : '/api/projects-save'
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ project: { ...project, updatedAt: nowIso() } })
+        body: JSON.stringify({ project: { ...(project as object), updatedAt: nowIso() } })
       })
       const text = await res.text()
       if (!res.ok) throw new Error(text)
@@ -205,12 +197,20 @@ function ensureBridge() {
     },
 
     storyHistoryList: async () => {
-      return storyHistoryRead().map((p) => ({
-        id: String(p.id),
-        title: String(p.title || 'Untitled'),
-        status: String(p.status || 'new'),
-        updatedAt: String(p.updatedAt || p.createdAt || '')
-      }))
+      return storyHistoryRead().map((p) => {
+        const episodeCount = Array.isArray(p.episodes) ? p.episodes.length : 0
+        const te = p.bible?.totalEpisodes
+        const totalEpisodes =
+          typeof te === 'number' && te > 0 ? te : null
+        return {
+          id: String(p.id),
+          title: String(p.title || 'Untitled'),
+          status: String(p.status || 'new'),
+          updatedAt: String(p.updatedAt || p.createdAt || ''),
+          episodeCount,
+          totalEpisodes
+        }
+      })
     },
     storyHistorySave: async (project: StoredProject) => {
       if (!project?.id) throw new Error('Project id missing')
@@ -233,17 +233,18 @@ function ensureBridge() {
     aiComplete: async () => {
       throw new Error('AI complete is not available in web mode yet.')
     },
-    leonardoGenerate: async (payload: any) => {
-      const base = (payload?.baseUrl || baseUrl).replace(/\/+$/, '')
-      const url = base ? `${base}/api/leonardo-generate` : '/api/leonardo-generate'
+    leonardoGenerate: async (payload: unknown) => {
+      const base = (payload as { baseUrl?: string })?.baseUrl || baseUrl
+      const baseNorm = String(base).replace(/\/+$/, '')
+      const url = baseNorm ? `${baseNorm}/api/leonardo-generate` : '/api/leonardo-generate'
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: payload.prompt,
-          width: payload.width,
-          height: payload.height,
-          seed: payload.seed
+          prompt: (payload as { prompt?: string }).prompt,
+          width: (payload as { width?: number }).width,
+          height: (payload as { height?: number }).height,
+          seed: (payload as { seed?: number }).seed
         })
       })
       const text = await res.text()
@@ -258,24 +259,12 @@ function ensureBridge() {
       return JSON.parse(text)
     },
 
-    uiShowContextMenu: async () => {
-      // Browser already provides native context menu.
-    },
+    uiShowContextMenu: async () => {},
     openExternal: async (url: string) => {
       window.open(url, '_blank', 'noreferrer')
     }
   }
 
-  // Basic web settings persistence (theme etc.) can be added later.
   const s = lsGet<unknown>(SETTINGS_KEY, null)
   if (!s) lsSet(SETTINGS_KEY, {})
 }
-
-ensureBridge()
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
-

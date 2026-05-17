@@ -1,0 +1,160 @@
+.workspace-slots-dash__intro,
+.workspace-slots-dash__foot {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.workspace-slots-dash__foot {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+.workspace-slots-dash__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 10px;
+}
+
+.workspace-slots-card {
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.42);
+  background: var(--studio-readable-block, rgba(6, 14, 18, 0.72));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.workspace-slots-card--active {
+  border-color: rgba(212, 175, 55, 0.82);
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.22);
+}
+
+.workspace-slots-card--archived {
+  opacity: 0.72;
+}
+
+.workspace-slots-card__poster {
+  height: 72px;
+  background: linear-gradient(145deg, rgba(18, 28, 36, 0.95), rgba(8, 12, 18, 0.92));
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+.workspace-slots-card__slot-label {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 232, 0.92);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
+}
+
+.workspace-slots-card__body {
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.workspace-slots-card__title {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: rgba(255, 236, 195, 0.96);
+}
+
+.workspace-slots-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.workspace-slots-badge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(248, 252, 255, 0.88);
+}
+
+.workspace-slots-badge--active {
+  border-color: rgba(144, 210, 140, 0.55);
+  background: rgba(60, 110, 72, 0.28);
+}
+
+.workspace-slots-badge--paused {
+  border-color: rgba(180, 180, 200, 0.35);
+  background: rgba(80, 88, 104, 0.22);
+}
+
+.workspace-slots-badge--render {
+  border-color: rgba(255, 200, 120, 0.55);
+  background: rgba(140, 90, 40, 0.28);
+}
+
+.workspace-slots-badge--done {
+  border-color: rgba(120, 170, 220, 0.45);
+  background: rgba(40, 70, 110, 0.22);
+}
+
+.workspace-slots-badge--pub {
+  border-color: rgba(212, 175, 55, 0.55);
+  background: rgba(120, 96, 40, 0.22);
+}
+
+.workspace-slots-badge--arc {
+  border-color: rgba(160, 150, 190, 0.45);
+  background: rgba(70, 60, 90, 0.22);
+}
+
+.workspace-slots-card__meta {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 0.65rem;
+}
+
+.workspace-slots-card__meta dt {
+  margin: 0;
+  opacity: 0.72;
+  font-weight: 600;
+}
+
+.workspace-slots-card__meta dd {
+  margin: 0;
+  font-weight: 600;
+  color: rgba(240, 246, 252, 0.92);
+}
+
+.workspace-slots-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.workspace-slots-card__actions .btn-small {
+  font-size: 0.62rem;
+  padding: 4px 8px;
+}
+
+.workspace-slots-card__active-cap {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(180, 235, 190, 0.95);
+  align-self: center;
+}

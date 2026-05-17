@@ -1,0 +1,259 @@
+/*
+ * Per-grapheme title — wrappers stay visually empty; only clipped glyph paint + FX read.
+ * Canvas uses blend mode so transparent pixels never read as a matte “tile.”
+ */
+
+/* Flatten plaque-style stacking / 3D so letters don’t paint as stacked rectangular layers */
+#brand-title-root.studio-mock-logo-dev.studio-mock-logo-dev--hero.brand-title-stardust {
+  isolation: auto !important;
+  contain: none !important;
+  transform-style: flat !important;
+  transform: none !important;
+  transform-origin: center center !important;
+  perspective: none !important;
+  backface-visibility: visible !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0.1em 0 0.22em !important;
+  margin: 0 !important;
+  /* Devanagari matras / headline conjuncts need >1 line-box or background-clip text reads cropped */
+  line-height: 1.32 !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: baseline !important;
+  flex-wrap: nowrap !important;
+  min-height: 1.28em;
+}
+
+#brand-title-root.brand-title-stardust {
+  pointer-events: auto;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#brand-title-root.brand-title-stardust:focus,
+#brand-title-root.brand-title-stardust:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+#brand-title-root.brand-title-stardust .brand-title-stardust__track {
+  position: relative;
+  display: inline;
+  vertical-align: baseline;
+  overflow: visible;
+  contain: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+}
+
+#brand-title-root.brand-title-stardust .brand-title-stardust__word {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  contain: none;
+}
+
+#brand-title-root.brand-title-stardust .brand-title-stardust__space {
+  display: inline;
+  font: inherit;
+  white-space: pre;
+  pointer-events: none;
+  background: transparent !important;
+}
+
+#brand-title-root.brand-title-stardust .brand-title-stardust__letter {
+  position: relative;
+  display: inline;
+  vertical-align: baseline;
+  margin: 0;
+  padding: 0;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  overflow: visible;
+  contain: none;
+}
+
+#brand-title-root.brand-title-stardust .brand-title-stardust__letter-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  display: none;
+  pointer-events: none;
+  z-index: 1;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  opacity: 0;
+  visibility: hidden;
+  /* Transparent pixels stay invisible; smoke stacks over backdrop without a matte tile */
+  mix-blend-mode: screen;
+}
+
+@supports (mix-blend-mode: plus-lighter) {
+  #brand-title-root.brand-title-stardust .brand-title-stardust__letter-canvas {
+    mix-blend-mode: plus-lighter;
+  }
+}
+
+/* Charcoal volumetric smoke — multiply reads painterly against page, avoids neon additive stack */
+#brand-title-root.brand-title-stardust
+  .brand-title-stardust__letter-canvas.brand-title-stardust__letter-canvas--dark-smoke {
+  mix-blend-mode: multiply;
+}
+
+#brand-title-root.brand-title-stardust .brand-title-stardust__letter-canvas:focus {
+  outline: none !important;
+}
+
+/*
+ * Gradient exists only where glyphs paint (clip:text). No span plate.
+ * text-shadow only — never filter/drop-shadow (avoids rectangular filter regions).
+ */
+#brand-title-root.brand-title-stardust .brand-title-stardust__letter-face {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: baseline;
+  vertical-align: baseline;
+  line-height: 1.32;
+  transform-origin: center bottom;
+  font: inherit;
+  letter-spacing: inherit;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  /* RAF-driven vapor geometry — avoids rectangular filter bounds from drop-shadow */
+  filter: blur(var(--bt-blur, 0px));
+  backdrop-filter: none !important;
+  transform: translateY(var(--bt-lift, 0px)) scaleY(var(--bt-scale-y, 1));
+  /* JS sets --bt-g0…--bt-g5 during dissolve/reform for ink→smoke color journey */
+  background: linear-gradient(
+    165deg,
+    var(--bt-g0, rgba(255, 253, 248, 1)) 0%,
+    var(--bt-g1, rgba(252, 246, 232, 1)) 22%,
+    var(--bt-g2, rgba(236, 222, 192, 1)) 48%,
+    var(--bt-g3, rgba(255, 250, 242, 1)) 52%,
+    var(--bt-g4, rgba(206, 188, 158, 1)) 78%,
+    var(--bt-g5, rgba(248, 242, 232, 1)) 100%
+  );
+  background-size: 120% 140%;
+  background-position: 40% 45%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  /* Cool rim + crisp separation — no wide bloom */
+  text-shadow:
+    0 0 1px rgba(232, 242, 250, 0.55),
+    0 1px 2px rgba(8, 14, 22, 0.52);
+  transition: none;
+}
+
+@keyframes bt-idle-breathe {
+  0%,
+  100% {
+    background-position: 40% 45%;
+    filter: blur(var(--bt-blur, 0px));
+  }
+  38% {
+    background-position: 43.5% 47%;
+    filter: blur(calc(var(--bt-blur, 0px) + 0.06px));
+  }
+  61% {
+    background-position: 37.5% 43.5%;
+    filter: blur(calc(var(--bt-blur, 0px) + 0.04px));
+  }
+}
+
+#brand-title-root.brand-title-stardust[data-stardust-phase='idle'] .brand-title-stardust__letter-face {
+  animation: bt-idle-breathe 3.85s ease-in-out infinite;
+}
+
+#brand-title-root.brand-title-stardust
+  .brand-title-stardust__letter[data-letter-phase='dissolve']
+  .brand-title-stardust__letter-face {
+  text-shadow:
+    0 0 2px rgba(238, 246, 252, 0.45),
+    0 1px 2px rgba(10, 18, 26, 0.42);
+}
+
+#brand-title-root.brand-title-stardust
+  .brand-title-stardust__letter[data-letter-phase='drift']
+  .brand-title-stardust__letter-face {
+  text-shadow:
+    0 0 1px rgba(226, 234, 242, 0.42),
+    0 1px 2px rgba(12, 20, 28, 0.36);
+}
+
+/* Starfall formation — letters re-materialize from sampled strokes */
+#brand-title-root.brand-title-stardust
+  .brand-title-stardust__letter[data-letter-phase='star_form']
+  .brand-title-stardust__letter-face {
+  text-shadow:
+    0 0 2px rgba(236, 244, 252, 0.48),
+    0 1px 2px rgba(10, 18, 26, 0.4);
+}
+
+#brand-title-root.brand-title-stardust
+  .brand-title-stardust__letter[data-letter-phase='star_polish']
+  .brand-title-stardust__letter-face {
+  text-shadow:
+    0 0 2px rgba(240, 246, 252, 0.5),
+    0 1px 2px rgba(10, 18, 26, 0.38);
+}
+
+#brand-title-root.brand-title-stardust
+  .brand-title-stardust__letter[data-letter-phase='settle']
+  .brand-title-stardust__letter-face {
+  text-shadow:
+    0 0 1px rgba(236, 244, 252, 0.52),
+    0 1px 2px rgba(8, 16, 22, 0.48);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #brand-title-root.brand-title-stardust .brand-title-stardust__letter-canvas {
+    display: none !important;
+  }
+
+  #brand-title-root.brand-title-stardust[data-stardust-phase='idle'] .brand-title-stardust__letter-face {
+    animation: none !important;
+  }
+
+  #brand-title-root.brand-title-stardust .brand-title-stardust__letter-face {
+    opacity: 1 !important;
+    background-position: 50% 50%;
+    filter: none !important;
+    transform: none !important;
+  }
+}

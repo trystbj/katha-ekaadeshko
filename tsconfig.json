@@ -20,5 +20,5 @@
       "@renderer/*": ["src/renderer/src/*"]
     }
   },
-  "include": ["src/web/**/*", "src/renderer/src/**/*"]
+  "include": ["web/**/*", "src/web/kathaWebBridge.ts", "src/renderer/src/**/*", "core/**/*", "shared/**/*"]
 }

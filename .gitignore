@@ -11,3 +11,5 @@ build/
 .env.*.local
 api-keys.local.env
 worker/.env
+backend/.env
+.env

@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -7,41 +9,90 @@ import {
   type Dispatch,
   type SetStateAction
 } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useUiText } from './i18n/useAppI18n'
+import { Glyphs } from './i18n/uiGlyphs'
+import { useSyncUiLanguageToI18n } from './i18n/useSyncUiLanguageToI18n'
+import { getCachedStylePreviewUrl } from './utils/stylePreviewImageCache'
+import { migrateVisualStyleId } from './utils/styleIdMigration'
 import {
   STYLE_PRESETS,
-  type VisualStyleId,
-  type ProjectStatus,
+  defaultProject,
+  newProjectId,
   type ProjectState,
-  defaultProject
+  type VisualStyleId
 } from './types/story'
 import { useStudioStore } from './store/useStudioStore'
 import { useStoryGeneration } from './hooks/useStoryGeneration'
 import { useLeonardo } from './hooks/useLeonardo'
-import { recommendStyleFromIdea } from './prompts/storyEngine'
-import { LANGUAGE_OPTIONS } from './i18n/resources'
-import { suggestUiLanguageFromText } from './utils/detectLang'
 import { useBackendGenerate } from './hooks/useBackendGenerate'
+import { useStorySpeechDictation } from './hooks/useStorySpeechDictation'
+import { NARRATOR_UI_PRESETS, normalizeNarratorId } from './constants/narrators'
+import { getGenerateReadiness, i18nKeyForMissing } from './utils/generateReadiness'
+import { StudioAmbientBackdrop } from './components/StudioAmbientBackdrop'
+import { PreviewStage } from './components/PreviewStage'
+
+const PostExportVideoWorkspace = lazy(() =>
+  import('./components/PostExportVideoWorkspace').then((m) => ({ default: m.PostExportVideoWorkspace }))
+)
+import { StoryWireframeQuad } from './components/StoryWireframeQuad'
+import { CustomStylePanel } from './components/CustomStylePanel'
+import { StudioGenerationBanner } from './components/StudioGenerationBanner'
+import { StreamRevealDriver } from './components/StreamRevealDriver'
+import {
+  STYLE_WIREFRAME_LABEL_KEY,
+  STYLE_WIREFRAME_ORDER,
+  STYLE_WIREFRAME_TILE_SCRIM
+} from './constants/styleWireframeOrder'
+import { normalizeStudioSeasonId } from './constants/studioSeasonThemes'
+import { LiveScriptPreview } from './components/LiveScriptPreview'
+import { StoryLocalePicker } from './components/StoryLocalePicker'
+import { MonitorCharacterCard } from './components/MonitorCharacterCard'
+import { VoiceMicGlyph } from './components/VoiceMicGlyph'
+import { StudioMonitorSearch } from './components/StudioMonitorSearch'
+import { MonitorSettingsPanel } from './components/MonitorSettingsPanel'
+
+const SavedProjectsWindow = lazy(() =>
+  import('./components/SavedProjectsWindow').then((m) => ({ default: m.SavedProjectsWindow }))
+)
+const MonitorUserGuide = lazy(() =>
+  import('./components/MonitorUserGuide').then((m) => ({ default: m.MonitorUserGuide }))
+)
+import { namesMatch } from './utils/characterNameMatch'
 import { pushStoryToHistory } from './utils/storyHistory'
-import type { IdeaSpeechRecognition } from './utils/speechInput'
-import { getSpeechRecognitionCtor, speechRecognitionAvailable } from './utils/speechInput'
+import { STUDIO_BROADCAST_CHANNEL } from './constants/studioSync'
+import { StoryGenerationDefaultsPicker } from './components/StoryGenerationDefaultsPicker'
+import { StorySubtitleStylePicker } from './components/StorySubtitleStylePicker'
+import { StudioMonitorLabelIcon } from './components/StudioMonitorLabelIcon'
+import { StudioStyleLabelIcon } from './components/StudioStyleLabelIcon'
+import { EpisodeSequentialBanner } from './components/EpisodeSequentialBanner'
+import { SeriesCompleteRewardModal } from './components/SeriesCompleteRewardModal'
+import { normalizeUiLanguageCode } from './i18n/resources'
+import {
+  allEpisodesWritten as projectEveryEpisodeDrafted,
+  canJumpToFinale,
+  episodeArcLabelKey,
+  episodeWrittenMax,
+  previousEpisodeVideoExportDone,
+  seriesFullyExported
+} from './utils/episodeSeriesFlow'
+import './styles/episode-series-flow.css'
+import { BrandTitleStardust } from './components/BrandTitleStardust'
+import { tEpisodePacing } from './utils/i18nEpisodePacing'
+import { repairProjectOnLoad } from './utils/projectRecovery'
+import { CreatorStudioPanel } from './components/CreatorStudioPanel'
 
-const STYLE_KEYS: Record<VisualStyleId, string> = {
-  soft_anime_fantasy: 'styleSoftAnimeFantasy',
-  cinematic_anime: 'styleCinematicAnime',
-  comic_panel: 'styleComicPanel',
-  dark_anime: 'styleDarkAnime',
-  romantic_glow: 'styleRomanticGlow'
-}
-
-/** Prefer scene/background stills; fall back to character portraits for slideshow render. */
-type RenderJobRow = {
-  status?: string
-  stage?: string
-  progress?: number
-  video_url?: string
-  error?: string
-  updated_at?: string
+function splitStudioSubtitleGraphemes(text: string): string[] {
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    try {
+      return Array.from(
+        new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
+        (seg) => seg.segment
+      )
+    } catch {
+      /* ignore */
+    }
+  }
+  return Array.from(text)
 }
 
 function collectRenderImageUrls(project: ProjectState | null): string[] {
@@ -54,26 +105,35 @@ function collectRenderImageUrls(project: ProjectState | null): string[] {
   return withUrl.filter((a) => a.kind === 'character').map((a) => a.url)
 }
 
+function isOngoingHistoryStatus(s: string) {
+  return s === 'in_progress' || s === 'new'
+}
+
 export default function App() {
-  const { t, i18n } = useTranslation()
+  const uiText = useUiText()
+  const appSubtitle = uiText('appSubtitle')
+  const appSubtitleChars = useMemo(() => splitStudioSubtitleGraphemes(appSubtitle), [appSubtitle])
+  const appSubtitleDropCycleSec = Math.min(6.4, Math.max(3.5, 2.55 + appSubtitleChars.length * 0.17))
   const theme = useStudioStore((s) => s.theme)
-  const setTheme = useStudioStore((s) => s.setTheme)
   const uiLanguage = useStudioStore((s) => s.uiLanguage)
-  const setUiLanguage = useStudioStore((s) => s.setUiLanguage)
+  const storyLanguage = useStudioStore((s) => s.storyLanguage)
+  const uiFontMode = useStudioStore((s) => s.uiFontMode)
   const idea = useStudioStore((s) => s.idea)
   const setIdea = useStudioStore((s) => s.setIdea)
-  const backendCountry = useStudioStore((s) => s.backendCountry)
   const backendTheme = useStudioStore((s) => s.backendTheme)
   const backendGenre = useStudioStore((s) => s.backendGenre)
   const backendLength = useStudioStore((s) => s.backendLength)
-  const setBackendCountry = useStudioStore((s) => s.setBackendCountry)
   const setBackendTheme = useStudioStore((s) => s.setBackendTheme)
   const setBackendGenre = useStudioStore((s) => s.setBackendGenre)
   const setBackendLength = useStudioStore((s) => s.setBackendLength)
   const styleId = useStudioStore((s) => s.styleId)
   const setStyleId = useStudioStore((s) => s.setStyleId)
-  const aspectMode = useStudioStore((s) => s.aspectMode)
-  const setAspectMode = useStudioStore((s) => s.setAspectMode)
+  const setCustomStyleOverlayOpen = useStudioStore((s) => s.setCustomStyleOverlayOpen)
+  const customStyleOverlayOpen = useStudioStore((s) => s.customStyleOverlayOpen)
+  const customVisualPrompt = useStudioStore((s) => s.customVisualPrompt)
+  const hydrateStudioFromBible = useStudioStore((s) => s.hydrateStudioFromBible)
+  const narratorId = useStudioStore((s) => s.narratorId)
+  const setNarratorId = useStudioStore((s) => s.setNarratorId)
   const project = useStudioStore((s) => s.project)
   const setProject = useStudioStore((s) => s.setProject)
   const patchProject = useStudioStore((s) => s.patchProject)
@@ -81,17 +141,15 @@ export default function App() {
   const lastError = useStudioStore((s) => s.lastError)
   const setError = useStudioStore((s) => s.setError)
   const job = useStudioStore((s) => s.job)
+  const streamReveal = useStudioStore((s) => s.streamReveal)
+  const studioSeasonId = useStudioStore((s) => s.studioSeasonId)
   const settingsOpen = useStudioStore((s) => s.settingsOpen)
   const setSettingsOpen = useStudioStore((s) => s.setSettingsOpen)
-  const projectPickerOpen = useStudioStore((s) => s.projectPickerOpen)
-  const setProjectPickerOpen = useStudioStore((s) => s.setProjectPickerOpen)
   const selectedEpisode = useStudioStore((s) => s.selectedEpisode)
   const setSelectedEpisode = useStudioStore((s) => s.setSelectedEpisode)
-  const newBlankProject = useStudioStore((s) => s.newBlankProject)
-  const authEmail = useStudioStore((s) => s.authEmail)
   const setAuthEmail = useStudioStore((s) => s.setAuthEmail)
 
-  const { generateEpisode, regenerateScene } = useStoryGeneration()
+  const { generateEpisode } = useStoryGeneration()
   const { generateCharacterBase } = useLeonardo()
   const { generate: backendGenerate } = useBackendGenerate()
 
@@ -100,12 +158,29 @@ export default function App() {
   >([])
   const [storyHistoryOpen, setStoryHistoryOpen] = useState(false)
   const [storyHistoryItems, setStoryHistoryItems] = useState<
-    { id: string; title: string; status: string; updatedAt: string }[]
+    {
+      id: string
+      title: string
+      status: string
+      updatedAt: string
+      episodeCount?: number
+      totalEpisodes?: number | null
+    }[]
   >([])
   const [editMode, setEditMode] = useState(false)
-  const [renderJobId, setRenderJobId] = useState<string | null>(null)
-  const renderJobStartedAtRef = useRef<number | null>(null)
-  const [renderStatus, setRenderStatus] = useState<RenderJobRow | null>(null)
+  const [apiProvidersAvailable, setApiProvidersAvailable] = useState<boolean | null>(null)
+  const [stylePreviewUrls, setStylePreviewUrls] = useState<Record<string, string>>({})
+  useEffect(() => {
+    // Preload cached previews so the style grid can show scene-based frames instantly.
+    const next: Record<string, string> = {}
+    for (const id of STYLE_WIREFRAME_ORDER) {
+      const url = getCachedStylePreviewUrl(id, id === 'custom' ? customVisualPrompt : undefined)
+      if (url) next[id] = url
+    }
+    setStylePreviewUrls((cur) => ({ ...cur, ...next }))
+  }, [customVisualPrompt])
+
+  // Leonardo style previews disabled on load — static `/style-previews/*` assets keep the UI responsive.
 
   const resolvedTheme = useMemo(() => {
     if (theme === 'system') {
@@ -119,15 +194,42 @@ export default function App() {
   }, [resolvedTheme])
 
   useEffect(() => {
-    void i18n.changeLanguage(uiLanguage)
-    document.documentElement.lang = uiLanguage
-  }, [i18n, uiLanguage])
+    useStudioStore.getState().initializeWorkspaceSlots()
+    const st = useStudioStore.getState()
+    const migrated = migrateVisualStyleId(st.styleId)
+    if (migrated && migrated !== st.styleId) st.setStyleId(migrated)
+    const season = st.studioSeasonId
+    const nextSeason = normalizeStudioSeasonId(season)
+    if (nextSeason !== season) st.setStudioSeasonId(nextSeason)
+  }, [])
 
   useEffect(() => {
-    const fm = project?.fontMode ?? 'story'
+    const st = useStudioStore.getState()
+    const next = normalizeUiLanguageCode(st.uiLanguage)
+    if (next !== st.uiLanguage) st.setUiLanguage(next)
+  }, [])
+
+  useSyncUiLanguageToI18n()
+
+  useEffect(() => {
+    const fm = project?.fontMode ?? uiFontMode
     document.body.classList.remove('font-clean', 'font-story', 'font-comic')
     document.body.classList.add(`font-${fm}`)
-  }, [project?.fontMode])
+  }, [project?.fontMode, uiFontMode])
+
+  useEffect(() => {
+    const bid = project?.bible?.narratorId
+    if (bid == null || String(bid).trim() === '') return
+    setNarratorId(normalizeNarratorId(bid))
+  }, [project?.id, project?.bible?.narratorId, setNarratorId])
+
+  useEffect(() => {
+    // Restore per-project UI language (if stored) without changing layout.
+    const lng = project?.uiLanguage
+    if (!lng) return
+    if (lng === useStudioStore.getState().uiLanguage) return
+    useStudioStore.getState().setUiLanguage(lng)
+  }, [project?.id, project?.uiLanguage])
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -141,6 +243,32 @@ export default function App() {
     }
     mq.addEventListener('change', fn)
     return () => mq.removeEventListener('change', fn)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const tick = async () => {
+      const k = window.katha
+      if (!k?.settingsGetApiKeys) {
+        if (!cancelled) setApiProvidersAvailable(false)
+        return
+      }
+      try {
+        const m = await k.settingsGetApiKeys()
+        const ok = Boolean(
+          m.hasOpenAI || m.hasGemini || m.hasDeepSeek || m.hasLeonardo
+        )
+        if (!cancelled) setApiProvidersAvailable(ok)
+      } catch {
+        if (!cancelled) setApiProvidersAvailable(false)
+      }
+    }
+    void tick()
+    const iv = window.setInterval(tick, 25000)
+    return () => {
+      cancelled = true
+      window.clearInterval(iv)
+    }
   }, [])
 
   const refreshProjects = useCallback(async () => {
@@ -173,44 +301,52 @@ export default function App() {
     void refreshStoryHistory()
   }, [refreshProjects, refreshStoryHistory])
 
+  /** Debounced local auto-save: keeps story history in sync on every project change (episodes, edits). */
+  const localSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (!renderJobId) {
-      renderJobStartedAtRef.current = null
-      return
-    }
-    let alive = true
-    const tick = async () => {
-      try {
-        const r = await fetch(`/api/render-status?id=${encodeURIComponent(renderJobId)}`)
-        const text = await r.text()
-        let j: Record<string, unknown> = {}
-        try {
-          j = JSON.parse(text) as Record<string, unknown>
-        } catch {
-          j = {}
-        }
-        if (!alive) return
-        if (!r.ok) {
-          setError(typeof j.error === 'string' ? j.error : text.slice(0, 400) || `Status ${r.status}`)
-          return
-        }
-        setRenderStatus(j as RenderJobRow)
-        const st = j.status as string | undefined
-        if (st === 'done' || st === 'error') return
-        setTimeout(tick, 1500)
-      } catch {
-        if (!alive) return
-        setTimeout(tick, 2000)
-      }
-    }
-    void tick()
+    if (!project?.id || !project.bible) return
+    if (localSaveTimerRef.current) clearTimeout(localSaveTimerRef.current)
+    localSaveTimerRef.current = setTimeout(() => {
+      localSaveTimerRef.current = null
+      void pushStoryToHistory(useStudioStore.getState().project)
+    }, 1200)
     return () => {
-      alive = false
+      if (localSaveTimerRef.current) clearTimeout(localSaveTimerRef.current)
     }
-  }, [renderJobId, setError])
+  }, [project])
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return
+    const bc = new BroadcastChannel(STUDIO_BROADCAST_CHANNEL)
+    bc.onmessage = (ev: MessageEvent) => {
+      const d = ev.data as { type?: string; id?: string }
+      const storyId = d?.id
+      if (d?.type !== 'open-story-history' || !storyId) return
+      void (async () => {
+        const k = window.katha
+        if (!k?.storyHistoryLoad) return
+        try {
+          const p = await k.storyHistoryLoad(storyId)
+          setProject(p)
+          hydrateStudioFromBible(p.bible ?? undefined)
+          setError(null)
+          setStoryHistoryOpen(false)
+        } catch (e) {
+          setError(e instanceof Error ? e.message : String(e))
+        }
+      })()
+    }
+    return () => bc.close()
+  }, [setProject, hydrateStudioFromBible, setError, setStoryHistoryOpen])
 
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authEmailInput, setAuthEmailInput] = useState('')
+  const [celebratePipelineComplete, setCelebratePipelineComplete] = useState(false)
+  const prevBusyCelebrateRef = useRef<string | null>(null)
+  const [episodeExportFlash, setEpisodeExportFlash] = useState<number | null>(null)
+  const exportSigRef = useRef('')
+  const [seriesRewardOpen, setSeriesRewardOpen] = useState(false)
+  const seriesRewardShownSessionRef = useRef<string | null>(null)
 
   useEffect(() => {
     const k = window.katha
@@ -242,6 +378,23 @@ export default function App() {
     setAuthEmail(null)
   }, [setAuthEmail])
 
+  const selectNarrator = useCallback(
+    (id: string) => {
+      const canon = normalizeNarratorId(id)
+      if (!NARRATOR_UI_PRESETS.some((n) => n.id === canon)) return
+      setNarratorId(canon)
+      patchProject((p) => {
+        if (!p.bible) return { ...p, updatedAt: new Date().toISOString() }
+        return {
+          ...p,
+          bible: { ...p.bible, narratorId: canon },
+          updatedAt: new Date().toISOString()
+        }
+      })
+    },
+    [setNarratorId, patchProject]
+  )
+
   const nextEpisodeNumber = useMemo(() => {
     if (!project?.bible) return 1
     const max = project.episodes.reduce((m, e) => Math.max(m, e.number), 0)
@@ -250,12 +403,151 @@ export default function App() {
 
   const totalEpisodes = project?.bible?.totalEpisodes ?? 0
 
+  const storyMetaLocked = Boolean(project?.bible)
+  const allEpisodesWritten = projectEveryEpisodeDrafted(project)
+  const wantsContinueEpisode = Boolean(
+    project?.bible &&
+      !busy &&
+      totalEpisodes > 0 &&
+      !allEpisodesWritten &&
+      (project!.episodes.length ? nextEpisodeNumber <= totalEpisodes : true)
+  )
+  const exportGateBlocksContinue = Boolean(
+    wantsContinueEpisode &&
+      nextEpisodeNumber > 1 &&
+      !previousEpisodeVideoExportDone(project, nextEpisodeNumber)
+  )
+
   const activeEpisode = useMemo(() => {
     if (!project || selectedEpisode == null) return null
     return project.episodes.find((e) => e.number === selectedEpisode) ?? null
   }, [project, selectedEpisode])
 
   const renderSourceUrls = useMemo(() => collectRenderImageUrls(project), [project])
+
+  const pipelineSceneTotalEstimate = useMemo(() => {
+    const fromEpisode = activeEpisode?.scenes?.length ?? 0
+    if (fromEpisode > 0) return fromEpisode
+    return renderSourceUrls.length
+  }, [activeEpisode?.scenes?.length, renderSourceUrls.length])
+
+  useEffect(() => {
+    if (busy === 'generating') setCelebratePipelineComplete(false)
+  }, [busy])
+
+  useEffect(() => {
+    const prev = prevBusyCelebrateRef.current
+    prevBusyCelebrateRef.current = busy
+    if (prev !== 'generating' || busy) return
+    if (lastError) return
+    const j = useStudioStore.getState().job
+    if (!j || typeof j.progress !== 'number' || j.progress < 88) return
+    setCelebratePipelineComplete(true)
+  }, [busy, lastError])
+
+  useEffect(() => {
+    if (!celebratePipelineComplete) return
+    const id = window.setTimeout(() => setCelebratePipelineComplete(false), 3200)
+    return () => window.clearTimeout(id)
+  }, [celebratePipelineComplete])
+
+  const abortPipelineGenerate = useCallback(() => {
+    useStudioStore.getState().abortGenerationInFlight()
+  }, [])
+
+  const exportCompleteSig = useMemo(
+    () =>
+      (project?.episodes ?? [])
+        .filter((e) => e.videoExportComplete)
+        .map((e) => e.number)
+        .sort((a, b) => a - b)
+        .join(','),
+    [project?.episodes]
+  )
+
+  useEffect(() => {
+    seriesRewardShownSessionRef.current = null
+  }, [project?.id])
+
+  useEffect(() => {
+    const prev = exportSigRef.current
+    if (prev === '') {
+      exportSigRef.current = exportCompleteSig
+      return
+    }
+    if (prev === exportCompleteSig) return
+    exportSigRef.current = exportCompleteSig
+    const prevNums = prev ? prev.split(',').map(Number).filter(Boolean) : []
+    const currNums = exportCompleteSig ? exportCompleteSig.split(',').map(Number).filter(Boolean) : []
+    const newly = currNums.filter((n) => !prevNums.includes(n))
+    const hit = newly[newly.length - 1]
+    if (hit != null && hit > 0 && (project?.bible?.totalEpisodes ?? 0) > 1) {
+      setEpisodeExportFlash(hit)
+      const id = window.setTimeout(() => setEpisodeExportFlash(null), 9000)
+      return () => window.clearTimeout(id)
+    }
+  }, [exportCompleteSig, project?.bible?.totalEpisodes])
+
+  useEffect(() => {
+    if (!project?.id || !seriesFullyExported(project)) return
+    try {
+      if (sessionStorage.getItem(`katha:series-reward:${project.id}`) === '1') return
+    } catch {
+      /* ignore */
+    }
+    const key = `${project.id}:exported`
+    if (seriesRewardShownSessionRef.current === key) return
+    seriesRewardShownSessionRef.current = key
+    setSeriesRewardOpen(true)
+  }, [project])
+
+  const skipExportGate = useCallback(() => {
+    if (!project?.bible || nextEpisodeNumber <= 1) return
+    const prevN = nextEpisodeNumber - 1
+    patchProject((p) => ({
+      ...p,
+      episodes: p.episodes.map((e) => (e.number === prevN ? { ...e, videoExportComplete: true } : e)),
+      updatedAt: new Date().toISOString()
+    }))
+  }, [project?.bible, nextEpisodeNumber, patchProject])
+
+  const spinOffSeries = useCallback(() => {
+    const p = useStudioStore.getState().project
+    if (!p?.bible) return
+    const raw = JSON.parse(JSON.stringify(p)) as ProjectState
+    const next = defaultProject({
+      ...raw,
+      id: newProjectId(),
+      title: `${p.title || 'Story'} · spin-off`.slice(0, 120),
+      episodes: [],
+      memorySummary: `${p.memorySummary}\n- Spin-off thread: preserve bible canon; pursue a fresh subplot.`.slice(
+        0,
+        4000
+      ),
+      lastRenderVideoUrl: undefined,
+      videoStudio: undefined,
+      status: 'in_progress',
+      updatedAt: new Date().toISOString()
+    })
+    setProject(next)
+    hydrateStudioFromBible(next.bible ?? undefined)
+    setSelectedEpisode(null)
+    void pushStoryToHistory(next)
+  }, [setProject, hydrateStudioFromBible, setSelectedEpisode])
+
+  const endSeriesHere = useCallback(() => {
+    patchProject((p) => ({
+      ...p,
+      status: 'completed',
+      updatedAt: new Date().toISOString()
+    }))
+  }, [patchProject])
+
+  const generateFinaleNow = useCallback(() => {
+    const p = useStudioStore.getState().project
+    if (!p?.bible || !canJumpToFinale(p)) return
+    void generateEpisode(p.bible.totalEpisodes)
+  }, [generateEpisode])
 
   const sceneFrameAssets = useMemo(() => {
     const assets = project?.assets ?? []
@@ -272,77 +564,70 @@ export default function App() {
         items.push({
           id: `char:${c.id}`,
           url: c.baseImageUrl,
-          caption: `Character · ${c.name}`
+          caption: uiText('galleryCaptionCharacter', { name: c.name })
         })
       }
     }
-    let sceneNum = 0
     for (const a of sceneFrameAssets) {
       if (!a.url) continue
-      sceneNum += 1
+      const match = /^scene:(\d+)$/.exec(String(a.key).trim())
+      const sceneIdx = match ? Number(match[1]) : 0
+      const row = sceneIdx ? activeEpisode?.scenes.find((sc) => sc.index === sceneIdx) : undefined
+      const parts: string[] = [uiText('galleryCaptionScene', { index: String(sceneIdx || '?') })]
+      if (row?.visualDescription) parts.push(row.visualDescription)
+      if (row?.text) parts.push(row.text)
       items.push({
         id: `scene:${a.id}`,
         url: a.url,
-        caption: `Scene ${sceneNum} · ${a.key}`
+        caption: parts.join(' — ').slice(0, 500)
       })
     }
     return items
-  }, [project, sceneFrameAssets])
+  }, [project, sceneFrameAssets, activeEpisode, uiText])
 
   const [visualViewerOpen, setVisualViewerOpen] = useState(false)
   const [visualViewerIndex, setVisualViewerIndex] = useState(0)
+  /** Sidebar + script monitor: which scene speaker row is “in focus”. */
+  const [focusedSceneSpeaker, setFocusedSceneSpeaker] = useState<string | null>(null)
+  const [monitorSearchOpen, setMonitorSearchOpen] = useState(false)
+  const [monitorSearchQuery, setMonitorSearchQuery] = useState('')
+  const [creatorStudioOpen, setCreatorStudioOpen] = useState(true)
+  const [savedLibraryOpen, setSavedLibraryOpen] = useState(false)
+  const [helpCenterOpen, setHelpCenterOpen] = useState(false)
+  /** Script column body: preview + optional story-defaults overlay (overlay does not replace preview in layout). */
+  const scriptGenDefaultsPortalRef = useRef<HTMLDivElement | null>(null)
+  const storyDefaultsOverlayRef = useRef<HTMLDivElement | null>(null)
+  const storyDefaultsHeaderPickersRef = useRef<HTMLSpanElement | null>(null)
+  const [storyDefaultsDialogOpen, setStoryDefaultsDialogOpen] = useState(false)
 
-  const startRender4k = useCallback(async () => {
-    setError(null)
-    try {
-      const p = useStudioStore.getState().project
-      const ep = p?.episodes?.[0]
-      const imgs = collectRenderImageUrls(p)
-      if (!imgs.length) {
-        throw new Error(
-          'No images yet. Set LEONARDO_API_KEY on Vercel for scene stills during generation, or use Leonardo: base portrait on each character in the sidebar.'
-        )
-      }
-      const res = await fetch('/api/render', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storyTitle: p?.title,
-          images: imgs,
-          subtitles: ep?.scenes?.map((s, i) => ({
-            startMs: i * 4000,
-            endMs: (i + 1) * 4000,
-            text: `${s.character}: ${s.text}`
-          })),
-          fps: 30,
-          secondsPerImage: 4
-        })
-      })
-      const j = await res.json()
-      if (!res.ok) throw new Error(j.error || 'Render start failed')
-      setRenderJobId(j.jobId)
-      renderJobStartedAtRef.current = Date.now()
-      setRenderStatus(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
-  }, [setError])
+  useEffect(() => {
+    if (!settingsOpen) setHelpCenterOpen(false)
+  }, [settingsOpen])
 
-  const saveProject = async () => {
-    const k = window.katha
-    if (!k || !project) return
-    setError(null)
-    const payload = { ...project, updatedAt: new Date().toISOString() }
-    try {
-      await k.projectsSave(payload)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (!msg.includes('Not authenticated')) setError(msg)
+  useEffect(() => {
+    if (!storyDefaultsDialogOpen) return
+    const onDoc = (e: MouseEvent) => {
+      const node = e.target as Node
+      if (storyDefaultsOverlayRef.current?.contains(node)) return
+      if (storyDefaultsHeaderPickersRef.current?.contains(node)) return
+      setStoryDefaultsDialogOpen(false)
     }
-    await pushStoryToHistory(payload)
-    await refreshProjects()
-    await refreshStoryHistory()
-  }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [storyDefaultsDialogOpen])
+
+  useEffect(() => {
+    if (!storyDefaultsDialogOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setStoryDefaultsDialogOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [storyDefaultsDialogOpen])
+
+  useEffect(() => {
+    setFocusedSceneSpeaker(null)
+  }, [selectedEpisode, activeEpisode?.number, project?.id])
 
   const loadStoryFromHistory = async (id: string) => {
     const k = window.katha
@@ -350,6 +635,7 @@ export default function App() {
     try {
       const p = await k.storyHistoryLoad(id)
       setProject(p)
+      hydrateStudioFromBible(p.bible ?? undefined)
       setStoryHistoryOpen(false)
       setError(null)
     } catch (e) {
@@ -372,88 +658,107 @@ export default function App() {
   const loadProject = async (id: string) => {
     const k = window.katha
     if (!k) return
-    const p = await k.projectsLoad(id)
+    const p = repairProjectOnLoad(await k.projectsLoad(id))
+    if (!p) {
+      setError('Project could not be loaded — data may be incomplete.')
+      return
+    }
     setProject(p)
-    setProjectPickerOpen(false)
+    hydrateStudioFromBible(p.bible ?? undefined)
   }
 
-  const deleteProject = async (id: string) => {
-    const k = window.katha
-    if (!k) return
-    await k.projectsDelete(id)
-    await refreshProjects()
-    if (project?.id === id) {
-      setProject(null)
-    }
-  }
-
-  const onRecommendStyle = () => {
-    setStyleId(recommendStyleFromIdea(idea))
-  }
-
-  const onIdeaBlur = () => {
-    const s = suggestUiLanguageFromText(idea)
-    if (s) setUiLanguage(s)
-  }
-
-  const statusLabel = (s: ProjectStatus) => {
-    if (s === 'new') return t('statusNew')
-    if (s === 'completed') return t('statusDone')
-    return t('statusProgress')
-  }
-
-  const speechRef = useRef<{
-    rec: IdeaSpeechRecognition | null
-    listening: boolean
-  }>({ rec: null, listening: false })
-  const [voiceListening, setVoiceListening] = useState(false)
   const ideaRef = useRef<HTMLTextAreaElement | null>(null)
+  const storyIdeaWrapRef = useRef<HTMLDivElement | null>(null)
+  const studioMonitorBodyRef = useRef<HTMLDivElement | null>(null)
+  const monitorColumnRef = useRef<HTMLElement | null>(null)
+  const monitorSearchPanelRef = useRef<HTMLDivElement | null>(null)
+  const studioMonitorSearchToggleRef = useRef<HTMLButtonElement | null>(null)
 
-  const canUseClipboard = typeof navigator !== 'undefined' && !!navigator.clipboard
-  const canUseSpeech = speechRecognitionAvailable()
+  const { voiceMicPhase, voiceMicTitle, toggleVoiceToIdea, canUseSpeech } = useStorySpeechDictation({
+    idea,
+    setIdea,
+    ideaRef,
+    storyLanguage,
+    uiLanguage,
+    busy: Boolean(busy),
+    setError,
+    uiText
+  })
 
-  const copyIdea = useCallback(async () => {
-    setError(null)
-    try {
-      const text = idea || ''
-      if (canUseClipboard) {
-        await navigator.clipboard.writeText(text)
-        return
-      }
-      // Fallback for restricted browsers: select the textarea and use execCommand('copy').
-      const el = ideaRef.current
-      if (!el) throw new Error('Copy not available here. Use Ctrl+C or long‑press to copy.')
-      el.focus()
-      el.select()
-      const ok = document.execCommand?.('copy')
-      if (!ok) throw new Error('Copy blocked by browser. Use Ctrl+C or long‑press to copy.')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+  useEffect(() => {
+    if (!savedLibraryOpen && !settingsOpen && !storyHistoryOpen && !monitorSearchOpen) return
+    const onOutside = (e: PointerEvent) => {
+      const col = monitorColumnRef.current
+      if (!col || col.contains(e.target as Node)) return
+      setSavedLibraryOpen(false)
+      setSettingsOpen(false)
+      setStoryHistoryOpen(false)
+      setMonitorSearchOpen(false)
     }
-  }, [canUseClipboard, idea, setError])
+    document.addEventListener('pointerdown', onOutside, true)
+    return () => document.removeEventListener('pointerdown', onOutside, true)
+  }, [savedLibraryOpen, settingsOpen, storyHistoryOpen, monitorSearchOpen, setSettingsOpen])
 
-  const pasteIntoIdea = useCallback(async () => {
-    setError(null)
-    try {
-      if (canUseClipboard) {
-        const text = await navigator.clipboard.readText()
-        if (typeof text === 'string') setIdea(text)
-        return
-      }
-      // Fallback: allow manual paste into a prompt (works on mobile / restricted clipboard permissions).
-      const next = window.prompt('Paste text here')
-      if (typeof next === 'string') setIdea(next)
-    } catch (e) {
-      // Common: clipboard read blocked unless user grants permission.
-      const msg = e instanceof Error ? e.message : String(e)
-      const next = window.prompt('Paste text here (browser blocked auto-paste)', '')
-      if (typeof next === 'string') {
-        setIdea(next)
-      } else {
-        setError(msg)
-      }
+  /** Close monitor search on outside tap — anywhere except the search panel or 🔎 toggle (toggle handles open/close). */
+  useEffect(() => {
+    if (!monitorSearchOpen) return
+    const onDoc = (e: PointerEvent) => {
+      const node = e.target as Node
+      if (monitorSearchPanelRef.current?.contains(node)) return
+      if (studioMonitorSearchToggleRef.current?.contains(node)) return
+      setMonitorSearchOpen(false)
+      setMonitorSearchQuery('')
     }
-  }, [canUseClipboard, setError, setIdea])
+    document.addEventListener('pointerdown', onDoc, true)
+    return () => document.removeEventListener('pointerdown', onDoc, true)
+  }, [monitorSearchOpen])
+
+  const generateReadiness = useMemo(
+    () =>
+      getGenerateReadiness({
+        hasBible: Boolean(project?.bible),
+        styleId: styleId || '',
+        narratorId: narratorId || '',
+        backendTheme,
+        backendGenre,
+        backendLength,
+        uiLanguage,
+        storyLanguage,
+        idea,
+        customVisualPrompt
+      }),
+    [
+      project?.bible,
+      styleId,
+      narratorId,
+      backendTheme,
+      backendGenre,
+      backendLength,
+      uiLanguage,
+      storyLanguage,
+      idea,
+      customVisualPrompt
+    ]
+  )
+  const canRunStreamGenerate = !busy && !project?.bible && generateReadiness.canGenerate
+
+  const generateButtonTitle = useMemo(() => {
+    if (canRunStreamGenerate || busy) return undefined
+    if (!project?.bible && generateReadiness.missing[0]) {
+      return uiText('missingFieldDetail', { field: uiText(i18nKeyForMissing(generateReadiness.missing[0])) })
+    }
+    return uiText('generateMissingFields')
+  }, [canRunStreamGenerate, busy, project?.bible, generateReadiness, uiText])
+
+  const styleApiStatus = useMemo(() => {
+    if (busy) return { tone: 'busy' as const, label: uiText('studioApiBusy') }
+    if (lastError && apiProvidersAvailable)
+      return { tone: 'busy' as const, label: uiText('studioApiBusy') }
+    if (apiProvidersAvailable === null)
+      return { tone: 'checking' as const, label: uiText('studioApiChecking') }
+    if (apiProvidersAvailable) return { tone: 'online' as const, label: uiText('studioApiOnline') }
+    return { tone: 'offline' as const, label: uiText('studioApiOffline') }
+  }, [busy, lastError, apiProvidersAvailable, uiText])
 
   useEffect(() => {
     // On the web we want the browser's native right-click menu (copy/paste/select).
@@ -481,720 +786,797 @@ export default function App() {
     return () => window.removeEventListener('contextmenu', onCtx)
   }, [])
 
-  const toggleVoiceToIdea = async () => {
-    setError(null)
-    try {
-      if (!canUseSpeech) throw new Error('Voice input not supported on this system')
-
-      const SR = getSpeechRecognitionCtor()
-      if (!SR) throw new Error('Voice input not supported on this system')
-      if (!speechRef.current.rec) {
-        const rec = new SR()
-        rec.continuous = true
-        rec.interimResults = true
-        rec.lang = uiLanguage || 'en'
-        rec.onresult = (event) => {
-          let interim = ''
-          let finalText = ''
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const r = event.results[i]
-            const part = r[0]?.transcript || ''
-            if (r.isFinal) finalText += part
-            else interim += part
-          }
-          const next = (finalText || interim || '').trim()
-          if (next) setIdea(next)
-        }
-        rec.onerror = (e) => {
-          setVoiceListening(false)
-          speechRef.current.listening = false
-          setError(e.error ? `Voice error: ${e.error}` : 'Voice error')
-        }
-        rec.onend = () => {
-          setVoiceListening(false)
-          speechRef.current.listening = false
-        }
-        speechRef.current.rec = rec
-      }
-
-      const activeRec = speechRef.current.rec
-      if (!activeRec) return
-
-      // Update language on each start (if user switches UI language).
-      try {
-        activeRec.lang = uiLanguage || 'en'
-      } catch {
-        // ignore
-      }
-
-      if (speechRef.current.listening) {
-        activeRec.stop()
-        speechRef.current.listening = false
-        setVoiceListening(false)
-      } else {
-        activeRec.start()
-        speechRef.current.listening = true
-        setVoiceListening(true)
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
-  }
+  const voiceFabTone =
+    voiceMicPhase === 'listening'
+      ? 'btn-voice-active'
+      : voiceMicPhase === 'paused'
+        ? 'btn-voice-paused'
+        : voiceMicPhase === 'processing'
+          ? 'btn-voice-processing'
+          : voiceMicPhase === 'error'
+            ? 'btn-voice-error'
+            : 'btn-ghost'
 
   return (
-    <div className="app-shell">
-      <header className="head">
-        <div className="brand">
-          <div className="brand-text">
-            <h1>{t('appTitle')}</h1>
-            <span>{t('appSubtitle')}</span>
+    <>
+      <StudioAmbientBackdrop referenceTheme />
+      <StreamRevealDriver />
+      <div className="app-shell app-shell--premium studio-mock-layout studio-mock-layout--fullscreen">
+      <div className="studio-mock-frame">
+      <div className="studio-mock-brand-corner" role="banner">
+        <div className="studio-mock-head__brand studio-mock-head__brand--corner">
+          <div className="studio-mock-logo-text studio-mock-logo-text--hero">
+            <BrandTitleStardust />
+            <div
+              className="studio-mock-logo-en studio-mock-logo-en--hero"
+              style={{ ['--subtitle-drop-cycle' as string]: `${appSubtitleDropCycleSec}s` }}
+              aria-label={appSubtitle}
+            >
+              <span className="studio-mock-logo-en-hero-label" aria-hidden>
+                {appSubtitleChars.map((ch, i) => (
+                  <span
+                    key={`subtitle-gr-${i}-${ch}`}
+                    className="studio-mock-logo-en-hero-char"
+                    style={{
+                      ['--subtitle-char-fr' as string]: String(
+                        appSubtitleChars.length <= 1 ? 0 : i / (appSubtitleChars.length - 1)
+                      ),
+                    }}
+                  >
+                    {ch === ' ' ? '\u00a0' : ch}
+                  </span>
+                ))}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="toolbar">
-          <select
-            className="select"
-            value={theme}
-            onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
-            aria-label="Theme"
-          >
-            <option value="light">{t('themeLight')}</option>
-            <option value="dark">{t('themeDark')}</option>
-            <option value="system">{t('themeSystem')}</option>
-          </select>
-          <button type="button" className="btn btn-ghost" onClick={() => setSettingsOpen(true)}>
-            {t('settings')}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => {
-              void refreshProjects()
-              setProjectPickerOpen(true)
-            }}
-          >
-            {t('projects')}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => {
-              void refreshStoryHistory()
-              setStoryHistoryOpen(true)
-            }}
-          >
-            {t('storyHistory')}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => {
-              newBlankProject()
-              setError(null)
-            }}
-          >
-            {t('newProject')}
-          </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              void refreshProjects()
-              setProjectPickerOpen(true)
-            }}
-          >
-            {t('continueProject')}
-          </button>
-          {authEmail ? (
-            <button type="button" className="btn btn-ghost" onClick={() => void signOut()} title={authEmail}>
-              Sign out
-            </button>
-          ) : (
-            <button type="button" className="btn btn-ghost" onClick={() => setAuthModalOpen(true)}>
-              Sign in
-            </button>
-          )}
-        </div>
-      </header>
+      </div>
+      <main className="main studio-mock-main">
+        <div className="studio-mock-banner-row">{lastError ? <div className="error-banner">{lastError}</div> : null}</div>
 
-      <main className="main">
-        {lastError ? <div className="error-banner">{lastError}</div> : null}
-        {busy ? <div className="busy-bar">{t('loading')} — {busy}</div> : null}
-        {job ? (
-          <div className="panel" style={{ marginBottom: 14 }}>
-            <h3>Live monitor</h3>
-            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--muted)' }}>{job.stage || '—'}</span>
-              <span className="badge">{job.progress}%</span>
-            </div>
-            {job.log?.length ? (
-              <pre className="script-pre" style={{ maxHeight: 140 }}>
-                {job.log.slice(-20).join('\n')}
-              </pre>
-            ) : null}
-          </div>
-        ) : null}
-
-        {renderJobId ? (
-          <div className="panel" style={{ marginBottom: 14 }}>
-            <h3>Video render</h3>
-            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--muted)' }}>{renderStatus?.stage || 'queued'}</span>
-              <span className="badge">{Number(renderStatus?.progress ?? 0)}%</span>
-            </div>
-            {renderStatus?.status === 'done' && renderStatus?.video_url ? (
-              <div style={{ marginTop: 10 }}>
-                <a className="btn" href={renderStatus.video_url} target="_blank" rel="noreferrer">
-                  Download 4K MP4
-                </a>
-              </div>
-            ) : null}
-            {renderStatus?.status === 'error' ? (
-              <div style={{ marginTop: 10, color: 'var(--danger)' }}>{renderStatus?.error || 'Render failed'}</div>
-            ) : null}
-            {renderStatus?.status === 'queued' ? (
-              <div
-                className="render-worker-callout"
-                style={{
-                  marginTop: 12,
-                  padding: 12,
-                  borderRadius: 10,
-                  background: 'rgba(245, 158, 11, 0.1)',
-                  border: '1px solid rgba(245, 158, 11, 0.35)',
-                  fontSize: '0.88rem',
-                  lineHeight: 1.55,
-                  color: 'var(--text)'
-                }}
-              >
-                <strong>{t('renderWorkerQueuedTitle')}</strong>
-                <p style={{ margin: '8px 0 0', color: 'var(--muted)' }}>{t('renderWorkerQueuedBody')}</p>
-                <ol style={{ margin: '10px 0 0', paddingLeft: 20, color: 'var(--text)' }}>
-                  <li style={{ marginBottom: 6 }}>{t('renderWorkerStep1')}</li>
-                  <li style={{ marginBottom: 6 }}>{t('renderWorkerStep2')}</li>
-                  <li style={{ marginBottom: 6 }}>{t('renderWorkerStep3')}</li>
-                  <li style={{ marginBottom: 6 }}>{t('renderWorkerStep4')}</li>
-                  <li>{t('renderWorkerStep5')}</li>
-                </ol>
-              </div>
-            ) : null}
-            {renderStatus?.status === 'running' ? (
-              <p style={{ marginTop: 10, fontSize: '0.88rem', color: 'var(--muted)' }}>{t('renderRunning')}</p>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <h3>{t('style')}</h3>
-          <div className="style-grid">
-            {(Object.keys(STYLE_PRESETS) as VisualStyleId[]).map((id) => {
-              const st = STYLE_PRESETS[id]
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  className={`style-card ${styleId === id ? 'selected' : ''}`}
-                  style={{ backgroundImage: st.previewGradient }}
-                  onClick={() => setStyleId(id)}
+        <div className="studio-mock-body">
+          <div className="studio-mock-row-4">
+          <div className="studio-mock-col studio-mock-col--style" id="studio-style-explorer">
+            <div className="panel studio-mock-panel studio-mock-panel--fill">
+              <div className="studio-mock-style-head">
+                <div className="studio-mock-style-head__lead">
+                  <span className="studio-mock-style-spark" aria-hidden>
+                    <StudioStyleLabelIcon />
+                  </span>
+                  <h3>{uiText('style')}</h3>
+                </div>
+                <span
+                  className={`studio-mock-api-status studio-mock-api-status--${styleApiStatus.tone}`}
+                  title={uiText('studioApiStatusHint', { status: styleApiStatus.label })}
+                  aria-label={uiText('studioApiStatusHint', { status: styleApiStatus.label })}
+                  aria-live="polite"
                 >
-                  {t(STYLE_KEYS[id])}
-                </button>
-              )
-            })}
-          </div>
-          <div className="row" style={{ marginTop: 10 }}>
-            <button type="button" className="btn btn-ghost btn-small" onClick={onRecommendStyle}>
-              {t('recommendStyle')}
-            </button>
-          </div>
-        </div>
-
-        <div className="row" style={{ marginBottom: 14 }}>
-          <div className="panel" style={{ flex: 1, minWidth: 200 }}>
-            <h3>{t('language')}</h3>
-            <select
-              className="select"
-              style={{ width: '100%' }}
-              value={uiLanguage}
-              onChange={(e) => setUiLanguage(e.target.value)}
-            >
-              <option value="en">{t('detectLanguage')} → English</option>
-              {LANGUAGE_OPTIONS.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.flag} {l.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="panel" style={{ flex: 1, minWidth: 200 }}>
-            <h3>{t('aspectRatio')}</h3>
-            <select
-              className="select"
-              style={{ width: '100%' }}
-              value={aspectMode}
-              onChange={(e) => setAspectMode(e.target.value as 'vertical_9_16' | 'horizontal_16_9')}
-            >
-              <option value="vertical_9_16">{t('vertical')}</option>
-              <option value="horizontal_16_9">{t('horizontal')}</option>
-            </select>
-          </div>
-          <div className="panel" style={{ flex: 1, minWidth: 200 }}>
-            <h3>{t('fontClean')} / {t('fontStory')} / {t('fontComic')}</h3>
-            <select
-              className="select"
-              style={{ width: '100%' }}
-              value={project?.fontMode ?? 'story'}
-              onChange={(e) => {
-                const v = e.target.value as 'clean' | 'story' | 'comic'
-                if (!project) {
-                  setProject(defaultProject({ fontMode: v }))
-                } else {
-                  patchProject((p) => ({ ...p, fontMode: v }))
-                }
-              }}
-            >
-              <option value="clean">{t('fontClean')}</option>
-              <option value="story">{t('fontStory')}</option>
-              <option value="comic">{t('fontComic')}</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="panel">
-          <h3>{t('ideaPlaceholder')}</h3>
-          <textarea
-            className="idea-input"
-            ref={ideaRef}
-            value={idea}
-            onChange={(e) => setIdea(e.target.value)}
-            onBlur={onIdeaBlur}
-            placeholder={t('ideaPlaceholder')}
-          />
-          <div style={{ marginTop: 10 }}>
-            <button
-              type="button"
-              className={`btn btn-small icon-btn ${voiceListening ? 'btn-voice-active' : 'btn-ghost'}`}
-              disabled={Boolean(busy) || !canUseSpeech}
-              onClick={() => void toggleVoiceToIdea()}
-              title={canUseSpeech ? (voiceListening ? 'Stop voice input' : 'Voice to story') : 'Voice not supported'}
-            >
-              <span className="icon" aria-hidden>
-                🎙
-              </span>
-              {voiceListening ? 'Listening…' : 'Voice'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-small"
-              style={{ marginLeft: 8 }}
-              disabled={Boolean(busy) || !idea}
-              onClick={() => void copyIdea()}
-              title={canUseClipboard ? 'Copy idea' : 'Copy (Ctrl+C)'}
-            >
-              Copy
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-small"
-              style={{ marginLeft: 8 }}
-              disabled={Boolean(busy)}
-              onClick={() => void pasteIntoIdea()}
-              title={canUseClipboard ? 'Paste into idea' : 'Paste (Ctrl+V)'}
-            >
-              Paste
-            </button>
-          </div>
-          <div className="row" style={{ marginTop: 10 }}>
-            <input
-              className="select"
-              style={{ flex: 1, minWidth: 160 }}
-              value={backendCountry}
-              onChange={(e) => setBackendCountry(e.target.value)}
-              placeholder="Country"
-            />
-            <select
-              className="select"
-              value={backendTheme}
-              onChange={(e) => setBackendTheme(e.target.value)}
-            >
-              <option value="myth">myth</option>
-              <option value="folklore">folklore</option>
-              <option value="urban legend">urban legend</option>
-              <option value="paranormal">paranormal</option>
-            </select>
-            <select
-              className="select"
-              value={backendGenre}
-              onChange={(e) => setBackendGenre(e.target.value)}
-            >
-              <option value="horror">horror</option>
-              <option value="mystery">mystery</option>
-              <option value="love">love</option>
-              <option value="supernatural">supernatural</option>
-              <option value="thriller">thriller</option>
-              <option value="drama">drama</option>
-              <option value="adventure">adventure</option>
-            </select>
-            <select
-              className="select"
-              value={backendLength}
-              onChange={(e) => setBackendLength(e.target.value)}
-            >
-              <option value="short">short</option>
-              <option value="medium">medium</option>
-              <option value="long">long</option>
-            </select>
-          </div>
-          <div className="row" style={{ marginTop: 10 }}>
-            <button
-              type="button"
-              className="btn"
-              disabled={Boolean(busy)}
-              onClick={() => void backendGenerate()}
-            >
-              {t('generateBible')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              disabled={
-                Boolean(busy) ||
-                !project?.bible ||
-                (project?.episodes.length ? nextEpisodeNumber > totalEpisodes : false)
-              }
-              onClick={() => {
-                if (!project) return
-                void generateEpisode(project.episodes.length ? nextEpisodeNumber : 1)
-              }}
-            >
-              {t('continueNext')} ({(project?.episodes?.length ? nextEpisodeNumber : 1)}/{totalEpisodes || '—'})
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              disabled={Boolean(busy) || !project?.bible || totalEpisodes < 1}
-              onClick={() => void generateEpisode(totalEpisodes)}
-            >
-              {t('continueFinal')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              disabled={!project}
-              onClick={() => {
-                patchProject((p) => ({ ...p, status: 'completed' }))
-                void saveProject()
-              }}
-            >
-              {t('storyFinished')}
-            </button>
-            <button type="button" className="btn btn-ghost" disabled={!project} onClick={() => void saveProject()}>
-              {t('saveProject')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              disabled={!project?.bible}
-              onClick={() => setEditMode((v) => !v)}
-              title="Edit generated story"
-            >
-              {editMode ? 'Done editing' : 'Edit story'}
-            </button>
-          </div>
-        </div>
-
-        {project?.bible ? (
-          <div className="panel" style={{ marginTop: 14 }}>
-            {editMode ? (
-              <input
-                className="select"
-                style={{ width: '100%', fontWeight: 800 }}
-                value={project.title}
-                onChange={(e) => patchProject((p) => ({ ...p, title: e.target.value }))}
-                placeholder="Project title"
-              />
-            ) : (
-              <h3>{project.title}</h3>
-            )}
-            {editMode ? (
-              <textarea
-                className="idea-input"
-                style={{ marginTop: 10, minHeight: 70 }}
-                value={project.bible.concept || ''}
-                onChange={(e) =>
-                  patchProject((p) =>
-                    !p.bible ? p : { ...p, bible: { ...p.bible, concept: e.target.value } }
-                  )
-                }
-                placeholder="Story setting / concept"
-              />
-            ) : null}
-            <div className="row">
-              <span className="badge">{statusLabel(project.status)}</span>
-              <span className="badge">
-                {t('providerUsed')}: {project.bible.language} / {project.bible.aspectMode}
-              </span>
+                  <span className="studio-mock-api-status__dot" aria-hidden />
+                  <span className="studio-mock-api-status__label">{styleApiStatus.label}</span>
+                </span>
+              </div>
+              <div className="studio-mock-style-split">
+                <div className="studio-mock-style-grid-wrap">
+                  <div className="style-grid style-grid--wireframe-six">
+                    {STYLE_WIREFRAME_ORDER.map((id: VisualStyleId) => {
+                      const st = STYLE_PRESETS[id]
+                      if (!st) return null
+                      const dynamicUrl = id === 'custom' ? undefined : stylePreviewUrls[id]
+                      const previewUrl = dynamicUrl || st.previewImageUrl
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          className={`style-card style-card--portrait style-card--wireframe-slot style-card--${id} ${
+                            styleId === id ? 'selected' : ''
+                          }`}
+                          style={{
+                            backgroundImage: `${STYLE_WIREFRAME_TILE_SCRIM}, url(${previewUrl})`
+                          }}
+                          onClick={() => {
+                            if (id === 'custom' && styleId === 'custom') {
+                              setCustomStyleOverlayOpen(true)
+                            } else {
+                              setStyleId(id)
+                            }
+                          }}
+                        >
+                          <span className="style-card__label">{uiText(STYLE_WIREFRAME_LABEL_KEY[id])}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {styleId === 'custom' && customStyleOverlayOpen ? (
+                    <div className="studio-mock-custom-style-overlay" role="presentation">
+                      <CustomStylePanel />
+                    </div>
+                  ) : null}
+                </div>
+                <div className="studio-mock-style-trailing">
+                  <StoryWireframeQuad
+                    backendGenre={backendGenre}
+                    setBackendGenre={setBackendGenre}
+                    backendTheme={backendTheme}
+                    setBackendTheme={setBackendTheme}
+                    backendLength={backendLength}
+                    setBackendLength={setBackendLength}
+                    narratorId={narratorId}
+                    onSelectNarrator={selectNarrator}
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        ) : null}
-
-        {activeEpisode ? (
-          <div className="panel" style={{ marginTop: 14 }}>
-            <h3>
-              Episode {activeEpisode.number} — {activeEpisode.pacing} — {activeEpisode.estimatedDurationSec}s
-            </h3>
-            <ul style={{ paddingLeft: 18, margin: 0 }}>
-              {activeEpisode.scenes.map((s) => (
-                <li key={s.index} style={{ marginBottom: 8 }}>
-                  <strong>{s.character}</strong>{' '}
-                  {editMode ? (
-                    <textarea
-                      className="idea-input"
-                      style={{ display: 'block', marginTop: 6, minHeight: 56 }}
-                      value={s.text}
-                      onChange={(e) =>
-                        patchProject((p) => {
-                          const ep = p.episodes.find((x) => x.number === activeEpisode.number)
-                          if (!ep) return p
-                          const episodes = p.episodes.map((x) => {
-                            if (x.number !== activeEpisode.number) return x
-                            return {
-                              ...x,
-                              scenes: x.scenes.map((sc) =>
-                                sc.index === s.index ? { ...sc, text: e.target.value } : sc
-                              )
-                            }
-                          })
-                          return { ...p, episodes, updatedAt: new Date().toISOString() }
-                        })
-                      }
-                    />
-                  ) : (
-                    <span className={s.lineType === 'Thought' ? 'thought' : ''}>
-                      {s.lineType === 'Thought' ? '(thought)' : ':'} {s.text}{' '}
-                      {s.emoji ? <span aria-hidden>{s.emoji}</span> : null}
-                    </span>
-                  )}
+          <div id="studio-preview-column" className="studio-mock-col studio-mock-col--preview">
+            <div
+              className={`studio-mock-preview-slot${busy ? ' studio-mock-preview-slot--generating' : ''}`}
+            >
+              <StudioGenerationBanner
+                visible={Boolean(busy)}
+                busyLabel={busy}
+                job={job}
+                sceneThumbnailUrls={renderSourceUrls}
+                sceneTotalEstimate={pipelineSceneTotalEstimate}
+                onCancelPipeline={abortPipelineGenerate}
+              />
+              {project?.lastRenderVideoUrl ? (
+                <Suspense fallback={<div className="studio-mock-preview-wrap workspace-premium__stage" aria-busy="true" />}>
+                  <PostExportVideoWorkspace
+                    videoUrl={project.lastRenderVideoUrl}
+                    scenes={activeEpisode?.scenes ?? []}
+                    storyLanguage={storyLanguage}
+                    project={project}
+                    patchProject={patchProject}
+                    episodeNumber={selectedEpisode ?? project.episodes[0]?.number ?? 1}
+                  />
+                </Suspense>
+              ) : (
+                <PreviewStage
+                  sectionClassName="studio-mock-preview-wrap workspace-premium__stage"
+                  seasonId={studioSeasonId}
+                  sceneUrls={renderSourceUrls}
+                  busy={Boolean(busy)}
+                  jobProgress={job?.progress}
+                  celebrateComplete={celebratePipelineComplete}
+                  pipelineThumbUrls={renderSourceUrls}
+                  hideHeading
+                  idleBlank
+                  useWireframeExplanation
+                />
+              )}
+            </div>
+          </div>
+          <div className="studio-mock-col studio-mock-col--story">
+            <div
+              className={`panel studio-mock-panel${!project?.bible ? ' studio-mock-idea-panel--with-generate' : ''}`}
+            >
+              <h3 className="studio-mock-section-title studio-mock-section-title--split">
+                <span className="studio-mock-section-title__lead">
+                  <span className="studio-mock-section-title__ic" aria-hidden>
+                    {Glyphs.bulb}
+                  </span>
+                  <span className="studio-mock-section-title__seed-cluster">
+                    <span className="studio-mock-section-title__seed-headline">{uiText('ideaSeedTitleWireframe')}</span>
+                    {project?.lastRenderVideoUrl ? (
+                      <StorySubtitleStylePicker menuPortalContainerRef={storyIdeaWrapRef} />
+                    ) : null}
+                  </span>
+                </span>
+                <span className="studio-mock-section-title__pickers">
+                  <StoryLocalePicker menuPortalContainerRef={storyIdeaWrapRef} />
+                </span>
+              </h3>
+              <div ref={storyIdeaWrapRef} className="studio-mock-idea-wrap">
+                <textarea
+                  id="studio-story-seed"
+                  className={`idea-input idea-input--cinematic studio-mock-idea-textarea${busy || streamReveal ? ' idea-input--live-gen' : ''}`}
+                  ref={ideaRef}
+                  maxLength={500}
+                  value={idea}
+                  onChange={(e) => setIdea(e.target.value)}
+                  placeholder={uiText('ideaFieldWireframe')}
+                />
+                {project?.bible ? (
                   <button
                     type="button"
-                    className="btn btn-ghost btn-small"
-                    style={{ marginLeft: 8 }}
-                    disabled={Boolean(busy)}
-                    onClick={() => void regenerateScene(activeEpisode.number, s.index)}
+                    className={`studio-mock-voice-fab btn btn-small icon-btn ${voiceFabTone}`}
+                    disabled={Boolean(busy) || !canUseSpeech}
+                    onClick={() => void toggleVoiceToIdea()}
+                    title={voiceMicTitle}
+                    aria-label={uiText('voiceFabAria')}
                   >
-                    {t('regenerateScene')}
+                    <VoiceMicGlyph className="voice-mic-glyph voice-mic-glyph--fab" />
                   </button>
-                </li>
-              ))}
-            </ul>
-            <p>
-              <strong>Cliffhanger:</strong> {activeEpisode.cliffhanger}
-            </p>
-          </div>
-        ) : null}
-
-        {project?.episodes?.length ? (
-          <div className="panel" style={{ marginTop: 14 }}>
-            <h3>Video (4K)</h3>
-            <p style={{ color: 'var(--muted)', fontSize: '0.9rem', margin: '0 0 10px' }}>
-              Queues a render in Supabase. A <strong>local worker</strong> on your PC (see README / “Video
-              render” panel after you start) must run FFmpeg and upload the 4K MP4. Uses scene stills or
-              character portraits from the sidebar.
-            </p>
-            <button
-              type="button"
-              className="btn"
-              disabled={Boolean(busy) || !renderSourceUrls.length}
-              onClick={() => void startRender4k()}
-            >
-              Generate Video (4K)
-            </button>
-            {!renderSourceUrls.length ? (
-              <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: 8 }}>
-                No images on this project yet. Add <code>LEONARDO_API_KEY</code> on Vercel and generate the
-                story again for scene frames, or use Leonardo: base portrait per character.
+                ) : null}
+              </div>
+              <p className="studio-mock-char-count">
+                {idea.length}
+                {Glyphs.slash}
+                {Glyphs.space}
+                {Glyphs.charsMax500}
               </p>
-            ) : null}
-          </div>
-        ) : null}
-      </main>
-
-      <aside className="side">
-        <h3 style={{ margin: '4px 0 8px' }}>{t('storyMonitor')}</h3>
-        {!project ? (
-          <p style={{ color: 'var(--muted)' }}>{t('noProject')}</p>
-        ) : (
-          <>
-            <div className="panel">
-              <h3>{t('episodes')}</h3>
-              {project.bible
-                ? Array.from({ length: project.bible.totalEpisodes }, (_, i) => i + 1).map((n) => {
-                    const ep = project.episodes.find((e) => e.number === n)
-                    const done = Boolean(ep)
-                    const current = selectedEpisode === n
-                    return (
-                      <div
-                        key={n}
-                        className={`episode-row ${done ? 'done' : ''} ${current ? 'current' : ''}`}
-                        onClick={() => setSelectedEpisode(n)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            setSelectedEpisode(n)
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
-                      >
-                        <span>
-                          E{n} {ep ? `· ${ep.pacing}` : '· …'}
-                        </span>
-                        <span className="badge">{done ? 'done' : 'upcoming'}</span>
-                      </div>
-                    )
-                  })
-                : (
-                  <span className="badge">{t('statusNew')}</span>
-                )}
-            </div>
-
-            <div className="panel">
-              <h3>{t('characters')}</h3>
-              {project.bible?.characters.map((c) => (
-                <div key={c.id} className="char-card">
-                  {c.baseImageUrl ? (
+              {!project?.bible ? (
+                <div className="studio-mock-generate-strip">
+                  <button
+                    id="studio-generate-cta"
+                    type="button"
+                    className="btn btn-generate-cta studio-mock-generate-cta"
+                    disabled={Boolean(busy) || !canRunStreamGenerate}
+                    title={generateButtonTitle}
+                    onClick={() => void backendGenerate()}
+                  >
+                    <span aria-hidden>✨</span> {uiText('wireframeCtaGenerate')}
+                  </button>
+                  <span className="studio-mock-voice-defaults-cluster">
                     <button
                       type="button"
-                      className="char-card__thumb-btn"
-                      aria-label={`Fullscreen: ${c.name}`}
+                      className={`studio-mock-voice-ic${
+                        voiceMicPhase === 'listening'
+                          ? ' studio-mock-voice-ic--listening'
+                          : voiceMicPhase === 'paused'
+                            ? ' studio-mock-voice-ic--paused'
+                            : voiceMicPhase === 'processing'
+                              ? ' studio-mock-voice-ic--processing'
+                              : voiceMicPhase === 'error'
+                                ? ' studio-mock-voice-ic--error'
+                                : ''
+                      }`}
+                      disabled={Boolean(busy) || !canUseSpeech}
+                      onClick={() => void toggleVoiceToIdea()}
+                      title={voiceMicTitle}
+                      aria-label={uiText('voiceFabAria')}
+                    >
+                      <VoiceMicGlyph className="voice-mic-glyph voice-mic-glyph--strip" />
+                    </button>
+                  </span>
+                </div>
+              ) : null}
+              {allEpisodesWritten ? (
+                <p className="series-complete studio-mock-series-note">{uiText('seriesComplete')}</p>
+              ) : null}
+              {project?.bible && totalEpisodes > 1 ? (
+                <EpisodeSequentialBanner flashEpisodeDone={episodeExportFlash} totalEpisodes={totalEpisodes} />
+              ) : null}
+              <div id="studio-story-actions" className="row studio-mock-actions-row">
+                {project?.bible && wantsContinueEpisode ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={Boolean(busy) || exportGateBlocksContinue}
+                      title={
+                        exportGateBlocksContinue
+                          ? uiText('episodeFlowExportPrevFirst')
+                          : nextEpisodeNumber === totalEpisodes && totalEpisodes > 0
+                            ? uiText('writeFinalEpisode', { n: nextEpisodeNumber, m: totalEpisodes })
+                            : uiText('nextEpisodeCta', { n: nextEpisodeNumber, m: totalEpisodes || '—' })
+                      }
                       onClick={() => {
-                        const idx = visualGalleryItems.findIndex((x) => x.id === `char:${c.id}`)
-                        if (idx < 0) return
-                        setVisualViewerIndex(idx)
-                        setVisualViewerOpen(true)
+                        if (!project) return
+                        void generateEpisode(project.episodes.length ? nextEpisodeNumber : 1)
                       }}
                     >
-                      <img src={c.baseImageUrl} alt={c.name} />
+                      <span aria-hidden>⏭</span> {uiText('wireframeCtaContinueEpisode')}
                     </button>
-                  ) : (
-                    <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--surface-2)' }} />
-                  )}
-                  <div style={{ flex: 1 }}>
+                    {exportGateBlocksContinue ? (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-small"
+                        onClick={() => skipExportGate()}
+                        title={uiText('episodeFlowSkipExportGateHint')}
+                      >
+                        {uiText('episodeFlowSkipExportGate')}
+                      </button>
+                    ) : null}
+                  </>
+                ) : null}
+                {project?.bible ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={!project?.bible}
+                    onClick={() => setEditMode((v) => !v)}
+                    title={
+                      editMode
+                        ? uiText('editWireframeDoneHint')
+                        : uiText('editWireframeActiveHint')
+                    }
+                  >
                     {editMode ? (
-                      <>
-                        <input
-                          className="select"
-                          style={{ width: '100%', fontWeight: 700 }}
-                          value={c.name}
-                          onChange={(e) =>
-                            patchProject((p) => {
-                              if (!p.bible) return p
-                              return {
-                                ...p,
-                                bible: {
-                                  ...p.bible,
-                                  characters: p.bible.characters.map((x) =>
-                                    x.id === c.id ? { ...x, name: e.target.value } : x
-                                  )
-                                }
-                              }
-                            })
-                          }
-                        />
-                        <textarea
-                          className="idea-input"
-                          style={{ marginTop: 6, minHeight: 52 }}
-                          value={c.personality}
-                          onChange={(e) =>
-                            patchProject((p) => {
-                              if (!p.bible) return p
-                              return {
-                                ...p,
-                                bible: {
-                                  ...p.bible,
-                                  characters: p.bible.characters.map((x) =>
-                                    x.id === c.id ? { ...x, personality: e.target.value } : x
-                                  )
-                                }
-                              }
-                            })
-                          }
-                        />
-                      </>
+                      uiText('editDone')
                     ) : (
                       <>
-                        <div style={{ fontWeight: 700 }}>{c.name}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{c.personality}</div>
+                        <span aria-hidden>✏️</span> {uiText('wireframeCtaEditStory')}
                       </>
                     )}
+                  </button>
+                ) : null}
+              </div>
+              {project?.bible ? (
+                <div className="studio-mock-episode-flow-tools">
+                  {totalEpisodes > 1 && nextEpisodeNumber > 1 ? (
                     <button
                       type="button"
                       className="btn btn-ghost btn-small"
-                      style={{ marginTop: 6 }}
                       disabled={Boolean(busy)}
-                      onClick={() => void generateCharacterBase(c.id)}
-                    >
-                      Leonardo: base portrait
-                    </button>
-                  </div>
-                </div>
-              )) ?? null}
-            </div>
-
-            <div className="panel">
-              <h3>Scene frames</h3>
-              {sceneFrameAssets.length ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0 0 8px' }}>
-                  {t('sceneFramesTapHint')}
-                </p>
-              ) : null}
-              {sceneFrameAssets.length ? (
-                <div
-                  className="scene-frames-grid"
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                    gap: 8
-                  }}
-                >
-                  {sceneFrameAssets.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      className="scene-frame-thumb"
-                      aria-label={`${t('sceneFramesTapHint')}: ${a.key}`}
                       onClick={() => {
-                        const idx = visualGalleryItems.findIndex((x) => x.id === `scene:${a.id}`)
-                        if (idx < 0) return
-                        setVisualViewerIndex(idx)
-                        setVisualViewerOpen(true)
+                        setSelectedEpisode(Math.max(1, nextEpisodeNumber - 1))
+                        setEditMode(true)
                       }}
                     >
-                      <img src={a.url} alt={a.key} />
+                      {uiText('episodeFlowEditPrevious')}
                     </button>
-                  ))}
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-small"
+                    disabled={Boolean(busy)}
+                    onClick={() => endSeriesHere()}
+                  >
+                    {uiText('episodeFlowEndSeries')}
+                  </button>
+                  {totalEpisodes > 1 && canJumpToFinale(project) ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-small"
+                      disabled={Boolean(busy)}
+                      onClick={() => generateFinaleNow()}
+                    >
+                      {uiText('episodeFlowGenerateFinale')}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-small"
+                    disabled={Boolean(busy)}
+                    onClick={() => spinOffSeries()}
+                  >
+                    {uiText('episodeFlowSpinOff')}
+                  </button>
                 </div>
-              ) : (
-                <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: 0 }}>
-                  Scene stills appear here when the server generates Leonardo images for each script beat.
-                </p>
-              )}
+              ) : null}
             </div>
-
-            <div className="panel">
-              <h3>{t('continuity')}</h3>
-              <pre className="script-pre" style={{ maxHeight: 120 }}>
-                {project.memorySummary || '—'}
-              </pre>
+            <div className="panel studio-mock-panel studio-mock-script-panel">
+              <h3 className="studio-mock-section-title">
+                <span className="studio-mock-section-title__lead">
+                  <span
+                    className="studio-mock-section-title__ic studio-mock-section-title__ic--script-panel"
+                    aria-hidden
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden focusable="false">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
+                  </span>
+                  <span className="studio-mock-section-title__label-text">{uiText('studioGeneratedScriptTitle')}</span>
+                </span>
+                <span ref={storyDefaultsHeaderPickersRef} className="studio-mock-section-title__pickers">
+                  <StoryGenerationDefaultsPicker
+                    onRequestOpenInGeneratedDialog={() =>
+                      setStoryDefaultsDialogOpen((o) => !o)
+                    }
+                  />
+                </span>
+              </h3>
+              <div ref={scriptGenDefaultsPortalRef} className="studio-mock-script-panel__portal-host">
+                <LiveScriptPreview
+                  scenes={activeEpisode?.scenes ?? []}
+                  rawStructured={activeEpisode?.rawStructured}
+                  busy={Boolean(busy)}
+                  streamLines={job?.log?.slice(-20) ?? []}
+                  streamReveal={streamReveal}
+                  focusedSpeaker={focusedSceneSpeaker}
+                  onSceneFocus={(speaker) => setFocusedSceneSpeaker(speaker.trim())}
+                  emptyHint={storyDefaultsDialogOpen ? '' : uiText('studioScriptPlaceholder')}
+                />
+                {storyDefaultsDialogOpen ? (
+                  <div
+                    ref={storyDefaultsOverlayRef}
+                    className="studio-generated-dialog studio-generated-dialog--overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={uiText('storyGenDefaultsAria')}
+                  >
+                    <StoryGenerationDefaultsPicker embeddedInGeneratedDialog />
+                  </div>
+                ) : null}
+              </div>
             </div>
-
-            <div className="panel">
-              <h3>{t('scriptPreview')}</h3>
-              <pre className="script-pre">{activeEpisode?.rawStructured ?? '—'}</pre>
+        </div>
+        <aside
+          ref={monitorColumnRef}
+          className={`studio-mock-col studio-mock-col--monitor${savedLibraryOpen || settingsOpen ? ' studio-mock-col--monitor--panel-embed' : ''}`}
+        >
+          <div className="studio-mock-monitor-title">
+            <div className="studio-mock-monitor-title__lead">
+              <span className="studio-mock-monitor-title__text">
+                <span className="studio-mock-monitor-title__icon" aria-hidden>
+                  <StudioMonitorLabelIcon />
+                </span>
+                <span className="studio-mock-monitor-title__label">{uiText('storyMonitor')}</span>
+              </span>
             </div>
-          </>
-        )}
-      </aside>
+            <div className="studio-mock-monitor-title__icons">
+              <button
+                ref={studioMonitorSearchToggleRef}
+                type="button"
+                className="studio-mock-monitor-action-btn"
+                aria-label={uiText('studioNavSearch')}
+                title={uiText('studioNavSearch')}
+                aria-expanded={monitorSearchOpen}
+                aria-controls={
+                  monitorSearchOpen ? 'studio-monitor-search-region' : undefined
+                }
+                onClick={() => {
+                  setSavedLibraryOpen(false)
+                  setSettingsOpen(false)
+                  setMonitorSearchOpen((open) => {
+                    if (open) {
+                      setMonitorSearchQuery('')
+                      return false
+                    }
+                    void refreshStoryHistory()
+                    void refreshProjects()
+                    setMonitorSearchQuery('')
+                    return true
+                  })
+                }}
+              >
+                {Glyphs.navSearch}
+              </button>
+              <button
+                type="button"
+                className="studio-mock-monitor-action-btn"
+                aria-label={uiText('savedLibraryTitle')}
+                title={uiText('savedLibraryTitle')}
+                aria-expanded={savedLibraryOpen}
+                onClick={() => {
+                  setMonitorSearchOpen(false)
+                  setMonitorSearchQuery('')
+                  setStoryHistoryOpen(false)
+                  setSettingsOpen(false)
+                  setSavedLibraryOpen((o) => !o)
+                }}
+              >
+                {Glyphs.saveDisk}
+              </button>
+              <button
+                type="button"
+                className="studio-mock-monitor-action-btn"
+                aria-label={uiText('studioNavHistory')}
+                title={uiText('studioNavHistory')}
+                aria-expanded={storyHistoryOpen}
+                onClick={() => {
+                  setSavedLibraryOpen(false)
+                  setSettingsOpen(false)
+                  setStoryHistoryOpen((wasOpen) => {
+                    const next = !wasOpen
+                    if (next) void refreshStoryHistory()
+                    return next
+                  })
+                }}
+              >
+                {Glyphs.clock}
+              </button>
+              <button
+                type="button"
+                className="studio-mock-monitor-action-btn"
+                aria-label={uiText('studioNavSettings')}
+                title={uiText('studioNavSettings')}
+                aria-expanded={settingsOpen}
+                onClick={() => {
+                  setMonitorSearchOpen(false)
+                  setMonitorSearchQuery('')
+                  setSavedLibraryOpen(false)
+                  setStoryHistoryOpen(false)
+                  setSettingsOpen(!settingsOpen)
+                }}
+              >
+                {Glyphs.gear}
+              </button>
+            </div>
+            <div className="studio-mock-monitor-title__fill" aria-hidden />
+            <div className="studio-mock-monitor-title__locale" aria-hidden />
+          </div>
+          <div ref={studioMonitorBodyRef} className="studio-mock-monitor-body">
+          {monitorSearchOpen ? (
+            <div
+              ref={monitorSearchPanelRef}
+              id="studio-monitor-search-region"
+              className="studio-mock-monitor-search-host"
+            >
+              <StudioMonitorSearch
+                query={monitorSearchQuery}
+                onQueryChange={setMonitorSearchQuery}
+                onClose={() => {
+                  setMonitorSearchOpen(false)
+                  setMonitorSearchQuery('')
+                }}
+                project={project}
+                historyRows={storyHistoryItems.map((x) => ({ id: x.id, title: x.title }))}
+                cloudRows={projectsMeta.map((x) => ({ id: x.id, title: x.title }))}
+                onPickEpisode={(n) => setSelectedEpisode(n)}
+                onPickBible={() => setSelectedEpisode(1)}
+                onPickHistory={(id) => void loadStoryFromHistory(id)}
+                onPickCloud={(id) => void loadProject(id)}
+              />
+            </div>
+          ) : savedLibraryOpen ? (
+            <Suspense fallback={<div className="studio-mock-monitor-placeholder" aria-busy="true" />}>
+              <SavedProjectsWindow
+                variant="monitor"
+                onClose={() => setSavedLibraryOpen(false)}
+                onLoadInStudio={(id) => {
+                  void loadStoryFromHistory(id)
+                  setSavedLibraryOpen(false)
+                }}
+              />
+            </Suspense>
+          ) : storyHistoryOpen ? (
+            <div className="panel studio-mock-panel" aria-label={uiText('storyHistoryPopoverTitle')}>
+              <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <div style={{ fontWeight: 800, letterSpacing: '0.04em' }}>{uiText('storyHistoryPopoverTitle')}</div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-small"
+                  onClick={() => setStoryHistoryOpen(false)}
+                >
+                  {uiText('close')}
+                </button>
+              </div>
+              <p style={{ margin: '8px 0 10px', color: 'var(--muted)', fontSize: '0.85rem', lineHeight: 1.4 }}>
+                {uiText('storyHistoryHint')}
+              </p>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {[...storyHistoryItems]
+                  .sort((a, b) => {
+                    const ao = isOngoingHistoryStatus(a.status) ? 1 : 0
+                    const bo = isOngoingHistoryStatus(b.status) ? 1 : 0
+                    if (bo !== ao) return bo - ao
+                    const ta = new Date(a.updatedAt || 0).getTime()
+                    const tb = new Date(b.updatedAt || 0).getTime()
+                    return tb - ta
+                  })
+                  .map((row) => (
+                    <div
+                      key={row.id}
+                      className="row"
+                      style={{
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        padding: '8px 8px',
+                        borderRadius: 10,
+                        border: '1px solid rgba(255,255,255,0.10)',
+                        background: 'rgba(0,0,0,0.18)'
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-small"
+                        style={{
+                          flex: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                          padding: 0,
+                          background: 'transparent'
+                        }}
+                        onClick={() => {
+                          void loadStoryFromHistory(row.id)
+                          setStoryHistoryOpen(false)
+                        }}
+                      >
+                        <span style={{ minWidth: 0, display: 'grid' }}>
+                          <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {row.title || '—'}
+                          </span>
+                          <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>
+                            {row.updatedAt
+                              ? new Date(row.updatedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+                              : '—'}
+                          </span>
+                        </span>
+                        <span className="badge">{row.status}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-small"
+                        title={uiText('storyHistoryDelete')}
+                        aria-label={uiText('storyHistoryDelete')}
+                        onClick={() => {
+                          if (!window.confirm(uiText('storyHistoryConfirmDelete'))) return
+                          void deleteStoryFromHistory(row.id)
+                        }}
+                      >
+                        {Glyphs.multiply}
+                      </button>
+                    </div>
+                  ))}
+                {storyHistoryItems.length === 0 ? (
+                  <p className="studio-mock-monitor-placeholder" style={{ margin: 0 }}>
+                    {uiText('storyHistoryEmpty')}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : settingsOpen && helpCenterOpen ? (
+            <Suspense fallback={<div className="studio-mock-monitor-placeholder" aria-busy="true" />}>
+              <MonitorUserGuide onBack={() => setHelpCenterOpen(false)} />
+            </Suspense>
+          ) : settingsOpen ? (
+            <MonitorSettingsPanel
+              onClose={() => setSettingsOpen(false)}
+              onOpenHelpCenter={() => setHelpCenterOpen(true)}
+              onRequestAuth={() => {
+                setSettingsOpen(false)
+                setAuthModalOpen(true)
+              }}
+              onSignOut={() => void signOut()}
+            />
+          ) : !project ? (
+            streamReveal ? (
+              <div className="panel studio-mock-panel studio-mock-monitor-live-gen" aria-live="polite">
+                <h3 className="studio-mock-wireframe-monitor-h">{uiText('liveGenMonitorMirrorTitle')}</h3>
+                <pre className="studio-mock-monitor-live-gen__pre">{streamReveal.fullDoc.slice(0, streamReveal.visibleLen)}</pre>
+              </div>
+            ) : (
+              <p className="studio-mock-monitor-placeholder">{uiText('noProject')}</p>
+            )
+          ) : (
+            <>
+              <section className="studio-mock-monitor-section" aria-labelledby="studio-wireframe-episodes">
+                <h3 id="studio-wireframe-episodes" className="studio-mock-wireframe-monitor-h">
+                  {uiText('episodes')}
+                </h3>
+                <div className="panel studio-mock-panel studio-mock-episodes-panel">
+                {project.bible
+                  ? Array.from({ length: project.bible.totalEpisodes }, (_, i) => i + 1).map((n) => {
+                      const ep = project.episodes.find((e) => e.number === n)
+                      const written = Boolean(ep)
+                      const videoDone = Boolean(ep?.videoExportComplete)
+                      const current = selectedEpisode === n
+                      const te = project.bible!.totalEpisodes
+                      const wMax = episodeWrittenMax(project)
+                      const gateLocked =
+                        !written &&
+                        n === wMax + 1 &&
+                        wMax >= 1 &&
+                        !project.episodes.find((e) => e.number === wMax)?.videoExportComplete
+                      const arcTitle = uiText(episodeArcLabelKey(n, te))
+                      return (
+                        <div
+                          key={n}
+                          className={`episode-row ${written ? 'done' : ''} ${current ? 'current' : ''}${gateLocked ? ' episode-row--gate-locked' : ''}${written && !videoDone ? ' episode-row--export-pending' : ''}${written && videoDone ? ' episode-row--exported' : ''}`}
+                          onClick={() => setSelectedEpisode(n)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              setSelectedEpisode(n)
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          title={arcTitle}
+                        >
+                          <span>
+                            {uiText('episodeMonitorRowLabel', {
+                              n,
+                              arc: arcTitle,
+                              pacing: ep ? tEpisodePacing(uiText, ep.pacing) : uiText('uiEllipsis')
+                            })}
+                          </span>
+                          <span className="badge">
+                            {!written
+                              ? gateLocked
+                                ? uiText('episodeBadgeLockedNext')
+                                : uiText('episodeBadgeUpcoming')
+                              : !videoDone
+                                ? uiText('episodeBadgeExportPending')
+                                : uiText('episodeBadgeExported')}
+                          </span>
+                        </div>
+                      )
+                    })
+                  : (
+                    <span className="badge">{uiText('statusNew')}</span>
+                  )}
+                </div>
+              </section>
 
-      <footer className="foot">{t('footer')}</footer>
+              {activeEpisode?.scenes?.length ? (
+                <section className="studio-mock-monitor-section" aria-labelledby="studio-wireframe-creator">
+                  <div className="studio-mock-monitor-section__head-row">
+                    <h3 id="studio-wireframe-creator" className="studio-mock-wireframe-monitor-h">
+                      {uiText('creatorStudioTitle')}
+                    </h3>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      aria-expanded={creatorStudioOpen}
+                      onClick={() => setCreatorStudioOpen((o) => !o)}
+                    >
+                      {creatorStudioOpen ? '−' : '+'}
+                    </button>
+                  </div>
+                  {creatorStudioOpen ? (
+                    <div className="panel studio-mock-panel creator-studio-panel-wrap">
+                      <CreatorStudioPanel
+                        project={project}
+                        episode={activeEpisode}
+                        episodeNumber={selectedEpisode ?? activeEpisode.number}
+                        patchProject={patchProject}
+                        thumbnailUrl={renderSourceUrls[0] ?? null}
+                      />
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
+
+              <section className="studio-mock-monitor-section" aria-labelledby="studio-wireframe-characters">
+                <h3 id="studio-wireframe-characters" className="studio-mock-wireframe-monitor-h">
+                  {uiText('characters')}
+                </h3>
+                <div className="panel studio-mock-panel studio-mock-characters-wireframe-panel">
+                {project.bible?.characters.map((c) => (
+                  <MonitorCharacterCard
+                    key={c.id}
+                    character={c}
+                    highlighted={
+                      focusedSceneSpeaker != null && namesMatch(c.name, focusedSceneSpeaker)
+                    }
+                    editMode={editMode}
+                    storyMetaLocked={storyMetaLocked}
+                    busy={Boolean(busy)}
+                    showReferenceControls={Boolean(editMode && project?.bible?.characters?.[0]?.id === c.id)}
+                    onOpenPortrait={() => {
+                      const idx = visualGalleryItems.findIndex((x) => x.id === `char:${c.id}`)
+                      if (idx < 0) return
+                      setVisualViewerIndex(idx)
+                      setVisualViewerOpen(true)
+                    }}
+                    onGeneratePortrait={() => void generateCharacterBase(c.id)}
+                    onNameChange={(name) =>
+                      patchProject((p) => {
+                        if (!p.bible) return p
+                        return {
+                          ...p,
+                          bible: {
+                            ...p.bible,
+                            characters: p.bible.characters.map((x) =>
+                              x.id === c.id ? { ...x, name } : x
+                            )
+                          }
+                        }
+                      })
+                    }
+                    onPersonalityChange={(personality) =>
+                      patchProject((p) => {
+                        if (!p.bible) return p
+                        return {
+                          ...p,
+                          bible: {
+                            ...p.bible,
+                            characters: p.bible.characters.map((x) =>
+                              x.id === c.id ? { ...x, personality } : x
+                            )
+                          }
+                        }
+                      })
+                    }
+                  />
+                )) ?? null}
+                </div>
+              </section>
+            </>
+          )}
+          </div>
+        </aside>
+        </div>
+        </div>
+      </main>
+
+      </div>
 
       <ImageFullscreenViewer
         items={visualGalleryItems}
@@ -1204,106 +1586,50 @@ export default function App() {
         setIndex={setVisualViewerIndex}
       />
 
-      {settingsOpen ? (
-        <SettingsModal onClose={() => setSettingsOpen(false)} />
-      ) : null}
-      {projectPickerOpen ? (
-        <ProjectPickerModal
-          items={projectsMeta}
-          onClose={() => setProjectPickerOpen(false)}
-          onLoad={(id) => void loadProject(id)}
-          onDelete={(id) => void deleteProject(id)}
-        />
-      ) : null}
-
-      {storyHistoryOpen ? (
-        <StoryHistoryModal
-          items={storyHistoryItems}
-          onClose={() => setStoryHistoryOpen(false)}
-          onOpen={(id) => void loadStoryFromHistory(id)}
-          onDelete={(id) => void deleteStoryFromHistory(id)}
-        />
-      ) : null}
+      <SeriesCompleteRewardModal
+        open={seriesRewardOpen}
+        title={project?.title ?? ''}
+        onClose={() => {
+          setSeriesRewardOpen(false)
+          try {
+            if (project?.id) sessionStorage.setItem(`katha:series-reward:${project.id}`, '1')
+          } catch {
+            /* ignore */
+          }
+        }}
+        onAction={() => {
+          /* Actions show inline “coming soon” hint inside modal */
+        }}
+      />
 
       {authModalOpen ? (
         <div className="modal-backdrop" onClick={() => setAuthModalOpen(false)} role="presentation">
           <div className="modal" role="dialog" onClick={(e) => e.stopPropagation()}>
-            <h2>Sign in</h2>
-            <p style={{ color: 'var(--muted)', marginTop: 6 }}>We’ll send a secure magic link to your email.</p>
+            <h2>{uiText('authModalTitle')}</h2>
+            <p style={{ color: 'var(--muted)', marginTop: 6 }}>{uiText('authModalBlurb')}</p>
             <div className="row" style={{ marginTop: 12 }}>
               <input
                 className="select"
                 style={{ flex: 1 }}
                 value={authEmailInput}
                 onChange={(e) => setAuthEmailInput(e.target.value)}
-                placeholder="you@example.com"
+                placeholder={uiText('authEmailPlaceholder')}
               />
               <button type="button" className="btn" onClick={() => void signIn()} disabled={Boolean(busy)}>
-                Send link
+                {uiText('authSendLink')}
               </button>
             </div>
             <div style={{ marginTop: 12 }}>
               <button type="button" className="btn btn-ghost" onClick={() => setAuthModalOpen(false)}>
-                Close
+                {uiText('close')}
               </button>
             </div>
           </div>
         </div>
       ) : null}
+
     </div>
-  )
-}
-
-function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation()
-  const [mode, setMode] = useState<'online' | 'offline'>('offline')
-  const [debug, setDebug] = useState<string>('')
-
-  useEffect(() => {
-    void (async () => {
-      const k = window.katha
-      if (!k) return
-      const m = await k.settingsGetApiKeys()
-      const hf = await k.settingsHasFileKeys()
-      const hasAnyTextModel = Boolean(m.hasOpenAI || m.hasGemini || m.hasDeepSeek)
-      setMode(hf && hasAnyTextModel ? 'online' : 'offline')
-      if (!hf) {
-        const d = await k.settingsDebugKeyPaths()
-        const lines = [
-          `has(openai)=${d.has.openai} has(gemini)=${d.has.gemini} has(deepseek)=${d.has.deepseek} has(leonardo)=${d.has.leonardo}`,
-          ...d.candidates.map((c) => `${c.exists ? '✓' : '✗'} ${c.path}`)
-        ]
-        setDebug(lines.join('\n'))
-      }
-    })()
-  }, [])
-
-  return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <div className="modal" role="dialog" onClick={(e) => e.stopPropagation()}>
-        <h2>{t('settings')}</h2>
-        <div className="panel" style={{ marginBottom: 12 }}>
-          <h3>Mode</h3>
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>{mode === 'online' ? 'Online' : 'Offline'}</span>
-            <span className="badge">{mode}</span>
-          </div>
-        </div>
-        {mode === 'offline' && debug ? (
-          <div className="panel" style={{ marginBottom: 12 }}>
-            <h3>Key file search</h3>
-            <pre className="script-pre" style={{ maxHeight: 160 }}>
-              {debug}
-            </pre>
-          </div>
-        ) : null}
-        <div className="row">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
-            {t('close')}
-          </button>
-        </div>
-      </div>
-    </div>
+    </>
   )
 }
 
@@ -1320,7 +1646,7 @@ function ImageFullscreenViewer({
   onClose: () => void
   setIndex: Dispatch<SetStateAction<number>>
 }) {
-  const { t } = useTranslation()
+  const uiText = useUiText()
   const touchStartX = useRef<number | null>(null)
   const current = items[index]
 
@@ -1349,15 +1675,18 @@ function ImageFullscreenViewer({
       className="image-fs"
       role="dialog"
       aria-modal="true"
-      aria-label="Image preview"
+      aria-label={uiText('imagePreviewAria')}
       onClick={onClose}
     >
       <div className="image-fs__toolbar" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="btn btn-ghost image-fs__close" onClick={onClose}>
-          {t('imageViewerClose')}
+          {uiText('imageViewerClose')}
         </button>
         <span className="image-fs__counter">
-          {index + 1} / {items.length}
+          {index + 1}
+          {Glyphs.slash}
+          {Glyphs.space}
+          {items.length}
         </span>
       </div>
 
@@ -1380,13 +1709,13 @@ function ImageFullscreenViewer({
           type="button"
           className="image-fs__chev image-fs__chev--prev"
           disabled={index <= 0}
-          aria-label={t('imageViewerPrev')}
+          aria-label={uiText('imageViewerPrev')}
           onClick={(e) => {
             e.stopPropagation()
             goPrev()
           }}
         >
-          ‹
+          {Glyphs.chevronLeft}
         </button>
         <img
           className="image-fs__img"
@@ -1398,124 +1727,19 @@ function ImageFullscreenViewer({
           type="button"
           className="image-fs__chev image-fs__chev--next"
           disabled={index >= items.length - 1}
-          aria-label={t('imageViewerNext')}
+          aria-label={uiText('imageViewerNext')}
           onClick={(e) => {
             e.stopPropagation()
             goNext()
           }}
         >
-          ›
+          {Glyphs.chevronRight}
         </button>
       </div>
 
       <div className="image-fs__footer" onClick={(e) => e.stopPropagation()}>
         <div className="image-fs__caption">{current.caption}</div>
-        <div className="image-fs__subhint">{t('imageViewerHint')}</div>
-      </div>
-    </div>
-  )
-}
-
-function StoryHistoryModal({
-  items,
-  onClose,
-  onOpen,
-  onDelete
-}: {
-  items: { id: string; title: string; status: string; updatedAt: string }[]
-  onClose: () => void
-  onOpen: (id: string) => void
-  onDelete: (id: string) => void
-}) {
-  const { t } = useTranslation()
-  return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
-      <div className="modal" role="dialog" onClick={(e) => e.stopPropagation()}>
-        <h2>{t('storyHistory')}</h2>
-        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: 6 }}>{t('storyHistoryHint')}</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
-          {items.length === 0 ? (
-            <p style={{ color: 'var(--muted)' }}>{t('storyHistoryEmpty')}</p>
-          ) : (
-            items.map((p) => (
-              <div
-                key={p.id}
-                className="row"
-                style={{ justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 700 }}>{p.title}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                    {p.status} · {p.updatedAt ? p.updatedAt.slice(0, 19).replace('T', ' ') : ''}
-                  </div>
-                </div>
-                <div className="row" style={{ flexShrink: 0 }}>
-                  <button type="button" className="btn btn-small" onClick={() => onOpen(p.id)}>
-                    {t('storyHistoryOpen')}
-                  </button>
-                  <button type="button" className="btn btn-ghost btn-small" onClick={() => onDelete(p.id)}>
-                    {t('storyHistoryDelete')}
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-        <button type="button" className="btn btn-ghost" style={{ marginTop: 14 }} onClick={onClose}>
-          {t('close')}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function ProjectPickerModal({
-  items,
-  onClose,
-  onLoad,
-  onDelete
-}: {
-  items: { id: string; title: string; status: string; updatedAt: string }[]
-  onClose: () => void
-  onLoad: (id: string) => void
-  onDelete: (id: string) => void
-}) {
-  const { t } = useTranslation()
-  return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <div className="modal" role="dialog" onClick={(e) => e.stopPropagation()}>
-        <h2>{t('projects')}</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {items.length === 0 ? (
-            <p style={{ color: 'var(--muted)' }}>No saved projects yet.</p>
-          ) : (
-            items.map((p) => (
-              <div
-                key={p.id}
-                className="row"
-                style={{ justifyContent: 'space-between', alignItems: 'center' }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700 }}>{p.title}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                    {p.status} · {p.updatedAt?.slice(0, 10) ?? ''}
-                  </div>
-                </div>
-                <div className="row">
-                  <button type="button" className="btn btn-small" onClick={() => onLoad(p.id)}>
-                    Open
-                  </button>
-                  <button type="button" className="btn btn-ghost btn-small" onClick={() => onDelete(p.id)}>
-                    {t('deleteProject')}
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-        <button type="button" className="btn btn-ghost" style={{ marginTop: 14 }} onClick={onClose}>
-          {t('close')}
-        </button>
+        <div className="image-fs__subhint">{uiText('imageViewerHint')}</div>
       </div>
     </div>
   )

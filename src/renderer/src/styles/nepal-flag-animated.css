@@ -1,0 +1,253 @@
+/**
+ * Seamless looping “cloth” motion for Nepal double-pennon header flag.
+ * Loop ~5.25s; 0% / 100% keyframes match for no jump cut.
+ * prefers-reduced-motion: holds static pose.
+ */
+
+.nepal-flag-ambient {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 52px;
+  height: 62px;
+  flex-shrink: 0;
+  isolation: isolate;
+}
+
+.nepal-flag-ambient--lg {
+  width: 72px;
+  height: 86px;
+}
+
+.nepal-flag-breeze {
+  position: absolute;
+  inset: -18% -40% -12% -25%;
+  pointer-events: none;
+  background: radial-gradient(
+      ellipse 70% 45% at 70% 45%,
+      rgba(180, 210, 230, 0.09) 0%,
+      transparent 55%
+    ),
+    radial-gradient(ellipse 50% 35% at 30% 60%, rgba(212, 175, 55, 0.06) 0%, transparent 50%);
+  opacity: 0.85;
+  animation: nepal-flag-breeze-drift 8s ease-in-out infinite;
+  z-index: 0;
+}
+
+@keyframes nepal-flag-breeze-drift {
+  0%,
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateX(4px) scale(1.03);
+    opacity: 0.95;
+  }
+}
+
+.nepal-flag-sparkles {
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  z-index: 4;
+  background-image:
+    radial-gradient(circle at 20% 25%, rgba(255, 248, 220, 0.45) 0, transparent 2px),
+    radial-gradient(circle at 78% 18%, rgba(212, 175, 55, 0.35) 0, transparent 2px),
+    radial-gradient(circle at 62% 72%, rgba(255, 255, 255, 0.28) 0, transparent 2px),
+    radial-gradient(circle at 35% 88%, rgba(212, 175, 55, 0.22) 0, transparent 2px);
+  opacity: 0;
+  animation: nepal-flag-sparkle 5.25s ease-in-out infinite;
+}
+
+@keyframes nepal-flag-sparkle {
+  0%,
+  45%,
+  55%,
+  100% {
+    opacity: 0;
+  }
+  48%,
+  52% {
+    opacity: 0.65;
+  }
+}
+
+.nepal-flag-ambient:hover .nepal-flag-sparkles {
+  opacity: 1;
+  animation-duration: 3.5s;
+}
+
+.nepal-flag-shine {
+  position: absolute;
+  inset: -5%;
+  pointer-events: none;
+  z-index: 3;
+  mix-blend-mode: soft-light;
+  background: linear-gradient(
+    118deg,
+    transparent 0%,
+    transparent 36%,
+    rgba(255, 255, 255, 0.26) 49%,
+    rgba(255, 248, 220, 0.14) 51%,
+    transparent 64%,
+    transparent 100%
+  );
+  animation: nepal-flag-shine-loop 5.25s ease-in-out infinite;
+  opacity: 0.5;
+  border-radius: 4px;
+}
+
+@keyframes nepal-flag-shine-loop {
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: translateX(-6%) skewY(-2deg);
+  }
+  50% {
+    opacity: 0.72;
+    transform: translateX(8%) skewY(2deg);
+  }
+}
+
+.nepal-flag-wave-stack {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  perspective: 520px;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 12px rgba(212, 175, 55, 0.12));
+}
+
+.nepal-flag-wave-layer {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0% 50%;
+  will-change: transform;
+}
+
+.nepal-flag-wave-layer--back {
+  opacity: 0.38;
+  animation: nepal-flag-wave-a 5.25s ease-in-out infinite;
+}
+
+.nepal-flag-wave-layer--mid {
+  opacity: 0.72;
+  animation: nepal-flag-wave-b 5.25s ease-in-out infinite;
+}
+
+.nepal-flag-wave-layer--front {
+  opacity: 1;
+  animation: nepal-flag-wave-c 5.25s ease-in-out infinite;
+}
+
+/* Seamless loop: endpoints identical */
+@keyframes nepal-flag-wave-a {
+  0%,
+  100% {
+    transform: translateZ(-14px) rotateY(-5deg) skewY(1.1deg) scaleX(0.98);
+  }
+  50% {
+    transform: translateZ(-8px) rotateY(7deg) skewY(-1deg) scaleX(1.01);
+  }
+}
+
+@keyframes nepal-flag-wave-b {
+  0%,
+  100% {
+    transform: translateZ(-4px) rotateY(-7deg) skewY(0.9deg);
+  }
+  50% {
+    transform: translateZ(0px) rotateY(9deg) skewY(-0.85deg);
+  }
+}
+
+@keyframes nepal-flag-wave-c {
+  0%,
+  100% {
+    transform: translateZ(4px) rotateY(-8.5deg) skewY(0.65deg);
+  }
+  50% {
+    transform: translateZ(10px) rotateY(11deg) skewY(-0.55deg);
+  }
+}
+
+/* Stronger motion on hover — same period for seamless loop */
+.nepal-flag-ambient:hover .nepal-flag-wave-layer--back {
+  animation-name: nepal-flag-wave-a-hover;
+}
+
+.nepal-flag-ambient:hover .nepal-flag-wave-layer--mid {
+  animation-name: nepal-flag-wave-b-hover;
+}
+
+.nepal-flag-ambient:hover .nepal-flag-wave-layer--front {
+  animation-name: nepal-flag-wave-c-hover;
+}
+
+@keyframes nepal-flag-wave-a-hover {
+  0%,
+  100% {
+    transform: translateZ(-14px) rotateY(-8deg) skewY(1.8deg) scaleX(0.97);
+  }
+  50% {
+    transform: translateZ(-6px) rotateY(12deg) skewY(-1.6deg) scaleX(1.02);
+  }
+}
+
+@keyframes nepal-flag-wave-b-hover {
+  0%,
+  100% {
+    transform: translateZ(-4px) rotateY(-10deg) skewY(1.45deg);
+  }
+  50% {
+    transform: translateZ(0px) rotateY(14deg) skewY(-1.35deg);
+  }
+}
+
+@keyframes nepal-flag-wave-c-hover {
+  0%,
+  100% {
+    transform: translateZ(4px) rotateY(-12deg) skewY(1.05deg);
+  }
+  50% {
+    transform: translateZ(12px) rotateY(16deg) skewY(-0.95deg);
+  }
+}
+
+.nepal-flag-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nepal-flag-breeze,
+  .nepal-flag-sparkles,
+  .nepal-flag-shine,
+  .nepal-flag-wave-layer--back,
+  .nepal-flag-wave-layer--mid,
+  .nepal-flag-wave-layer--front {
+    animation: none !important;
+  }
+
+  .nepal-flag-sparkles {
+    opacity: 0.35;
+  }
+
+  .nepal-flag-shine {
+    opacity: 0.28;
+    transform: none;
+  }
+
+  .nepal-flag-wave-layer--back,
+  .nepal-flag-wave-layer--mid {
+    opacity: 0;
+  }
+
+  .nepal-flag-wave-layer--front {
+    transform: rotateY(-4deg) skewY(0.5deg);
+  }
+}

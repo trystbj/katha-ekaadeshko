@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useUiText } from '../i18n/useAppI18n'
 import {
   CORE_STORY_RULES,
   buildBibleUserPrompt,
@@ -9,14 +10,15 @@ import {
 } from '../prompts/storyEngine'
 import { parseStructuredEpisode, fingerprintFromEpisode } from '../services/parseEpisode'
 import { simpleHash } from '../services/fingerprint'
-import type { StoryBible, StoryEpisode } from '../types/story'
+import type { StoryBible, StoryEpisode, VisualStyleId } from '../types/story'
 import { defaultProject } from '../types/story'
-import { LANGUAGE_OPTIONS } from '../i18n/resources'
+import { NARRATION_LANGUAGE_LABEL_EN } from '../constants/narrationLanguages'
 import { useStudioStore } from '../store/useStudioStore'
 import { pushStoryToHistory } from '../utils/storyHistory'
+import { getVisualPackExtraPrompt } from '../utils/visualThemePackExtras'
 
 function langName(code: string): string {
-  return LANGUAGE_OPTIONS.find((l) => l.code === code)?.label || code
+  return NARRATION_LANGUAGE_LABEL_EN[code] ?? code
 }
 
 async function ai(
@@ -32,60 +34,109 @@ async function ai(
 }
 
 export function useStoryGeneration() {
+  const uiText = useUiText()
   const setBusy = useStudioStore((s) => s.setBusy)
   const setError = useStudioStore((s) => s.setError)
-  const patchProject = useStudioStore((s) => s.patchProject)
   const idea = useStudioStore((s) => s.idea)
   const styleId = useStudioStore((s) => s.styleId)
-  const aspectMode = useStudioStore((s) => s.aspectMode)
+  const customVisualPrompt = useStudioStore((s) => s.customVisualPrompt)
+  const narratorId = useStudioStore((s) => s.narratorId)
+  const narrationDraft = useStudioStore((s) => s.narrationDraft)
   const uiLanguage = useStudioStore((s) => s.uiLanguage)
+  const storyLanguage = useStudioStore((s) => s.storyLanguage)
 
   const touch = useCallback(() => {
-    patchProject((p) => ({ ...p, updatedAt: new Date().toISOString() }))
-  }, [patchProject])
+    useStudioStore.getState().patchProject((p) => ({ ...p, updatedAt: new Date().toISOString() }))
+  }, [])
 
   const generateBible = useCallback(async () => {
+    const workspaceIx = useStudioStore.getState().activeWorkspaceSlotIndex
     setError(null)
     setBusy('bible')
     try {
-      if (!useStudioStore.getState().project) {
-        useStudioStore.getState().setProject(defaultProject({ title: 'Untitled Story', status: 'new' }))
+      const s0 = useStudioStore.getState()
+      if (!s0.project) {
+        const wt = s0.workingTitle.trim()
+        useStudioStore
+          .getState()
+          .setWorkspaceProject(
+            workspaceIx,
+            defaultProject({ title: wt || 'Untitled Story', fontMode: s0.uiFontMode, status: 'new' })
+          )
       }
+      if (!styleId || !narratorId || !uiLanguage || !storyLanguage) {
+        throw new Error(uiText('generateMissingFields'))
+      }
+      const tone = s0.storyTone
+      const chain = s0.episodeChainPreferred
+      const accent = getVisualPackExtraPrompt(s0.visualPackId)
+      let ideaUse = idea
+      if (tone) ideaUse += `\nTone preference: ${tone}.`
+      if (chain) ideaUse += '\nSerialized storytelling with strong episode-to-episode hooks.'
       const user = buildBibleUserPrompt({
-        idea,
-        styleId,
-        languageName: langName(uiLanguage),
-        aspectMode
+        idea: ideaUse,
+        styleId: styleId as VisualStyleId,
+        customVisualPrompt: styleId === 'custom' ? customVisualPrompt : undefined,
+        languageName: langName(storyLanguage),
+        aspectMode: 'vertical_9_16',
+        visualAccent: accent
       })
       const text = await ai(CORE_STORY_RULES, user, 'gemini', 8192)
       const partial = parseBibleJson(text)
       if (!partial) throw new Error('Could not parse story bible JSON. Try again or shorten the idea.')
+      const hintTitle = useStudioStore.getState().workingTitle.trim()
+      const mainChar = useStudioStore.getState().mainCharacterName.trim()
+      const resolvedTitle = (hintTitle || partial.title || 'Untitled').trim() || 'Untitled'
       const bible: StoryBible = {
         ...partial,
+        title: resolvedTitle,
         userIdea: idea,
-        styleId,
-        language: uiLanguage,
-        aspectMode
+        styleId: styleId as VisualStyleId,
+        customVisualPrompt: styleId === 'custom' ? customVisualPrompt.trim() : undefined,
+        language: storyLanguage,
+        aspectMode: 'vertical_9_16',
+        narratorId,
+        narration: narrationDraft
       }
-      patchProject((p) => ({
+      if (mainChar && bible.characters[0]) {
+        bible.characters[0] = { ...bible.characters[0], name: mainChar }
+      }
+      useStudioStore.getState().patchWorkspaceProject(workspaceIx, (p) => ({
         ...p,
-        title: bible.title,
+        title: resolvedTitle,
         bible,
         status: 'in_progress',
         memorySummary: `- ${bible.concept}`,
         episodes: [],
+        narration: p.narration ?? narrationDraft,
         updatedAt: new Date().toISOString()
       }))
-      void pushStoryToHistory(useStudioStore.getState().project)
+      void pushStoryToHistory(useStudioStore.getState().workspaceSlots[workspaceIx]?.project ?? null)
+      if (styleId === 'custom') {
+        useStudioStore.getState().touchRecentCustomStyle(customVisualPrompt.trim())
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
-      setBusy(null)
+      useStudioStore.getState().setWorkspaceBusy(workspaceIx, null)
+      if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) setBusy(null)
     }
-  }, [idea, styleId, aspectMode, uiLanguage, patchProject, setBusy, setError])
+  }, [
+    idea,
+    styleId,
+    customVisualPrompt,
+    narratorId,
+    narrationDraft,
+    storyLanguage,
+    uiLanguage,
+    setBusy,
+    setError,
+    uiText
+  ])
 
   const generateEpisode = useCallback(
     async (episodeNumber: number) => {
+      const workspaceIx = useStudioStore.getState().activeWorkspaceSlotIndex
       const p = useStudioStore.getState().project
       if (!p?.bible) throw new Error('No bible')
       setError(null)
@@ -107,17 +158,27 @@ export function useStoryGeneration() {
         let ep = parseStructuredEpisode(raw, episodeNumber)
         ep = { ...ep, rawStructured: raw, status: 'done' }
         const fp = simpleHash(fingerprintFromEpisode(ep))
-        patchProject((cur) => {
+        useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
           const without = cur.episodes.filter((e) => e.number !== episodeNumber)
           const fingerprints = [...cur.contentFingerprints, fp].slice(-200)
+          const episodes = [...without, ep].sort((a, b) => a.number - b.number)
+          const b = cur.bible
+          const te = b ? b.totalEpisodes : 0
+          const seriesDone =
+            Boolean(b) && episodeNumber === te && episodes.length >= te
           return {
             ...cur,
-            episodes: [...without, ep].sort((a, b) => a.number - b.number),
-            contentFingerprints: fingerprints
+            episodes,
+            contentFingerprints: fingerprints,
+            status: seriesDone ? 'completed' : cur.status
           }
         })
-        useStudioStore.getState().setSelectedEpisode(episodeNumber)
-        const memUser = buildMemoryUpdatePrompt(useStudioStore.getState().project!, raw)
+        if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) {
+          useStudioStore.getState().setSelectedEpisode(episodeNumber)
+        }
+        const projNow = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
+        if (!projNow) throw new Error('Project missing after update')
+        const memUser = buildMemoryUpdatePrompt(projNow, raw)
         try {
           const mem = await ai(
             CORE_STORY_RULES,
@@ -125,7 +186,7 @@ export function useStoryGeneration() {
             'openai',
             1024
           )
-          patchProject((cur) => ({
+          useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => ({
             ...cur,
             memorySummary: mem.split('\n').slice(0, 16).join('\n').slice(0, 4000)
           }))
@@ -137,7 +198,7 @@ export function useStoryGeneration() {
               'deepseek',
               1024
             )
-            patchProject((cur) => ({
+            useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => ({
               ...cur,
               memorySummary: mem.split('\n').slice(0, 16).join('\n').slice(0, 4000)
             }))
@@ -145,19 +206,21 @@ export function useStoryGeneration() {
             /* optional */
           }
         }
-        touch()
-        void pushStoryToHistory(useStudioStore.getState().project)
+        if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) touch()
+        void pushStoryToHistory(useStudioStore.getState().workspaceSlots[workspaceIx]?.project ?? null)
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       } finally {
-        setBusy(null)
+        useStudioStore.getState().setWorkspaceBusy(workspaceIx, null)
+        if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) setBusy(null)
       }
     },
-    [patchProject, setBusy, setError, touch]
+    [setBusy, setError, touch]
   )
 
   const regenerateScene = useCallback(
     async (episodeNumber: number, sceneIndex: number) => {
+      const workspaceIx = useStudioStore.getState().activeWorkspaceSlotIndex
       const p = useStudioStore.getState().project
       if (!p?.bible) return
       const ep = p.episodes.find((e) => e.number === episodeNumber)
@@ -182,19 +245,20 @@ ${sc.emoji ? `Emoji: ${sc.emoji}` : ''}
 Output ONLY the Scene ${sceneIndex}: block lines, nothing else.`
         const raw = await ai(CORE_STORY_RULES, user, 'openai', 1024)
         const merged = mergeSceneIntoEpisode(ep, sceneIndex, raw)
-        patchProject((cur) => ({
+        useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => ({
           ...cur,
           episodes: cur.episodes.map((e) => (e.number === episodeNumber ? merged : e))
         }))
-        touch()
-        void pushStoryToHistory(useStudioStore.getState().project)
+        if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) touch()
+        void pushStoryToHistory(useStudioStore.getState().workspaceSlots[workspaceIx]?.project ?? null)
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       } finally {
-        setBusy(null)
+        useStudioStore.getState().setWorkspaceBusy(workspaceIx, null)
+        if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) setBusy(null)
       }
     },
-    [patchProject, setBusy, setError, touch]
+    [setBusy, setError, touch]
   )
 
   return { generateBible, generateEpisode, regenerateScene }

@@ -1,0 +1,153 @@
+/* Sequential episode flow — fits inside existing story panel / monitor rows. */
+
+.episode-seq-banner {
+  position: relative;
+  margin: 10px 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  background: linear-gradient(135deg, rgba(8, 22, 28, 0.92), rgba(18, 12, 28, 0.88));
+  box-shadow: 0 0 28px rgba(212, 175, 55, 0.14), inset 0 0 40px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.episode-seq-banner__glow {
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(from 120deg, transparent, rgba(212, 175, 55, 0.08), transparent 42%);
+  animation: episode-seq-spin 10s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes episode-seq-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .episode-seq-banner__glow {
+    animation: none;
+    opacity: 0.35;
+  }
+}
+
+.episode-seq-banner__done,
+.episode-seq-banner__next {
+  position: relative;
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(255, 248, 232, 0.94);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+}
+
+.episode-seq-banner__done {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+
+.episode-seq-banner__next {
+  margin-top: 8px;
+  font-weight: 600;
+  color: rgba(255, 236, 188, 0.98);
+}
+
+.episode-seq-banner__tick {
+  color: rgba(144, 238, 144, 0.95);
+  filter: drop-shadow(0 0 10px rgba(100, 220, 140, 0.55));
+}
+
+.episode-seq-banner__arrow {
+  color: rgba(212, 175, 55, 0.98);
+}
+
+.studio-mock-episode-flow-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.studio-mock-episode-flow-tools .btn-small {
+  font-size: 0.72rem;
+  padding: 5px 10px;
+}
+
+.series-reward-modal {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  box-shadow: 0 0 48px rgba(212, 175, 55, 0.18);
+}
+
+.series-reward-modal__burst {
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(circle at 50% 38%, rgba(255, 248, 220, 0.12), transparent 55%);
+  pointer-events: none;
+}
+
+.series-reward-modal__title {
+  position: relative;
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 232, 0.96);
+}
+
+.series-reward-modal__subtitle {
+  position: relative;
+  margin: 0 0 12px;
+  font-size: 0.88rem;
+  color: rgba(255, 236, 190, 0.88);
+}
+
+.series-reward-modal__lead {
+  position: relative;
+  margin: 0 0 16px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: rgba(235, 242, 248, 0.85);
+}
+
+.series-reward-modal__hint {
+  position: relative;
+  margin: 0 0 12px;
+  font-size: 0.76rem;
+  color: rgba(212, 175, 55, 0.95);
+}
+
+.series-reward-modal__actions {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.series-reward-modal__close {
+  position: relative;
+  margin-top: 14px;
+  width: 100%;
+}
+
+.studio-mock-col--monitor .episode-row.episode-row--gate-locked {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
+.studio-mock-col--monitor .episode-row.episode-row--export-pending {
+  box-shadow: 0 0 10px rgba(255, 200, 120, 0.15);
+}
+
+.studio-mock-col--monitor .episode-row.episode-row--exported {
+  border-color: rgba(144, 210, 140, 0.55);
+}
+
+.studio-mock-col--monitor .episode-row.episode-row--exported .badge {
+  border-color: rgba(144, 210, 140, 0.5);
+  background: rgba(80, 140, 90, 0.18);
+}

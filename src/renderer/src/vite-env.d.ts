@@ -40,7 +40,16 @@ export type KathaAPI = {
   projectsSave: (project: ProjectState) => Promise<boolean>
   projectsDelete: (id: string) => Promise<boolean>
   /** Local device story history (browser localStorage on web). */
-  storyHistoryList?: () => Promise<{ id: string; title: string; status: string; updatedAt: string }[]>
+  storyHistoryList?: () => Promise<
+    {
+      id: string
+      title: string
+      status: string
+      updatedAt: string
+      episodeCount?: number
+      totalEpisodes?: number | null
+    }[]
+  >
   storyHistorySave?: (project: ProjectState) => Promise<boolean>
   storyHistoryLoad?: (id: string) => Promise<ProjectState>
   storyHistoryDelete?: (id: string) => Promise<boolean>

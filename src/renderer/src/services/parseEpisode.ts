@@ -1,4 +1,5 @@
 import type { EpisodePacing, StoryEpisode, StoryScene } from '../types/story'
+import { uiTextGlobal } from '../i18n/uiTextGlobal'
 
 function parsePacing(s: string): EpisodePacing {
   const t = s.trim()
@@ -100,7 +101,7 @@ export function parseStructuredEpisode(raw: string, episodeNumber: number): Stor
   flushScene()
 
   if (!cliffhanger && scenes.length) {
-    cliffhanger = '…'
+    cliffhanger = uiTextGlobal('parseEpisodeCliffhangerEllipsis')
   }
 
   return {
@@ -108,7 +109,7 @@ export function parseStructuredEpisode(raw: string, episodeNumber: number): Stor
     pacing,
     estimatedDurationSec,
     scenes: scenes.length ? scenes : fallbackScenes(raw, episodeNumber),
-    cliffhanger: cliffhanger || 'The next moment changes everything.',
+    cliffhanger: cliffhanger || uiTextGlobal('parseEpisodeDefaultCliffhanger'),
     rawStructured: raw,
     status: 'done'
   }
@@ -119,8 +120,8 @@ function fallbackScenes(raw: string, episodeNumber: number): StoryScene[] {
     {
       index: 1,
       lineType: 'Dialogue',
-      character: 'Narrator',
-      text: raw.slice(0, 400) || `Episode ${episodeNumber} (parse fallback — edit or regenerate).`,
+      character: uiTextGlobal('parseEpisodeFallbackCharacter'),
+      text: raw.slice(0, 400) || uiTextGlobal('parseEpisodeFallbackSceneText', { n: episodeNumber }),
       emoji: undefined
     }
   ]

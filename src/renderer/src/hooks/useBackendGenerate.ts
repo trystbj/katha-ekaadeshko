@@ -1,37 +1,121 @@
 import { useCallback } from 'react'
+import { useUiText } from '../i18n/useAppI18n'
 import { defaultProject, newProjectId } from '../types/story'
 import type { JobsStreamGenerateResult } from '../types/kathaGenerate'
-import type { AssetRef, StoryBible, StoryEpisode, StoryScene } from '../types/story'
+import type { AssetRef, StoryBible, StoryEpisode, StoryScene, VisualStyleId } from '../types/story'
 import { useStudioStore } from '../store/useStudioStore'
 import { pushStoryToCloudIfSignedIn, pushStoryToHistory } from '../utils/storyHistory'
+import { inferCountryFromLanguageCode } from '../utils/inferCountryFromLanguage'
+import { getVisualPackExtraPrompt } from '../utils/visualThemePackExtras'
+import { buildLiveRevealDocument } from '../utils/liveRevealDocument'
+import { sseLiveStatusHint } from '../utils/sseLiveStatus'
+import {
+  buildStreamSeriesOutline,
+  plannedTotalEpisodesFromStreamSetup
+} from '../utils/episodeSeriesFlow'
+import { narratorIdentityForId } from '../constants/narratorVoiceProfiles'
 
 export function useBackendGenerate() {
+  const uiText = useUiText()
   const setBusy = useStudioStore((s) => s.setBusy)
   const setError = useStudioStore((s) => s.setError)
-  const setProject = useStudioStore((s) => s.setProject)
   const setJob = useStudioStore((s) => s.setJob)
+  const setWorkspaceBusy = useStudioStore((s) => s.setWorkspaceBusy)
+  const setWorkspaceError = useStudioStore((s) => s.setWorkspaceError)
 
-  const backendCountry = useStudioStore((s) => s.backendCountry)
   const backendTheme = useStudioStore((s) => s.backendTheme)
   const backendGenre = useStudioStore((s) => s.backendGenre)
   const backendLength = useStudioStore((s) => s.backendLength)
   const styleId = useStudioStore((s) => s.styleId)
-  const aspectMode = useStudioStore((s) => s.aspectMode)
+  const customVisualPrompt = useStudioStore((s) => s.customVisualPrompt)
+  const narratorId = useStudioStore((s) => s.narratorId)
+  const narrationDraft = useStudioStore((s) => s.narrationDraft)
   const uiLanguage = useStudioStore((s) => s.uiLanguage)
+  const storyLanguage = useStudioStore((s) => s.storyLanguage)
+  const storyCountry = useStudioStore((s) => s.storyCountry)
+  const uiFontMode = useStudioStore((s) => s.uiFontMode)
+  const visualPackId = useStudioStore((s) => s.visualPackId)
 
   const generate = useCallback(async () => {
-    setError(null)
-    setBusy('generating')
-    setJob(null)
+    const workspaceIx = useStudioStore.getState().activeWorkspaceSlotIndex
+    setWorkspaceError(workspaceIx, null)
+    setWorkspaceBusy(workspaceIx, 'generating')
+    if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) {
+      setError(null)
+      setBusy('generating')
+      setJob(null)
+    }
     try {
+      if (
+        !styleId ||
+        !narratorId ||
+        !backendTheme.trim() ||
+        !backendGenre.trim() ||
+        !backendLength.trim() ||
+        !uiLanguage ||
+        !storyLanguage
+      ) {
+        throw new Error(uiText('generateMissingFields'))
+      }
+      const idea = useStudioStore.getState().idea.trim()
+      if (idea.length < 2) throw new Error(uiText('generateIdeaTooShort'))
+      if (styleId === 'custom' && !customVisualPrompt.trim()) throw new Error(uiText('generateMissingFields'))
+      const country =
+        storyCountry.trim() || inferCountryFromLanguageCode(storyLanguage || uiLanguage)
+
+      const stGen = useStudioStore.getState()
+      const wsProject = stGen.workspaceSlots[workspaceIx]?.project
+      const priorMemorySummary = wsProject?.memorySummary?.trim() || ''
+      const priorWorldState = wsProject?.worldStateSnapshot ?? undefined
+      const priorRelationships = wsProject?.relationshipSnapshot ?? undefined
+      const creatorPreferences = wsProject?.creatorPreferences ?? undefined
+      const projectId = wsProject?.id || newProjectId()
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+      const accent = getVisualPackExtraPrompt(visualPackId)
+      const themeEnriched = [
+        backendTheme.trim(),
+        `Seed: ${idea}`,
+        stGen.storyTone ? `Tone:${stGen.storyTone}` : '',
+        stGen.episodeChainPreferred ? 'Serialized chain' : ''
+      ]
+        .filter(Boolean)
+        .join(' · ')
+        .slice(0, 920)
+
+      const visualAccent = accent.trim()
+      const toneRaw = useStudioStore.getState().storyTone
+      const ac = new AbortController()
+      useStudioStore.getState().setWorkspaceGenerationAbort(workspaceIx, ac)
+
       const res = await fetch('/api/jobs-stream-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
         body: JSON.stringify({
-          theme: backendTheme,
-          country: backendCountry,
+          theme: themeEnriched,
+          country,
           genre: backendGenre,
-          length: backendLength
+          length: backendLength,
+          aspectMode: 'vertical_9_16',
+          narratorId,
+          narratorIdentity: narratorIdentityForId(narratorId),
+          narration: narrationDraft,
+          autoVoiceDirector: narrationDraft.autoVoiceDirector,
+          narratorGenderPreference: narrationDraft.narratorGenderPreference ?? 'auto',
+          storyLanguage,
+          styleId: styleId as VisualStyleId,
+          ...(styleId === 'custom' ? { customVisualPrompt: customVisualPrompt.trim() } : {}),
+          ...(visualAccent ? { visualAccent } : {}),
+          ...(toneRaw ? { storyTone: toneRaw } : {}),
+          seedLine: idea.slice(0, 500),
+          projectId,
+          ...(priorMemorySummary ? { priorMemorySummary } : {}),
+          ...(priorWorldState ? { priorWorldState } : {}),
+          ...(priorRelationships?.length ? { priorRelationships } : {}),
+          ...(creatorPreferences ? { creatorPreferences } : {}),
+          ...(prefersReducedMotion ? { performancePreferLow: true } : {})
         })
       })
       if (!res.ok) throw new Error(await res.text())
@@ -57,12 +141,19 @@ export function useBackendGenerate() {
             try {
               const evt = JSON.parse(json)
               if (evt.type === 'job') {
-                setJob({ id: evt.id, stage: 'starting', progress: 0, log: [] })
+                useStudioStore.getState().setWorkspaceJob(workspaceIx, {
+                  id: evt.id,
+                  stage: 'starting',
+                  progress: 0,
+                  log: []
+                })
               } else if (evt.type === 'progress') {
                 const msg = evt.message ? String(evt.message) : String(evt.stage || '')
-                log.push(msg)
-                setJob({
-                  id: useStudioStore.getState().job?.id || 'job',
+                const hintKey = sseLiveStatusHint(String(evt.stage || ''), msg)
+                log.push(hintKey ? uiText(hintKey) : msg)
+                const stJob = useStudioStore.getState().workspaceRuntime[workspaceIx]?.job
+                useStudioStore.getState().setWorkspaceJob(workspaceIx, {
+                  id: stJob?.id || 'job',
                   stage: String(evt.stage || ''),
                   progress: Number(evt.progress || 0),
                   log: log.slice(-60)
@@ -75,9 +166,9 @@ export function useBackendGenerate() {
                 throw new Error(errMsg)
               }
             } catch (e) {
-              // Ignore JSON parse noise, but always propagate explicit stream errors.
-              if (e instanceof SyntaxError) return
+              if (e instanceof SyntaxError) continue
               if (e instanceof Error && lastError && e.message === lastError) throw e
+              throw e
             }
           }
           idx = buf.indexOf('\n\n')
@@ -107,79 +198,184 @@ export function useBackendGenerate() {
         })
       }
 
-      const bible: StoryBible = {
-        title: out.story.title,
-        concept: out.story.setting,
-        characters: out.story.characters.map(
-          (c: { name: string; role: string; traits: string }, i: number) => {
-            const thumb = pipelineImages[i]?.image_url || pipelineImages[i]?.imageUrl
-            return {
-              id: `c${i + 1}`,
-              name: c.name,
-              personality: `${c.role}. ${c.traits}`.trim(),
-              visualIdentity: `${c.traits}`.trim() || c.role,
-              baseImagePrompt: `${c.name}, ${c.role}, ${c.traits}`,
-              ...(thumb ? { baseImageUrl: String(thumb) } : {})
-            }
+      const st = useStudioStore.getState()
+      const mainChar = st.mainCharacterName.trim()
+      const titleFromUser = st.workingTitle.trim()
+
+      const baseChars = out.story.characters.map(
+        (c: { name: string; role: string; traits: string }, i: number) => {
+          const thumb = pipelineImages[i]?.image_url || pipelineImages[i]?.imageUrl
+          const name0 = i === 0 && mainChar ? mainChar : c.name
+          return {
+            id: `c${i + 1}`,
+            name: name0,
+            personality: `${c.role}. ${c.traits}`.trim(),
+            visualIdentity: `${c.traits}`.trim() || c.role,
+            baseImagePrompt: `${name0}, ${c.role}, ${c.traits}`,
+            ...(thumb ? { baseImageUrl: String(thumb) } : {})
           }
-        ),
-        totalEpisodes: 1,
-        outline: [{ episode: 1, beat: `${backendCountry} · ${backendTheme} · ${backendGenre}` }],
-        userIdea: `${backendCountry} ${backendTheme} ${backendGenre} ${backendLength}`.trim(),
-        styleId,
-        language: uiLanguage,
-        aspectMode
+        }
+      )
+
+      const resolvedTitle = titleFromUser || out.story.title
+      const stChain = useStudioStore.getState().episodeChainPreferred
+      const seriesEpisodes = plannedTotalEpisodesFromStreamSetup(backendLength, stChain)
+      const bible: StoryBible = {
+        title: resolvedTitle,
+        concept: out.story.setting,
+        characters: baseChars,
+        totalEpisodes: seriesEpisodes,
+        outline: buildStreamSeriesOutline(seriesEpisodes, country, backendTheme, backendGenre, resolvedTitle),
+        userIdea: idea,
+        styleId: styleId as VisualStyleId,
+        customVisualPrompt: styleId === 'custom' ? customVisualPrompt.trim() : undefined,
+        language: storyLanguage,
+        aspectMode: 'vertical_9_16',
+        narratorId,
+        narration: narrationDraft
       }
 
       const scenes: StoryScene[] = []
       for (const s of out.script) {
+        const narration = typeof s.narration === 'string' ? s.narration : ''
+        const visualDescription =
+          typeof s.visual_description === 'string' ? s.visual_description : undefined
         scenes.push({
           index: scenes.length + 1,
           lineType: 'Dialogue',
           character: 'Narration',
-          text: s.narration
+          text: narration,
+          visualDescription
         })
       }
+
+      const cliffPlan = out.metadata?.cinematicDirectorPlan as
+        | { cliffhanger?: { suggestedLine?: string } }
+        | undefined
+      const cliffLine = cliffPlan?.cliffhanger?.suggestedLine?.trim() || '—'
 
       const episode1: StoryEpisode = {
         number: 1,
         pacing: 'Normal',
         estimatedDurationSec: 90,
         scenes: scenes.slice(0, 10),
-        cliffhanger: '—',
+        cliffhanger: cliffLine.slice(0, 280) || '—',
         rawStructured: JSON.stringify(out, null, 2),
-        status: 'done'
+        status: 'done',
+        ...(out.metadata?.ambientBedUrl ? { ambientBedUrl: out.metadata.ambientBedUrl } : {}),
+        ...(out.metadata?.storyAudioPlan ? { storyAudioPlan: out.metadata.storyAudioPlan } : {}),
+        ...(out.metadata?.cinematicDirectorPlan
+          ? { cinematicDirectorPlan: out.metadata.cinematicDirectorPlan }
+          : {}),
+        ...(out.metadata?.storyMemorySnapshot
+          ? { storyMemorySnapshot: out.metadata.storyMemorySnapshot }
+          : {})
       }
 
+      const memoryPatch =
+        typeof out.metadata?.memorySummaryPatch === 'string'
+          ? out.metadata.memorySummaryPatch.trim()
+          : ''
+      const memorySeed = [
+        memoryPatch ||
+          [
+            `- Setting: ${out.story.setting}`,
+            `- Episode 1 establishes tone; preserve bible characters, narrator (${narratorId}), and ${styleId} across the ${seriesEpisodes}-episode arc.`,
+            stChain ? '- Serialized chain: honor cliffhangers and evolving costumes / relationships.' : ''
+          ]
+            .filter(Boolean)
+            .join('\n')
+      ]
+        .filter(Boolean)
+        .join('\n')
+
       const nextProject = defaultProject({
-        title: bible.title,
+        title: resolvedTitle,
         status: 'in_progress',
         bible,
         episodes: [episode1],
-        memorySummary: '',
+        memorySummary: memorySeed.slice(0, 4000),
+        id: projectId,
+        ...(out.metadata?.worldStateSnapshot
+          ? { worldStateSnapshot: out.metadata.worldStateSnapshot }
+          : {}),
+        ...(out.metadata?.relationshipSnapshot?.length
+          ? { relationshipSnapshot: out.metadata.relationshipSnapshot }
+          : {}),
+        ...(out.metadata?.creatorPreferencesPatch
+          ? { creatorPreferences: out.metadata.creatorPreferencesPatch }
+          : {}),
         qualityMerge: true,
-        assets: assetsFromPipeline
+        fontMode: uiFontMode,
+        assets: assetsFromPipeline,
+        narration: narrationDraft
       })
-      setProject(nextProject)
-      void pushStoryToHistory(nextProject)
-      void pushStoryToCloudIfSignedIn(nextProject)
+
+      const prefersReduced =
+        typeof window !== 'undefined' &&
+        Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+
+      if (prefersReduced) {
+        if (styleId === 'custom') {
+          useStudioStore.getState().touchRecentCustomStyle(customVisualPrompt.trim())
+        }
+        useStudioStore.getState().setWorkspaceProject(workspaceIx, nextProject)
+        void pushStoryToHistory(nextProject)
+        void pushStoryToCloudIfSignedIn(nextProject)
+      } else {
+        const doc = buildLiveRevealDocument(out)
+        // Stream reveal is UI-only; keep it pinned to the workspace that triggered the job.
+        useStudioStore.getState().setWorkspaceStreamReveal(workspaceIx, {
+          fullDoc: doc,
+          visibleLen: 0,
+          paused: false,
+          typingSound:
+            typeof localStorage !== 'undefined' && localStorage.getItem('katha_live_typing_sound') === '1',
+          pendingProject: nextProject
+        })
+        if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) {
+          useStudioStore.getState().startStreamReveal(doc, nextProject)
+        }
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      useStudioStore.getState().setWorkspaceStreamReveal(workspaceIx, null)
+      const msg = e instanceof Error ? e.message : String(e)
+      if (e instanceof Error && e.name === 'AbortError') {
+        setWorkspaceError(workspaceIx, null)
+        if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) setError(null)
+      } else {
+        setWorkspaceError(workspaceIx, msg)
+        if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) setError(msg)
+      }
     } finally {
-      setBusy(null)
+      useStudioStore.getState().setWorkspaceGenerationAbort(workspaceIx, null)
+      const active = useStudioStore.getState().activeWorkspaceSlotIndex
+      const sr = useStudioStore.getState().workspaceRuntime[workspaceIx]?.streamReveal
+      if (!sr) useStudioStore.getState().setWorkspaceBusy(workspaceIx, null)
+      if (active === workspaceIx) {
+        useStudioStore.getState().setGenerationAbort(null)
+        if (!useStudioStore.getState().streamReveal) setBusy(null)
+      }
     }
   }, [
     setBusy,
     setError,
-    setProject,
     setJob,
+    setWorkspaceBusy,
+    setWorkspaceError,
     backendTheme,
-    backendCountry,
     backendGenre,
     backendLength,
     styleId,
+    customVisualPrompt,
+    narratorId,
+    narrationDraft,
+    uiFontMode,
     uiLanguage,
-    aspectMode
+    storyLanguage,
+    storyCountry,
+    uiText,
+    visualPackId
   ])
 
   return { generate }

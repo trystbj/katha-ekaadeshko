@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Nepal double pennon — static export (transparent outside silhouette).
+  Crimson cloth / blue border / white moon and sun. Animated web: NepalFlagAnimated.tsx
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-14 -14 292 412" width="512" height="720" aria-label="Flag of Nepal">
+  <defs>
+    <linearGradient id="nk" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e02448"/>
+      <stop offset="38%" stop-color="#C8102E"/>
+      <stop offset="100%" stop-color="#8a0b22"/>
+    </linearGradient>
+    <linearGradient id="nkb" x1="0%" y1="100%" x2="95%" y2="0%">
+      <stop offset="0%" stop-color="#002d72"/>
+      <stop offset="100%" stop-color="#003893"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#nk)" stroke="url(#nkb)" stroke-width="10" stroke-linejoin="miter" stroke-linecap="butt"
+        d="M 0,0 L 0,384 L 240,276 L 18,190 L 228,94 L 0,0 Z"/>
+  <g transform="translate(92,108)" fill="#FFFFFF">
+    <path d="M 6,-18 A 18 18 0 1 1 6 18 A 13 13 0 1 0 6 -18 Z"/>
+    <g opacity="0.95">
+      <path d="M 0,-26 L 2,-20 L -2,-20 Z"/>
+      <path transform="rotate(45)" d="M 0,-26 L 2,-20 L -2,-20 Z"/>
+      <path transform="rotate(90)" d="M 0,-26 L 2,-20 L -2,-20 Z"/>
+      <path transform="rotate(135)" d="M 0,-26 L 2,-20 L -2,-20 Z"/>
+      <path transform="rotate(180)" d="M 0,-26 L 2,-20 L -2,-20 Z"/>
+      <path transform="rotate(225)" d="M 0,-26 L 2,-20 L -2,-20 Z"/>
+      <path transform="rotate(270)" d="M 0,-26 L 2,-20 L -2,-20 Z"/>
+      <path transform="rotate(315)" d="M 0,-26 L 2,-20 L -2,-20 Z"/>
+    </g>
+  </g>
+  <g transform="translate(102,286)" fill="#FFFFFF">
+    <circle r="17" cx="0" cy="0"/>
+    <g stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round">
+      <line x1="0" y1="-34" x2="0" y2="-24"/>
+      <line x1="29.4" y1="-17" x2="21.2" y2="-12.2"/>
+      <line x1="29.4" y1="17" x2="21.2" y2="12.2"/>
+      <line x1="0" y1="34" x2="0" y2="24"/>
+      <line x1="-29.4" y1="17" x2="-21.2" y2="12.2"/>
+      <line x1="-29.4" y1="-17" x2="-21.2" y2="-12.2"/>
+      <line x1="17" y1="-29.4" x2="12.2" y2="-21.2"/>
+      <line x1="-17" y1="-29.4" x2="-12.2" y2="-21.2"/>
+      <line x1="17" y1="29.4" x2="12.2" y2="21.2"/>
+      <line x1="-17" y1="29.4" x2="-12.2" y2="21.2"/>
+      <line x1="34" y1="0" x2="24" y2="0"/>
+      <line x1="-34" y1="0" x2="-24" y2="0"/>
+    </g>
+  </g>
+</svg>
