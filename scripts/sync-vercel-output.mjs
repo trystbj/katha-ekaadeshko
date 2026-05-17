@@ -11,13 +11,7 @@ const src = path.join(root, 'web-dist')
 const dest = path.join(root, 'dist')
 
 function rmDir(dir) {
-  if (!fs.existsSync(dir)) return
-  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, ent.name)
-    if (ent.isDirectory()) rmDir(p)
-    else fs.unlinkSync(p)
-  }
-  fs.rmdirSync(dir)
+  if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true })
 }
 
 function copyDir(from, to) {

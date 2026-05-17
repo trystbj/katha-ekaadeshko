@@ -1,6 +1,6 @@
 # Production architecture — Katha Ekadeshko
 
-This document describes production hardening added for Vercel deployment. **No public API URLs were renamed** — see `api/DOMAIN_MAP.md` for logical domains.
+This document describes production hardening added for Vercel deployment. **No public API URLs were renamed** — see `docs/API_DOMAIN_MAP.md` for logical domains.
 
 ## API layer (`api/_lib/`)
 
