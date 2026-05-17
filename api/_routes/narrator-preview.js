@@ -76,16 +76,16 @@ export default async function handler(req, res) {
   const storyLanguage = pickStoryLanguage(req)
   const narrationLanguage = pickNarrationLanguage(req)
   try {
-    const buf = await generateNarratorPreviewMp3(narratorId, {
+    const { buf, openAiVoice } = await generateNarratorPreviewMp3(narratorId, {
       uiLang,
       storyLanguage: storyLanguage || undefined,
       narrationLanguage: narrationLanguage || undefined
     })
     res.setHeader('Content-Type', 'audio/mpeg')
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
-    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v10-voices')
+    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v12-browser-first')
     res.setHeader('X-Katha-Narrator-Id', narratorId)
-    res.setHeader('X-Katha-OpenAI-Voice', getNarratorPreset(narratorId).openAiVoice)
+    res.setHeader('X-Katha-OpenAI-Voice', openAiVoice || getNarratorPreset(narratorId).openAiVoice)
     res.setHeader('X-Katha-Preview-Bytes', String(buf.length))
     res.status(200).send(buf)
   } catch (e) {

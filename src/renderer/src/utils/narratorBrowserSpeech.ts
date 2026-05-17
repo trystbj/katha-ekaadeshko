@@ -4,7 +4,8 @@ import { narratorIdentityForId } from '../constants/narratorVoiceProfiles'
 import {
   bcp47FromLangId,
   narrationLangVoiceHints,
-  splitPreviewUtterances
+  splitPreviewUtterances,
+  waitForSpeechVoices
 } from './narrationSpeechPreview'
 import { storyLanguageToPreviewLang } from '../constants/narratorIntroSamples'
 import type { NarrationLanguageId } from '../types/story'
@@ -13,26 +14,11 @@ export function loadVoices(): Promise<SpeechSynthesisVoice[]> {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     return Promise.resolve([])
   }
-  const s = window.speechSynthesis
-  const v = s.getVoices()
-  if (v.length) return Promise.resolve(v)
-  return new Promise((resolve) => {
-    const done = () => {
-      s.removeEventListener('voiceschanged', done)
-      resolve(s.getVoices())
-    }
-    s.addEventListener('voiceschanged', done)
-    setTimeout(done, 300)
-  })
+  return waitForSpeechVoices(window.speechSynthesis)
 }
 
 function isMaleNarrator(narratorId: string) {
   return normalizeNarratorId(narratorId) === 'tryst_bj'
-}
-
-const GENDER_INDEX: Record<string, number> = {
-  tryst_bj: 0,
-  penguin: 1
 }
 
 function isProbablyMale(name: string) {
@@ -93,7 +79,7 @@ export function pickSouthAsianNameVoiceByGender(
     return f || pool[0]!
   }
   const m = pool.find((v) => isProbablyMale(v.name) && !isProbablyFemale(v.name))
-  return m ?? null
+  return m ?? pool[0] ?? null
 }
 
 type SpeakOpts = {
@@ -104,16 +90,8 @@ type SpeakOpts = {
   onEnd?: () => void
 }
 
-function speakOne(utt: SpeechSynthesisUtterance, s: SpeechSynthesis): Promise<void> {
-  return new Promise((resolve, reject) => {
-    utt.onend = () => resolve()
-    utt.onerror = (ev) => reject(ev.error || new Error('speech synthesis error'))
-    s.speak(utt)
-  })
-}
-
 /**
- * Fallback when OpenAI preview fails — chunked utterances for reliable playback.
+ * Reliable browser preview — same resume/voices pattern as narrationSpeechPreview.
  */
 export async function speakNarratorBrowserPreview(opts: SpeakOpts): Promise<void> {
   const { narratorId, storyLanguage, isCancelled, onError, onEnd } = opts
@@ -122,59 +100,94 @@ export async function speakNarratorBrowserPreview(opts: SpeakOpts): Promise<void
     return
   }
   const intro = getNarratorIntroSampleDisplay(narratorId, storyLanguage)
-  if (!intro) {
+  if (!intro?.trim()) {
     onError(new Error('no intro line'))
     return
   }
   const identity = narratorIdentityForId(narratorId)
-  const s = window.speechSynthesis
-  s.cancel()
-  if (isCancelled()) return
+  const syn = window.speechSynthesis
+  syn.cancel()
+  await new Promise((r) => setTimeout(r, 50))
+  if (isCancelled()) {
+    onEnd?.()
+    return
+  }
 
   const voices = await loadVoices()
-  if (isCancelled()) return
+  if (isCancelled()) {
+    onEnd?.()
+    return
+  }
+
   const wantGender: 'male' | 'female' =
     identity?.gender === 'female' || identity?.gender === 'male'
       ? identity.gender
       : isMaleNarrator(narratorId)
         ? 'male'
         : 'female'
-  const vNep =
+  const voice =
     pickNarratorVoice(narratorId, voices) ||
     pickSouthAsianNameVoiceByGender(voices, wantGender) ||
     pickSouthAsianNameVoice(voices) ||
     voices[0]
-  if (!vNep) {
+  if (!voice) {
     onError(new Error('no voice'))
     return
   }
-  if (isCancelled()) return
+  if (isCancelled()) {
+    onEnd?.()
+    return
+  }
 
   const langId: NarrationLanguageId = storyLanguage
     ? storyLanguageToPreviewLang(storyLanguage)
     : 'ne'
   const hints = narrationLangVoiceHints(langId)
   const utterLang =
-    vNep.lang && hints.some((h) => (vNep.lang || '').toLowerCase().startsWith(h.toLowerCase().slice(0, 2)))
-      ? vNep.lang
+    voice.lang && hints.some((h) => (voice.lang || '').toLowerCase().startsWith(h.toLowerCase().slice(0, 2)))
+      ? voice.lang
       : bcp47FromLangId(langId)
 
   const parts = splitPreviewUtterances(intro)
   const rate = identity?.browserTts.rate ?? 0.92
   const pitch = identity?.browserTts.pitch ?? 1
 
-  try {
-    for (const part of parts) {
-      if (isCancelled()) return
-      const u = new SpeechSynthesisUtterance(part)
-      u.voice = vNep
-      u.lang = utterLang
-      u.rate = rate
-      u.pitch = pitch
-      await speakOne(u, s)
-    }
+  let idx = 0
+  const finish = () => {
     if (!isCancelled()) onEnd?.()
-  } catch (e) {
-    onError(e)
   }
+
+  const speakNext = () => {
+    if (isCancelled()) {
+      finish()
+      return
+    }
+    if (idx >= parts.length) {
+      finish()
+      return
+    }
+    const u = new SpeechSynthesisUtterance(parts[idx])
+    u.voice = voice
+    u.lang = utterLang
+    u.rate = rate
+    u.pitch = pitch
+    u.volume = 1
+    u.onend = () => {
+      idx += 1
+      speakNext()
+    }
+    u.onerror = () => onError(new Error('speech synthesis error'))
+    try {
+      try {
+        syn.resume()
+      } catch {
+        /* ignore */
+      }
+      syn.speak(u)
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  speakNext()
 }

@@ -4,7 +4,6 @@ import { useStudioStore } from '../store/useStudioStore'
 import { getNarratorIntroSampleDisplay } from '../constants/narratorIntroSamples'
 import {
   PREVIEW_CACHE_GEN,
-  clearNarratorPreviewAudioCache,
   getCachedNarratorPreviewBlobUrl,
   prefetchNarratorPreviewMp3
 } from '../utils/narratorPreviewAudioCache'
@@ -24,6 +23,56 @@ async function blobLooksLikeMp3(blob: Blob): Promise<boolean> {
   if (a[0] === 0x49 && a[1] === 0x44 && a[2] === 0x33) return true
   if (a[0] === 0xff && (a[1] & 0xe0) === 0xe0) return true
   return false
+}
+
+const PREVIEW_FETCH_MS = 28_000
+
+function fetchPreviewWithTimeout(url: string, signal: AbortSignal): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('preview fetch timeout')), PREVIEW_FETCH_MS)
+    const onAbort = () => {
+      window.clearTimeout(timer)
+      reject(new DOMException('Aborted', 'AbortError'))
+    }
+    if (signal.aborted) {
+      onAbort()
+      return
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      signal,
+      headers: { Accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.8' }
+    })
+      .then((r) => {
+        window.clearTimeout(timer)
+        signal.removeEventListener('abort', onAbort)
+        resolve(r)
+      })
+      .catch((e) => {
+        window.clearTimeout(timer)
+        signal.removeEventListener('abort', onAbort)
+        reject(e)
+      })
+  })
+}
+
+async function playAudioElement(audio: HTMLAudioElement): Promise<void> {
+  audio.preload = 'auto'
+  await new Promise<void>((resolve) => {
+    const done = () => {
+      audio.removeEventListener('canplaythrough', done)
+      audio.removeEventListener('loadeddata', done)
+      clearTimeout(t)
+      resolve()
+    }
+    const t = window.setTimeout(done, 4000)
+    audio.addEventListener('canplaythrough', done, { once: true })
+    audio.addEventListener('loadeddata', done, { once: true })
+    audio.load()
+  })
+  await audio.play()
 }
 
 /** TTS from /api/narrator-preview; validates MP3; shows intro while loading/playing; Web Speech fallback. */
@@ -66,7 +115,15 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
     ownStop.current = null
   }
 
-  const playWithBrowserTts = () => {
+  const stopBrowserPlayback = () => {
+    browserCancel.current = true
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+    }
+    speechPlanned.current = false
+  }
+
+  const playWithBrowserTts = (opts?: { onErrorWhileApiPending?: () => void; abortFetch?: () => void }) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       setErr(true)
       setMode('idle')
@@ -81,6 +138,7 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
     browserCancel.current = false
     const stop = () => {
       browserCancel.current = true
+      opts?.abortFetch?.()
       window.speechSynthesis.cancel()
       speechPlanned.current = false
       setMode('idle')
@@ -97,13 +155,10 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
       storyLanguage,
       isCancelled: () => browserCancel.current,
       onError: () => {
-        setErr(true)
-        setMode('idle')
-        setUsedBrowser(false)
-        setPreviewSource(null)
         speechPlanned.current = false
         resetStopRefs()
         if (globalStop === stop) globalStop = null
+        opts?.onErrorWhileApiPending?.()
       },
       onEnd: () => {
         speechPlanned.current = false
@@ -184,14 +239,29 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
       currentFetch?.abort()
       const ac = new AbortController()
       currentFetch = ac
-      let usedFallback = false
-      setUsedBrowser(false)
+      let apiInFlight = true
+      let openAiWon = false
 
-      const runFallback = () => {
-        if (usedFallback || ac.signal.aborted) return
-        usedFallback = true
-        revokeOwnedBlobUrl()
-        playWithBrowserTts()
+      const abortThisFetch = () => {
+        if (currentFetch === ac) {
+          ac.abort()
+          currentFetch = null
+        }
+      }
+
+      const runBrowserOnly = () => {
+        if (ac.signal.aborted || openAiWon) return
+        playWithBrowserTts({
+          abortFetch: abortThisFetch,
+          onErrorWhileApiPending: () => {
+            if (!apiInFlight && !openAiWon && !ac.signal.aborted) {
+              setErr(true)
+              setMode('idle')
+              setUsedBrowser(false)
+              setPreviewSource(null)
+            }
+          }
+        })
       }
 
       const cachedBlobUrl = getCachedNarratorPreviewBlobUrl(previewUrl)
@@ -222,7 +292,7 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
         audio.onerror = () => {
           if (!ac.signal.aborted) {
             stop()
-            runFallback()
+            runBrowserOnly()
           } else {
             stop()
           }
@@ -230,55 +300,44 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
         setPreviewSource('openai')
         try {
           setMode('playing')
-          await audio.play()
+          await playAudioElement(audio)
         } catch {
           stop()
-          if (!ac.signal.aborted) runFallback()
+          if (!ac.signal.aborted) runBrowserOnly()
         }
         return
       }
 
-      setMode('loading')
+      /** Hear something immediately; upgrade to OpenAI MP3 when the API succeeds. */
+      const hasBrowserTts = typeof window !== 'undefined' && 'speechSynthesis' in window
+      if (hasBrowserTts) {
+        runBrowserOnly()
+        setMode('playing')
+      } else {
+        setMode('loading')
+      }
+
       try {
-        const r = await fetch(previewUrl, {
-          method: 'GET',
-          cache: 'no-store',
-          signal: ac.signal,
-          headers: { Accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.8' }
-        })
+        const r = await fetchPreviewWithTimeout(previewUrl, ac.signal)
         if (ac.signal.aborted) return
         if (currentFetch === ac) currentFetch = null
 
         const ct = (r.headers.get('content-type') || '').toLowerCase()
-        if (!r.ok) {
-          setErr(true)
-          setPreviewSource(null)
-          runFallback()
-          return
-        }
+        apiInFlight = false
+        if (!r.ok) return
+
         const engine = r.headers.get('x-katha-preview-engine') || ''
-        if (engine.includes('cinematic')) {
-          setPreviewSource('openai')
-        }
-        if (ct.includes('application/json') || ct.includes('text/html')) {
-          setErr(true)
-          runFallback()
-          return
-        }
+        if (ct.includes('application/json') || ct.includes('text/html')) return
 
         const blob = await r.blob()
         if (ct && !ct.includes('audio') && !ct.includes('octet-stream')) {
-          if (!(await blobLooksLikeMp3(blob))) {
-            runFallback()
-            return
-          }
+          if (!(await blobLooksLikeMp3(blob))) return
         }
         if (ac.signal.aborted) return
-        if (blob.size < 64 || !(await blobLooksLikeMp3(blob))) {
-          runFallback()
-          return
-        }
+        if (blob.size < 64 || !(await blobLooksLikeMp3(blob))) return
 
+        stopBrowserPlayback()
+        openAiWon = true
         setUsedBrowser(false)
         setPreviewSource(engine.includes('cinematic') ? 'openai' : 'openai')
         const url = URL.createObjectURL(blob)
@@ -286,6 +345,7 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
         const audio = new Audio(url)
 
         const stop = () => {
+          abortThisFetch()
           audio.pause()
           audio.removeAttribute('src')
           revokeOwnedBlobUrl()
@@ -309,31 +369,33 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
         audio.onerror = () => {
           if (!ac.signal.aborted) {
             stop()
-            runFallback()
+            runBrowserOnly()
           } else {
             stop()
           }
         }
         setMode('playing')
         try {
-          await audio.play()
+          await playAudioElement(audio)
         } catch {
           stop()
-          if (!ac.signal.aborted) runFallback()
+          if (!ac.signal.aborted) runBrowserOnly()
         }
       } catch (x) {
+        apiInFlight = false
         if ((x as Error).name === 'AbortError' || (x as { name?: string })?.name === 'AbortError') {
           if (currentFetch === ac) currentFetch = null
+          stopBrowserPlayback()
           setMode('idle')
           return
         }
         if (currentFetch === ac) currentFetch = null
-        if (!ac.signal.aborted) {
-          revokeOwnedBlobUrl()
-          runFallback()
-        } else {
+        if (!ac.signal.aborted && !openAiWon && !speechPlanned.current) {
+          setErr(true)
           setMode('idle')
         }
+      } finally {
+        apiInFlight = false
       }
     })()
   }

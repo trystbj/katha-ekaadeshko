@@ -5,7 +5,7 @@
   "outputDirectory": "web-dist",
   "functions": {
     "api/gateway.js": {
-      "maxDuration": 60
+      "maxDuration": 10
     }
   },
   "rewrites": [

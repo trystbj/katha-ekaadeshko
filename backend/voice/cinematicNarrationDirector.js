@@ -107,6 +107,7 @@ export function buildGlobalNarrationPlan(ctx, opts = {}) {
         })
       : ''
 
+  const isNe = isNepaliLanguage(storyLanguage)
   const nepaliRhythm = isNe ? nepaliStoryRhythmBlock(ctx, emotion) : ''
   const nepaliDialogue = isNe ? nepaliDialogueFlowHints(preprocessed.text || ctx?.narration) : ''
 
