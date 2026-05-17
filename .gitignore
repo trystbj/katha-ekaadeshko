@@ -6,6 +6,10 @@ web-dist/
 build/
 *.log
 *.tsbuildinfo
+.tmp-bundle.js
+.tmp-bundle2.js
+meta.json
+meta2.json
 .DS_Store
 .env.local
 .env.*.local

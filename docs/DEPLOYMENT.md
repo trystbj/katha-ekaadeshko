@@ -52,6 +52,12 @@ If Vercel logs show **~106 modules** and **one** `index-*.js` (~257 KB), you dep
 
 **Fix:** commit and push your branch (including `web/`, `vite.web.config.ts`, and untracked `src/renderer` work), then redeploy. Vercel **Root Directory** must be the repo root (folder with `vercel.json`).
 
+### Deploy failed after a good Vite log
+
+If the log shows **660 modules** / `kathaWebBridge-*.css` but the deployment still fails, check the **Deploy** step (not Build). Common cause on **Hobby**: `maxDuration` above **60s** in `vercel.json`. This repo caps API functions at 60s; on **Pro** you can raise `api/jobs-stream-generate.js` in the dashboard for longer SSE generation.
+
+If Build fails with only **106 modules**, you are still on old `main` — pull latest and redeploy.
+
 ## Production architecture
 
 See [`PRODUCTION_ARCHITECTURE.md`](PRODUCTION_ARCHITECTURE.md) for API hardening, rate limits, security headers, and provider registry.

@@ -29,7 +29,7 @@ Facade for timeline + future FFmpeg/GPU paths. Browser export today; `render_job
 
 - Security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy)
 - Long cache for hashed `/assets/*`
-- `maxDuration` for generation, Leonardo, render enqueue
+- `maxDuration` 60s on API routes (Hobby-safe; raise on Pro for long SSE)
 - SPA rewrite to `/` (API routes unchanged)
 
 ## Frontend performance

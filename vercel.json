@@ -31,10 +31,11 @@
   ],
   "functions": {
     "api/jobs-stream-generate.js": {
-      "maxDuration": 300
+      "maxDuration": 60,
+      "memory": 1024
     },
     "api/leonardo-generate.js": {
-      "maxDuration": 120
+      "maxDuration": 60
     },
     "api/render.js": {
       "maxDuration": 60
