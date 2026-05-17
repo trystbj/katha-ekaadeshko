@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { createJsonHandler } from './_lib/http.js'
-import { parseCopilotCommand, applyCopilotPatchesToScene } from '../backend/creator/copilotCommandEngine.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { parseCopilotCommand, applyCopilotPatchesToScene } from '../../backend/creator/copilotCommandEngine.js'
 
 const BodySchema = z.object({
   command: z.string().min(2).max(500),

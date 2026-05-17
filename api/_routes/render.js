@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { createJsonHandler } from './_lib/http.js'
-import { renderSupabaseAdmin } from './_renderSupabase.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { renderSupabaseAdmin } from '../_renderSupabase.js'
 
 const BodySchema = z.object({
   storyTitle: z.string().optional(),

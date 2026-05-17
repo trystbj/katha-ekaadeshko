@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { createJsonHandler } from './_lib/http.js'
-import { renderJobIdSchema, renderSupabaseAdmin, requireWorkerToken } from './_renderSupabase.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { renderJobIdSchema, renderSupabaseAdmin, requireWorkerToken } from '../_renderSupabase.js'
 
 const BodySchema = z.object({ id: renderJobIdSchema, workerId: z.string().min(1).max(128) })
 

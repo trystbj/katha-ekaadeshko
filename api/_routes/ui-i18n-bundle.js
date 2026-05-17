@@ -1,5 +1,5 @@
-import { openaiJson } from '../backend/services/openaiService.js'
-import { geminiJson } from '../backend/services/geminiService.js'
+import { openaiJson } from '../../backend/services/openaiService.js'
+import { geminiJson } from '../../backend/services/geminiService.js'
 
 const SUPPORTED = new Set(['ne', 'en'])
 

@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { createJsonHandler } from './_lib/http.js'
-import { supabaseFromReq } from './_lib/projectsSupabase.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { supabaseFromReq } from '../_lib/projectsSupabase.js'
 
 const BodySchema = z.object({ id: z.string().min(8) })
 

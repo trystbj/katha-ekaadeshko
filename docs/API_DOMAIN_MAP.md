@@ -14,4 +14,6 @@ Routes stay at **existing URLs** for zero-downtime deploys. Logical domains map 
 | **creator** | `creator-copilot`, `creator-quality`, `creator-scene-regenerate`, `realtime-feedback` | `backend/creator/` |
 | **system** | `health`, `ui-i18n-bundle` | `api/_lib/` |
 
-New routes must use `api/_lib/http.js` (`createJsonHandler`). Exceptions: `jobs-stream-generate` (SSE), `narrator-preview` (binary), `ui-i18n-bundle` (static JSON bundle).
+Implement handlers under `api/_routes/` and register in `api/gateway.js`. Vercel Hobby allows **12** serverless files in `api/`; this project uses **one** gateway + rewrites so all legacy `/api/*` URLs still work.
+
+Shared utilities: `api/_lib/http.js` (`createJsonHandler`).

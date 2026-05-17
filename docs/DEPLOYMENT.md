@@ -54,9 +54,11 @@ If Vercel logs show **~106 modules** and **one** `index-*.js` (~257 KB), you dep
 
 ### Deploy failed after a good Vite log
 
-If the log shows **660 modules** / `kathaWebBridge-*.css` but the deployment still fails, check the **Deploy** step (not Build). Common cause on **Hobby**: `maxDuration` above **60s** in `vercel.json`. This repo caps API functions at 60s; on **Pro** you can raise `api/jobs-stream-generate.js` in the dashboard for longer SSE generation.
+If the log shows **660 modules** / `kathaWebBridge-*.css` but the deployment still fails, the Vite step succeeded. On **Vercel Hobby**, non-Next.js projects are limited to **12 serverless functions** (one file per `api/*.js`). This repo uses a **single** `api/gateway.js` plus `vercel.json` rewrites so all `/api/*` URLs still work.
 
 If Build fails with only **106 modules**, you are still on old `main` — pull latest and redeploy.
+
+**Output directory:** `web-dist` (set in `vercel.json`). No dashboard changes required.
 
 ## Production architecture
 

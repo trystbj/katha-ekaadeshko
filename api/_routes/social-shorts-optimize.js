@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { createJsonHandler } from './_lib/http.js'
-import { analyzeShortsOptimization } from '../backend/social/shortsOptimizerEngine.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { analyzeShortsOptimization } from '../../backend/social/shortsOptimizerEngine.js'
 
 const BodySchema = z.object({
   episode: z.record(z.unknown()).optional(),

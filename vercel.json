@@ -1,7 +1,30 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm ci",
-  "buildCommand": "npm run web:build && node scripts/sync-vercel-output.mjs",
-  "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "installCommand": "npm install",
+  "buildCommand": "npm run web:build",
+  "outputDirectory": "web-dist",
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/gateway?target=health" },
+    { "source": "/api/jobs-stream-generate", "destination": "/api/gateway?target=jobs-stream-generate" },
+    { "source": "/api/leonardo-generate", "destination": "/api/gateway?target=leonardo-generate" },
+    { "source": "/api/narrator-preview", "destination": "/api/gateway?target=narrator-preview" },
+    { "source": "/api/creator-copilot", "destination": "/api/gateway?target=creator-copilot" },
+    { "source": "/api/creator-quality", "destination": "/api/gateway?target=creator-quality" },
+    { "source": "/api/creator-scene-regenerate", "destination": "/api/gateway?target=creator-scene-regenerate" },
+    { "source": "/api/realtime-feedback", "destination": "/api/gateway?target=realtime-feedback" },
+    { "source": "/api/social-caption", "destination": "/api/gateway?target=social-caption" },
+    { "source": "/api/social-shorts-optimize", "destination": "/api/gateway?target=social-shorts-optimize" },
+    { "source": "/api/ui-i18n-bundle", "destination": "/api/gateway?target=ui-i18n-bundle" },
+    { "source": "/api/render", "destination": "/api/gateway?target=render" },
+    { "source": "/api/render-status", "destination": "/api/gateway?target=render-status" },
+    { "source": "/api/projects-list", "destination": "/api/gateway?target=projects-list" },
+    { "source": "/api/projects-get", "destination": "/api/gateway?target=projects-get" },
+    { "source": "/api/projects-save", "destination": "/api/gateway?target=projects-save" },
+    { "source": "/api/projects-delete", "destination": "/api/gateway?target=projects-delete" },
+    { "source": "/api/worker-claim", "destination": "/api/gateway?target=worker-claim" },
+    { "source": "/api/worker-pending", "destination": "/api/gateway?target=worker-pending" },
+    { "source": "/api/worker-progress", "destination": "/api/gateway?target=worker-progress" },
+    { "source": "/api/worker-complete", "destination": "/api/gateway?target=worker-complete" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

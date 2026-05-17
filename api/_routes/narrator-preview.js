@@ -1,9 +1,9 @@
-import { normalizeNarratorId } from '../backend/utils/narratorPresets.js'
-import { generateNarratorPreviewMp3 } from '../backend/services/narratorPreviewTts.js'
-import { PREVIEW_UI_LANGS } from '../backend/utils/narratorPreviewI18n.js'
-import { setSecurityHeaders } from './_lib/http.js'
-import { checkRateLimit, clientIp } from './_lib/rateLimit.js'
-import { publicErrorMessage, safeLog } from './_lib/log.js'
+import { normalizeNarratorId } from '../../backend/utils/narratorPresets.js'
+import { generateNarratorPreviewMp3 } from '../../backend/services/narratorPreviewTts.js'
+import { PREVIEW_UI_LANGS } from '../../backend/utils/narratorPreviewI18n.js'
+import { setSecurityHeaders } from '../_lib/http.js'
+import { checkRateLimit, clientIp } from '../_lib/rateLimit.js'
+import { publicErrorMessage, safeLog } from '../_lib/log.js'
 
 function pickNarratorId(req) {
   const raw =

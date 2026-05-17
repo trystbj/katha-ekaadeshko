@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { createJsonHandler, withTimeout } from './_lib/http.js'
-import { leonardoGenerateOne } from '../backend/services/leonardoService.js'
+import { createJsonHandler, withTimeout } from '../_lib/http.js'
+import { leonardoGenerateOne } from '../../backend/services/leonardoService.js'
 
 const InputSchema = z.object({
   prompt: z.string().min(2).max(4000),

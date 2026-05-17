@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { createJsonHandler } from './_lib/http.js'
-import { buildSocialCaptions } from '../backend/social/captionGeneratorEngine.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { buildSocialCaptions } from '../../backend/social/captionGeneratorEngine.js'
 
 const BodySchema = z.object({
   storyTitle: z.string().optional(),

@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { createJsonHandler } from './_lib/http.js'
-import { analyzeCinematicQuality } from '../backend/creator/qualityAnalyzer.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { analyzeLiveFeedback } from '../../backend/realtime/liveFeedbackEngine.js'
 
 const BodySchema = z.object({
   episode: z.record(z.unknown())
@@ -11,7 +11,7 @@ export default createJsonHandler({
   schema: BodySchema,
   rateLimit: { max: 90, windowMs: 60_000 },
   async run({ body }) {
-    const report = analyzeCinematicQuality(body.episode)
+    const report = analyzeLiveFeedback(body.episode)
     return { report }
   }
 })

@@ -1,10 +1,10 @@
 import { z } from 'zod'
-import { runKathaPipeline } from '../backend/orchestrator/kathaPipeline.js'
-import { normalizeNarratorId } from '../backend/utils/narratorPresets.js'
-import { checkRateLimit, clientIp } from './_lib/rateLimit.js'
-import { parseRequestBody } from './_lib/parseBody.js'
-import { publicErrorMessage, safeLog } from './_lib/log.js'
-import { setSecurityHeaders } from './_lib/http.js'
+import { runKathaPipeline } from '../../backend/orchestrator/kathaPipeline.js'
+import { normalizeNarratorId } from '../../backend/utils/narratorPresets.js'
+import { checkRateLimit, clientIp } from '../_lib/rateLimit.js'
+import { parseRequestBody } from '../_lib/parseBody.js'
+import { publicErrorMessage, safeLog } from '../_lib/log.js'
+import { setSecurityHeaders } from '../_lib/http.js'
 
 const NarratorIdSchema = z.preprocess(
   (val) => normalizeNarratorId(typeof val === 'string' ? val : ''),

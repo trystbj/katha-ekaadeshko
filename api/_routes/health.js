@@ -1,5 +1,5 @@
-import { createJsonHandler } from './_lib/http.js'
-import { providerAvailability } from '../core/providers/aiProviderRegistry.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { providerAvailability } from '../../core/providers/aiProviderRegistry.js'
 
 export default createJsonHandler({
   methods: ['GET', 'HEAD'],

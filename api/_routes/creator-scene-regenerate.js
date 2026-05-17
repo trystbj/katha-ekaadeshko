@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { createJsonHandler } from './_lib/http.js'
-import { buildRegenerationPlan } from '../backend/creator/sceneRegenerationEngine.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { buildRegenerationPlan } from '../../backend/creator/sceneRegenerationEngine.js'
 
 const BodySchema = z.object({
   target: z.enum([

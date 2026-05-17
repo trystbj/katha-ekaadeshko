@@ -1,5 +1,5 @@
-import { createJsonHandler } from './_lib/http.js'
-import { supabaseFromReq } from './_lib/projectsSupabase.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { supabaseFromReq } from '../_lib/projectsSupabase.js'
 
 export default createJsonHandler({
   methods: ['GET'],

@@ -1,5 +1,5 @@
-import { createJsonHandler } from './_lib/http.js'
-import { renderSupabaseAdmin, requireWorkerToken } from './_renderSupabase.js'
+import { createJsonHandler } from '../_lib/http.js'
+import { renderSupabaseAdmin, requireWorkerToken } from '../_renderSupabase.js'
 
 export default createJsonHandler({
   methods: ['GET'],
