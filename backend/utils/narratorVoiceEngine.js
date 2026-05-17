@@ -28,10 +28,10 @@ export const NARRATOR_PRESETS = [
   {
     id: 'tryst_bj',
     gender: 'male',
-    openAiVoice: 'echo',
-    speed: 1.0,
+    openAiVoice: 'ash',
+    speed: 0.98,
     instructions: [
-      'Voice identity: native Nepali male katha host—Kathmandu बोलचाल, warm cinematic storyteller; never Hindi-film or English-accented Nepali.',
+      'Voice identity: adult masculine Nepali male katha host—clearly male, Kathmandu बोलचाल; never female, never androgynous, never Hindi-film heroine tone.',
       'Register: natural mid male baritone—relaxed chest warmth; never artificially bass-heavy or sluggish.',
       'Pitch contour: conversational mid range with gentle rises; avoid monotone grave drops.',
       'Cadence: natural storytelling pace—fluid and listenable, like a skilled host, not a slow mythic documentary.',

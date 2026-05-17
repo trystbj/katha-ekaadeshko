@@ -1,4 +1,4 @@
-import { normalizeNarratorId } from '../../backend/utils/narratorPresets.js'
+import { getNarratorPreset, normalizeNarratorId } from '../../backend/utils/narratorPresets.js'
 import { generateNarratorPreviewMp3 } from '../../backend/services/narratorPreviewTts.js'
 import { PREVIEW_UI_LANGS } from '../../backend/utils/narratorPreviewI18n.js'
 import { json, setSecurityHeaders } from '../_lib/http.js'
@@ -83,7 +83,9 @@ export default async function handler(req, res) {
     })
     res.setHeader('Content-Type', 'audio/mpeg')
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
-    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v9-playfix')
+    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v10-voices')
+    res.setHeader('X-Katha-Narrator-Id', narratorId)
+    res.setHeader('X-Katha-OpenAI-Voice', getNarratorPreset(narratorId).openAiVoice)
     res.setHeader('X-Katha-Preview-Bytes', String(buf.length))
     res.status(200).send(buf)
   } catch (e) {

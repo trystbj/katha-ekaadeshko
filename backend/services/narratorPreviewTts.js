@@ -45,7 +45,12 @@ export async function generateNarratorPreviewMp3(narratorId, options = {}) {
   const neSlow = previewLang === 'ne' ? 0.94 : 0.96
   const previewSpeed = Math.min(1.03, Math.max(0.88, baseSpeed * plan.speedMul * neSlow))
 
-  const instructions = [preset.instructions, plan.instructionSuffix]
+  const voiceLock =
+    preset.id === 'penguin'
+      ? 'OPENAI VOICE LOCK: speak as a woman — light sweet feminine timbre only; never masculine.'
+      : 'OPENAI VOICE LOCK: speak as an adult man — clearly masculine baritone; never female or androgynous timbre.'
+
+  const instructions = [voiceLock, preset.instructions, plan.instructionSuffix]
     .filter(Boolean)
     .join(' ')
     .replace(/\s+/g, ' ')

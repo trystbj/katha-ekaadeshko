@@ -1,6 +1,6 @@
 /** Blob URLs keyed by full preview request URL. Bust when PREVIEW_CACHE_GEN changes. */
 
-export const PREVIEW_CACHE_GEN = 'v9-playfix'
+export const PREVIEW_CACHE_GEN = 'v10-voices'
 
 const blobUrls = new Map<string, string>()
 const inflight = new Map<string, Promise<void>>()

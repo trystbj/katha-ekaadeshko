@@ -54,13 +54,18 @@ export function pickNarratorVoice(narratorId: string, voices: SpeechSynthesisVoi
   const canon = normalizeNarratorId(narratorId)
   const wantMale = isMaleNarrator(canon)
   const en = voices.filter((v) => v.lang.toLowerCase().startsWith('en'))
-  const notLabelledFemale = en.filter((v) => !isProbablyFemale(v.name))
-  const notLabelledMale = en.filter((v) => !isProbablyMale(v.name))
-  const pool = wantMale ? (notLabelledFemale.length ? notLabelledFemale : en) : notLabelledMale.length ? notLabelledMale : en
-  const list = pool.length ? pool : en
-  if (!list.length) return voices[0]!
-  const idx = GENDER_INDEX[canon] ?? 0
-  return list[idx % list.length]!
+  if (wantMale) {
+    const maleTagged = en.filter((v) => isProbablyMale(v.name) && !isProbablyFemale(v.name))
+    if (maleTagged.length) return maleTagged[0]!
+    const notFemale = en.filter((v) => !isProbablyFemale(v.name))
+    if (notFemale.length) return notFemale[0]!
+  } else {
+    const femaleTagged = en.filter((v) => isProbablyFemale(v.name))
+    if (femaleTagged.length) return femaleTagged[0]!
+    const notMale = en.filter((v) => !isProbablyMale(v.name))
+    if (notMale.length) return notMale[0]!
+  }
+  return en[0] ?? voices[0]!
 }
 
 export function pickSouthAsianNameVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
@@ -88,7 +93,7 @@ export function pickSouthAsianNameVoiceByGender(
     return f || pool[0]!
   }
   const m = pool.find((v) => isProbablyMale(v.name) && !isProbablyFemale(v.name))
-  return m || pool[0]!
+  return m ?? null
 }
 
 type SpeakOpts = {
@@ -128,10 +133,15 @@ export async function speakNarratorBrowserPreview(opts: SpeakOpts): Promise<void
 
   const voices = await loadVoices()
   if (isCancelled()) return
-  const wantGender = identity?.gender ?? (isMaleNarrator(narratorId) ? 'male' : 'female')
+  const wantGender: 'male' | 'female' =
+    identity?.gender === 'female' || identity?.gender === 'male'
+      ? identity.gender
+      : isMaleNarrator(narratorId)
+        ? 'male'
+        : 'female'
   const vNep =
-    pickSouthAsianNameVoiceByGender(voices, wantGender) ||
     pickNarratorVoice(narratorId, voices) ||
+    pickSouthAsianNameVoiceByGender(voices, wantGender) ||
     pickSouthAsianNameVoice(voices) ||
     voices[0]
   if (!vNep) {

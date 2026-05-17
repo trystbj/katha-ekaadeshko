@@ -42,7 +42,7 @@ export const NARRATOR_VOICE_IDENTITIES: Record<NarratorVoiceIdentity['id'], Narr
     calmProfile: 'relaxed natural warmth; easy listening flow',
     suspenseProfile: 'gentle tension; slightly quicker pace, not gravel drag',
     epicProfile: 'lifted enthusiasm on stakes; still natural not booming',
-    browserTts: { rate: 1.0, pitch: 0.96 }
+    browserTts: { rate: 0.98, pitch: 0.82 }
   },
   penguin: {
     id: 'penguin',
@@ -62,7 +62,7 @@ export const NARRATOR_VOICE_IDENTITIES: Record<NarratorVoiceIdentity['id'], Narr
     calmProfile: 'honeyed softness; caring unhurried flow',
     suspenseProfile: 'delicate hush with feminine musicality',
     epicProfile: 'warm wonder; sweet lift without squeaky energy',
-    browserTts: { rate: 1.02, pitch: 1.16 }
+    browserTts: { rate: 1.02, pitch: 1.14 }
   }
 }
 
