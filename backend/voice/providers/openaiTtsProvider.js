@@ -43,12 +43,7 @@ export const openaiTtsProvider = {
 
     const ttsInput = plan.processedText || text
 
-    const voiceLock =
-      preset.id === 'penguin'
-        ? 'OPENAI VOICE LOCK: speak as a woman — light sweet feminine timbre only.'
-        : 'OPENAI VOICE LOCK: speak as an adult man — clearly masculine baritone; never female timbre.'
-
-    const mergedInstructions = [voiceLock, preset.instructions, plan.instructionSuffix]
+    const mergedInstructions = [preset.instructions, plan.instructionSuffix]
       .filter(Boolean)
       .join(' ')
       .trim()

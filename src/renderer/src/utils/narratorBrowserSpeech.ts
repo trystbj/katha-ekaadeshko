@@ -4,8 +4,7 @@ import { narratorIdentityForId } from '../constants/narratorVoiceProfiles'
 import {
   bcp47FromLangId,
   narrationLangVoiceHints,
-  splitPreviewUtterances,
-  waitForSpeechVoices
+  splitPreviewUtterances
 } from './narrationSpeechPreview'
 import { storyLanguageToPreviewLang } from '../constants/narratorIntroSamples'
 import type { NarrationLanguageId } from '../types/story'
@@ -14,7 +13,17 @@ export function loadVoices(): Promise<SpeechSynthesisVoice[]> {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     return Promise.resolve([])
   }
-  return waitForSpeechVoices(window.speechSynthesis)
+  const s = window.speechSynthesis
+  const v = s.getVoices()
+  if (v.length) return Promise.resolve(v)
+  return new Promise((resolve) => {
+    const done = () => {
+      s.removeEventListener('voiceschanged', done)
+      resolve(s.getVoices())
+    }
+    s.addEventListener('voiceschanged', done)
+    setTimeout(done, 300)
+  })
 }
 
 function isMaleNarrator(narratorId: string) {
@@ -23,63 +32,66 @@ function isMaleNarrator(narratorId: string) {
 
 function isProbablyMale(name: string) {
   const n = name.toLowerCase()
-  return /male(?!$)|\bmale\b|david|mark|james|daniel|aaron|george|brian|thomas|guy|jason|josh|steve|oliver|fred|australian english male|google uk english male|en-gb.*male|en-us.*male|google us english m\b/i.test(
+  return /male(?!$)|\bmale\b|\b(man|guy)\b|david|mark|james|daniel|aaron|george|brian|thomas|guy|jason|josh|steve|oliver|fred|hemant|madhur|ravi|sam|alex|microsoft.*\bmale\b|google uk english male|en-gb.*male|en-us.*male|google us english m\b/i.test(
     n
   )
 }
 
 function isProbablyFemale(name: string) {
   const n = name.toLowerCase()
-  return /female|\bzira\b|samantha|karen|hazel|heather|victoria|fiona|sarah|jennifer|sonia|neerja|aarti|jiya|ananya|kajal|tanya|diya|aadhya|veena|michelle|bella|amy|fiona|hazel|google us english(?!.*male)/i.test(
+  return /female|\bfemale\b|\bwoman\b|\bzira\b|samantha|karen|hazel|heather|victoria|fiona|sarah|jennifer|sonia|neerja|aarti|jiya|ananya|kajal|tanya|diya|aadhya|veena|michelle|bella|amy|google us english(?!.*male)/i.test(
     n
   )
 }
 
-export function pickNarratorVoice(narratorId: string, voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  if (!voices.length) return null
-  const canon = normalizeNarratorId(narratorId)
-  const wantMale = isMaleNarrator(canon)
-  const en = voices.filter((v) => v.lang.toLowerCase().startsWith('en'))
-  if (wantMale) {
-    const maleTagged = en.filter((v) => isProbablyMale(v.name) && !isProbablyFemale(v.name))
-    if (maleTagged.length) return maleTagged[0]!
-    const notFemale = en.filter((v) => !isProbablyFemale(v.name))
-    if (notFemale.length) return notFemale[0]!
-  } else {
-    const femaleTagged = en.filter((v) => isProbablyFemale(v.name))
-    if (femaleTagged.length) return femaleTagged[0]!
-    const notMale = en.filter((v) => !isProbablyMale(v.name))
-    if (notMale.length) return notMale[0]!
-  }
-  return en[0] ?? voices[0]!
+function scoreMaleVoice(v: SpeechSynthesisVoice): number {
+  const n = (v.name || '').toLowerCase()
+  let s = 0
+  if (isProbablyMale(n) && !isProbablyFemale(n)) s += 10
+  if (/hemant|madhur|david|mark|james|guy|male/.test(n)) s += 8
+  if (/^en(-|$)/i.test(v.lang || '')) s += 3
+  if (/^ne(-|$)/i.test(v.lang || '') && /male|hemant/.test(n)) s += 6
+  if (isProbablyFemale(n)) s -= 20
+  return s
 }
 
-export function pickSouthAsianNameVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  if (!voices.length) return null
-  const ne = voices.filter((v) => /^ne(-|$)/i.test(v.lang || ''))
-  if (ne.length) return ne[0]!
-  const hi = voices.filter((v) => /^hi(-|$)/i.test(v.lang || ''))
-  if (hi.length) return hi[0]!
-  const named = voices.filter((v) =>
-    /nepali|hindi|neerja|aarti|kajal|madhur|hemant|kalpana/i.test(v.name || '')
-  )
-  return named[0] ?? null
+function scoreFemaleVoice(v: SpeechSynthesisVoice): number {
+  const n = (v.name || '').toLowerCase()
+  let s = 0
+  if (isProbablyFemale(n)) s += 10
+  if (/neerja|aarti|kajal|heera|sabina|veena|sonia|samantha|zira|karen|hazel/.test(n)) s += 8
+  if (/^ne(-|$)|^hi(-|$)/i.test(v.lang || '')) s += 2
+  if (isProbablyMale(n) && !isProbablyFemale(n)) s -= 15
+  return s
 }
 
-export function pickSouthAsianNameVoiceByGender(
-  voices: SpeechSynthesisVoice[],
-  gender: 'male' | 'female'
+/** Pick a clearly gendered system voice for narrator preview fallback. */
+export function pickNarratorBrowserVoice(
+  narratorId: string,
+  voices: SpeechSynthesisVoice[]
 ): SpeechSynthesisVoice | null {
-  const ne = voices.filter((v) => /^ne(-|$)/i.test(v.lang || ''))
-  const hi = voices.filter((v) => /^hi(-|$)/i.test(v.lang || ''))
-  const pool = [...ne, ...hi]
-  if (!pool.length) return pickSouthAsianNameVoice(voices)
-  if (gender === 'female') {
-    const f = pool.find((v) => isProbablyFemale(v.name))
-    return f || pool[0]!
+  if (!voices.length) return null
+  const wantMale = isMaleNarrator(narratorId)
+
+  const scored = voices
+    .map((v) => ({
+      v,
+      score: wantMale ? scoreMaleVoice(v) : scoreFemaleVoice(v)
+    }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+
+  if (scored.length) return scored[0]!.v
+
+  if (wantMale) {
+    const en = voices.filter(
+      (v) => /^en(-|$)/i.test(v.lang || '') && !isProbablyFemale(v.name || '')
+    )
+    return en[0] ?? voices[0]!
   }
-  const m = pool.find((v) => isProbablyMale(v.name) && !isProbablyFemale(v.name))
-  return m ?? pool[0] ?? null
+
+  const soft = voices.filter((v) => isProbablyFemale(v.name || '') || /^ne(-|$)/i.test(v.lang || ''))
+  return soft[0] ?? voices[0]!
 }
 
 type SpeakOpts = {
@@ -90,8 +102,16 @@ type SpeakOpts = {
   onEnd?: () => void
 }
 
+function speakOne(utt: SpeechSynthesisUtterance, s: SpeechSynthesis): Promise<void> {
+  return new Promise((resolve, reject) => {
+    utt.onend = () => resolve()
+    utt.onerror = (ev) => reject(ev.error || new Error('speech synthesis error'))
+    s.speak(utt)
+  })
+}
+
 /**
- * Reliable browser preview — same resume/voices pattern as narrationSpeechPreview.
+ * Fallback when OpenAI preview fails — chunked utterances for reliable playback.
  */
 export async function speakNarratorBrowserPreview(opts: SpeakOpts): Promise<void> {
   const { narratorId, storyLanguage, isCancelled, onError, onEnd } = opts
@@ -100,94 +120,50 @@ export async function speakNarratorBrowserPreview(opts: SpeakOpts): Promise<void
     return
   }
   const intro = getNarratorIntroSampleDisplay(narratorId, storyLanguage)
-  if (!intro?.trim()) {
+  if (!intro) {
     onError(new Error('no intro line'))
     return
   }
   const identity = narratorIdentityForId(narratorId)
-  const syn = window.speechSynthesis
-  syn.cancel()
-  await new Promise((r) => setTimeout(r, 50))
-  if (isCancelled()) {
-    onEnd?.()
-    return
-  }
+  const s = window.speechSynthesis
+  s.cancel()
+  if (isCancelled()) return
 
   const voices = await loadVoices()
-  if (isCancelled()) {
-    onEnd?.()
-    return
-  }
+  if (isCancelled()) return
 
-  const wantGender: 'male' | 'female' =
-    identity?.gender === 'female' || identity?.gender === 'male'
-      ? identity.gender
-      : isMaleNarrator(narratorId)
-        ? 'male'
-        : 'female'
-  const voice =
-    pickNarratorVoice(narratorId, voices) ||
-    pickSouthAsianNameVoiceByGender(voices, wantGender) ||
-    pickSouthAsianNameVoice(voices) ||
-    voices[0]
-  if (!voice) {
+  const v = pickNarratorBrowserVoice(narratorId, voices)
+  if (!v) {
     onError(new Error('no voice'))
     return
   }
-  if (isCancelled()) {
-    onEnd?.()
-    return
-  }
+  if (isCancelled()) return
 
   const langId: NarrationLanguageId = storyLanguage
     ? storyLanguageToPreviewLang(storyLanguage)
     : 'ne'
   const hints = narrationLangVoiceHints(langId)
   const utterLang =
-    voice.lang && hints.some((h) => (voice.lang || '').toLowerCase().startsWith(h.toLowerCase().slice(0, 2)))
-      ? voice.lang
+    v.lang && hints.some((h) => (v.lang || '').toLowerCase().startsWith(h.toLowerCase().slice(0, 2)))
+      ? v.lang
       : bcp47FromLangId(langId)
 
   const parts = splitPreviewUtterances(intro)
-  const rate = identity?.browserTts.rate ?? 0.92
-  const pitch = identity?.browserTts.pitch ?? 1
+  const rate = identity?.browserTts.rate ?? (isMaleNarrator(narratorId) ? 1.0 : 1.02)
+  const pitch = identity?.browserTts.pitch ?? (isMaleNarrator(narratorId) ? 0.82 : 1.14)
 
-  let idx = 0
-  const finish = () => {
+  try {
+    for (const part of parts) {
+      if (isCancelled()) return
+      const u = new SpeechSynthesisUtterance(part)
+      u.voice = v
+      u.lang = utterLang
+      u.rate = rate
+      u.pitch = pitch
+      await speakOne(u, s)
+    }
     if (!isCancelled()) onEnd?.()
+  } catch (e) {
+    onError(e)
   }
-
-  const speakNext = () => {
-    if (isCancelled()) {
-      finish()
-      return
-    }
-    if (idx >= parts.length) {
-      finish()
-      return
-    }
-    const u = new SpeechSynthesisUtterance(parts[idx])
-    u.voice = voice
-    u.lang = utterLang
-    u.rate = rate
-    u.pitch = pitch
-    u.volume = 1
-    u.onend = () => {
-      idx += 1
-      speakNext()
-    }
-    u.onerror = () => onError(new Error('speech synthesis error'))
-    try {
-      try {
-        syn.resume()
-      } catch {
-        /* ignore */
-      }
-      syn.speak(u)
-    } catch (e) {
-      onError(e)
-    }
-  }
-
-  speakNext()
 }

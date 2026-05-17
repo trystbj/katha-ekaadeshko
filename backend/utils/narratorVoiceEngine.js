@@ -28,11 +28,11 @@ export const NARRATOR_PRESETS = [
   {
     id: 'tryst_bj',
     gender: 'male',
-    openAiVoice: 'ash',
-    speed: 0.98,
+    openAiVoice: 'onyx',
+    speed: 1.04,
     instructions: [
-      'Voice identity: adult masculine Nepali male katha host—clearly male, Kathmandu बोलचाल; never female, never androgynous, never Hindi-film heroine tone.',
-      'Register: natural mid male baritone—relaxed chest warmth; never artificially bass-heavy or sluggish.',
+      'Voice identity: unmistakably adult MALE Nepali katha host—Kathmandu बोलचाल; listeners must hear a man, never a woman.',
+      'Register: natural mid male baritone (onyx tuned)—warm chest voice; NOT deep trailer bass, NOT husky female, NOT androgynous.',
       'Pitch contour: conversational mid range with gentle rises; avoid monotone grave drops.',
       'Cadence: natural storytelling pace—fluid and listenable, like a skilled host, not a slow mythic documentary.',
       'Speed & rhythm: near-normal conversational speed; light pauses at commas only; keep momentum through sentences.',
@@ -41,7 +41,7 @@ export const NARRATOR_PRESETS = [
       'Storytelling style: cinematic yet approachable—charming narrator energy listeners trust.',
       'Dramatic intensity: medium—emotion through timing and brightness, not depth or drag.',
       'Emotional expression: genuine empathy; tenderness via softness, not whisper-mumble.',
-      'Resonance: balanced chest and mask—forward, clear, attractive presence.',
+      'Resonance: male chest-forward presence—clearly masculine timbre; zero feminine head-voice color.',
       'Articulation: crisp Nepali consonants — retroflex vs dental, श/ष/स distinct; full chandrabindu on छौँ, तपाईँ; every word native-clear.'
     ].join(' ')
   },

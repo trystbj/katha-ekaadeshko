@@ -113,9 +113,9 @@ export function nepaliNarratorPersonalityBlock(narratorId) {
     ].join(' ')
   }
   return [
-    'Male Nepali katha voice: cinematic calm warm — natural mid baritone storyteller, confident but never announcer-deep.',
+    'Male Nepali katha voice: unmistakably MASCULINE adult man — cinematic calm warm mid baritone; listeners must not hear a woman.',
     'Pacing: smooth emotional arcs; cinematic pause before reveals; folk-host intimacy like fireside katha.',
-    'Forbidden: gravel trailer voice, monotone grave drag, aggressive bark, Hindi male-lead cadence.'
+    'Forbidden: any feminine pitch, androgynous tone, gravel trailer drag, aggressive bark, Hindi male-lead cadence.'
   ].join(' ')
 }
 

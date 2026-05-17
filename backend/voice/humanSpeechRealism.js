@@ -30,11 +30,13 @@ export function humanSpeechRealismBlock(ctx, emotion = {}) {
     lines.push('Cinematic intensity: dynamic range within one voice — lift on stakes, settle on calm without shouting.')
   }
 
-  const gender = String(ctx?.narratorId || '')
-  if (gender === 'penguin') {
+  const nid = String(ctx?.narratorId || '').trim()
+  if (nid === 'penguin') {
     lines.push('Female sweetness: light feminine register, soft endings, emotionally expressive but never childish or squeaky.')
-  } else if (gender === 'tryst_bj') {
-    lines.push('Male presence: warm confident baritone-mid, cinematic pauses, emotionally immersive without trailer gravitas.')
+  } else if (nid === 'tryst_bj') {
+    lines.push(
+      'Male presence lock: unmistakably masculine adult man — warm baritone-mid chest voice; never female pitch, never androgynous blend.'
+    )
   }
 
   return lines.join(' ')

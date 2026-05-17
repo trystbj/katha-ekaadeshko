@@ -9,7 +9,6 @@ import { humanSpeechRealismBlock } from './humanSpeechRealism.js'
 import { getLanguageDeliveryBlock } from './languageDeliveryProfiles.js'
 import { preprocessNarrationForTts } from './pronunciationPreprocessor.js'
 import { buildVoiceProfile } from './voiceProfile.js'
-import { normalizeNarratorId } from '../utils/narratorVoiceEngine.js'
 import {
   isNepaliLanguage,
   nepaliDeliveryInstructionBlock,
@@ -17,17 +16,19 @@ import {
   nepaliStoryRhythmBlock
 } from './nepaliPronunciationEngine.js'
 
-function genderFromCanonicalNarrator(narratorId) {
-  const id = normalizeNarratorId(narratorId)
-  return id === 'penguin' ? 'female' : 'male'
-}
-
-function genderDeliveryHints(gender) {
+function genderDeliveryHints(gender, narratorId) {
+  const id = String(narratorId || '').trim()
   switch (gender) {
     case 'female':
+      if (id === 'penguin') {
+        return 'Personality lock: sweet warm feminine storyteller only — light melodic Nepali woman; never masculine timbre.'
+      }
       return 'Personality: sweet warm feminine storyteller — soft expressive delivery, cozy cinematic intimacy, never deep or husky.'
     case 'male':
-      return 'Personality: cinematic warm MALE storyteller — unmistakably masculine adult voice, calm confident immersion, natural mid baritone, not female timbre.'
+      if (id === 'tryst_bj') {
+        return 'Personality lock: adult MALE storyteller only — clearly masculine Nepali man; forbidden: female, androgynous, or girl-like tone.'
+      }
+      return 'Personality: cinematic warm male storyteller — calm confident immersion, natural mid baritone, not radio-deep or emotionless.'
     case 'child':
       return 'Personality: youthful narrator — brighter onset, playful innocence without cartoon exaggeration.'
     case 'elder':
@@ -82,9 +83,6 @@ function cinematicTimingHints(emotion) {
 export function buildGlobalNarrationPlan(ctx, opts = {}) {
   const autoDirector = ctx?.autoVoiceDirector !== false
   const profile = buildVoiceProfile(ctx)
-  if (ctx?.narratorId) {
-    profile.gender = genderFromCanonicalNarrator(ctx.narratorId)
-  }
   const storyLanguage = ctx?.storyLanguage || profile.language
 
   const emotion = analyzeSceneEmotion(ctx, profile)
@@ -107,12 +105,11 @@ export function buildGlobalNarrationPlan(ctx, opts = {}) {
         })
       : ''
 
-  const isNe = isNepaliLanguage(storyLanguage)
   const nepaliRhythm = isNe ? nepaliStoryRhythmBlock(ctx, emotion) : ''
   const nepaliDialogue = isNe ? nepaliDialogueFlowHints(preprocessed.text || ctx?.narration) : ''
 
   const instructionParts = [
-    genderDeliveryHints(profile.gender),
+    genderDeliveryHints(profile.gender, ctx?.narratorId),
     stylePresetDeliveryHints(ctx?.styleId, ctx?.customVisualPrompt),
     languageBlock,
     humanSpeechRealismBlock(ctx, emotion),
