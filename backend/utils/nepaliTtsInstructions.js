@@ -1,14 +1,15 @@
 /**
  * Shared Nepali TTS delivery lock — preview + full narration pipeline.
- * Delegates to global language delivery profiles.
+ * Delegates to dedicated Nepali pronunciation engine.
  */
 
-import { getLanguageDeliveryBlock } from '../voice/languageDeliveryProfiles.js'
+import { nepaliDeliveryInstructionBlock } from '../voice/nepaliPronunciationEngine.js'
 
 /**
  * @param {{ extendedPreview?: boolean }} [opts]
+ * @param {Record<string, unknown>} [ctx]
  * @returns {string}
  */
-export function nepaliTtsDeliveryBlock(opts = {}) {
-  return getLanguageDeliveryBlock('ne', opts)
+export function nepaliTtsDeliveryBlock(opts = {}, ctx = {}) {
+  return nepaliDeliveryInstructionBlock(opts, ctx)
 }

@@ -9,6 +9,12 @@ import { humanSpeechRealismBlock } from './humanSpeechRealism.js'
 import { getLanguageDeliveryBlock } from './languageDeliveryProfiles.js'
 import { preprocessNarrationForTts } from './pronunciationPreprocessor.js'
 import { buildVoiceProfile } from './voiceProfile.js'
+import {
+  isNepaliLanguage,
+  nepaliDeliveryInstructionBlock,
+  nepaliDialogueFlowHints,
+  nepaliStoryRhythmBlock
+} from './nepaliPronunciationEngine.js'
 
 function genderDeliveryHints(gender) {
   switch (gender) {
@@ -92,14 +98,19 @@ export function buildGlobalNarrationPlan(ctx, opts = {}) {
         })
       : ''
 
+  const nepaliRhythm = isNe ? nepaliStoryRhythmBlock(ctx, emotion) : ''
+  const nepaliDialogue = isNe ? nepaliDialogueFlowHints(preprocessed.text || ctx?.narration) : ''
+
   const instructionParts = [
     genderDeliveryHints(profile.gender),
     stylePresetDeliveryHints(ctx?.styleId, ctx?.customVisualPrompt),
     languageBlock,
     humanSpeechRealismBlock(ctx, emotion),
     cinematicTimingHints(emotion),
+    nepaliRhythm,
     ...emotion.instructionParts,
     dialogue.instruction,
+    nepaliDialogue,
     preprocessed.hints,
     sceneAdapt
   ].filter(Boolean)

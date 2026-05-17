@@ -10,6 +10,7 @@ Provider-agnostic AI narration layer for Katha Ekadeshko (web + future Tauri des
 | Voice profile | `backend/voice/voiceProfile.js`, `src/renderer/src/voice/voiceProfile.ts` |
 | **Global cinematic director** | `backend/voice/cinematicNarrationDirector.js` |
 | Emotion engine | `backend/voice/emotionNarrationEngine.js` |
+| **Nepali pronunciation engine** | `backend/voice/nepaliPronunciationEngine.js` |
 | Multilingual delivery | `backend/voice/languageDeliveryProfiles.js` |
 | Human speech realism | `backend/voice/humanSpeechRealism.js` |
 | Dialogue hints | `backend/voice/dialogueNarrationHints.js` |

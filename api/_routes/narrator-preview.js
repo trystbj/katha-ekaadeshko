@@ -83,7 +83,7 @@ export default async function handler(req, res) {
     })
     res.setHeader('Content-Type', 'audio/mpeg')
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
-    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v7')
+    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v8-nepali')
     res.setHeader('X-Katha-Preview-Bytes', String(buf.length))
     res.status(200).send(buf)
   } catch (e) {

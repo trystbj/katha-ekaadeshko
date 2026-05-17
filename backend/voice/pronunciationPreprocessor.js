@@ -2,6 +2,8 @@
  * Multilingual pronunciation preprocessing — normalize text + emit pacing hints for TTS.
  */
 
+import { isNepaliLanguage, preprocessNepaliForTts } from './nepaliPronunciationEngine.js'
+
 function baseLang(code) {
   return String(code || '')
     .trim()
@@ -23,11 +25,16 @@ export function preprocessNarrationForTts(text, storyLanguage) {
 
   if (!t) return { text: '', hints: '' }
 
+  const lang = baseLang(storyLanguage)
+
+  if (isNepaliLanguage(lang)) {
+    return preprocessNepaliForTts(t)
+  }
+
   t = t.replace(/\.{3,}/g, '…')
   t = t.replace(/([।.!?])\s*([^\s])/g, '$1 $2')
 
   const hints = []
-  const lang = baseLang(storyLanguage)
 
   if (/[«""„"']/.test(t)) {
     hints.push('Honor quotation marks with brief dramatic pauses; keep narrator voice consistent.')
@@ -35,7 +42,7 @@ export function preprocessNarrationForTts(text, storyLanguage) {
   if (t.length > 180) {
     hints.push('Long passage: paragraph-aware breathing — vary pace across clauses, not monotone.')
   }
-  if (lang === 'ne' || lang === 'hi') {
+  if (lang === 'hi') {
     hints.push('Devanagari: pronounce compound words and chandrabindu clearly; natural native clause linking.')
   }
   if (lang === 'ja' || lang === 'ko' || lang === 'zh') {

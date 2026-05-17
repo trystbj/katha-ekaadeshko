@@ -31,7 +31,7 @@ export const NARRATOR_PRESETS = [
     openAiVoice: 'echo',
     speed: 1.0,
     instructions: [
-      'Voice identity: natural Nepali male storyteller—warm, friendly, human, clearly masculine but never booming or sluggish.',
+      'Voice identity: native Nepali male katha host—Kathmandu बोलचाल, warm cinematic storyteller; never Hindi-film or English-accented Nepali.',
       'Register: natural mid male baritone—relaxed chest warmth; never artificially bass-heavy or sluggish.',
       'Pitch contour: conversational mid range with gentle rises; avoid monotone grave drops.',
       'Cadence: natural storytelling pace—fluid and listenable, like a skilled host, not a slow mythic documentary.',
@@ -42,7 +42,7 @@ export const NARRATOR_PRESETS = [
       'Dramatic intensity: medium—emotion through timing and brightness, not depth or drag.',
       'Emotional expression: genuine empathy; tenderness via softness, not whisper-mumble.',
       'Resonance: balanced chest and mask—forward, clear, attractive presence.',
-      'Articulation: crisp natural consonants; every word easy to follow.'
+      'Articulation: crisp Nepali consonants — retroflex vs dental, श/ष/स distinct; full chandrabindu on छौँ, तपाईँ; every word native-clear.'
     ].join(' ')
   },
   {
@@ -51,7 +51,7 @@ export const NARRATOR_PRESETS = [
     openAiVoice: 'nova',
     speed: 1.02,
     instructions: [
-      'Voice identity: sweet light feminine narrator—bright, young-woman warmth; NEVER deep, husky, alto, or chest-heavy.',
+      'Voice identity: native Nepali sweet feminine katha voice—cute warm soft; NEVER Hindi heroine, deep alto, or English-stressed Nepali.',
       'Register: light high feminine head voice—airy sweetness; zero gravel; zero masculine undertone.',
       'Pitch contour: gentle upward melody; soft smile in every phrase; tender musical Nepali lilt.',
       'Cadence: natural flowing storytelling—unhurried, caring, like a sweet friend beside you.',
@@ -62,7 +62,7 @@ export const NARRATOR_PRESETS = [
       'Dramatic intensity: low-medium—emotion through sweetness and brightness, never weight or depth.',
       'Emotional expression: openly caring and gentle—voice stays light even on serious lines.',
       'Resonance: head-forward light feminine tone only; forbid chest resonance or low throat color.',
-      'Articulation: crisp gentle Nepali consonants; round vowels; every word easy and pretty.'
+      'Articulation: gentle crisp Nepali phonetics — light feminine melody, audible ँ/ं, smooth compounds; pretty native flow, not robotic.'
     ].join(' ')
   }
 ]
