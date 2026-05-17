@@ -1,9 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "outputDirectory": "web-dist",
-  "framework": "vite",
+  "buildCommand": "npm run web:build && node scripts/sync-vercel-output.mjs",
+  "outputDirectory": "dist",
   "headers": [
     {
       "source": "/(.*)",
@@ -29,20 +28,7 @@
       ]
     }
   ],
-  "functions": {
-    "api/jobs-stream-generate.js": {
-      "maxDuration": 60,
-      "memory": 1024
-    },
-    "api/leonardo-generate.js": {
-      "maxDuration": 60
-    },
-    "api/render.js": {
-      "maxDuration": 60
-    }
-  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

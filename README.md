@@ -16,7 +16,7 @@ The app automatically directs narration, camera motion, subtitles, soundtrack, a
 
 ### Vercel: UI looks unchanged after deploy
 
-1. **Dashboard overrides:** In Vercel → Project → **Settings** → **General**, set **Root Directory** to this app folder (if the Git repo root is higher). Under **Build & Development**, ensure **Build Command** is `npm run build` (or empty to use `vercel.json`) and **Output Directory** is **`web-dist`** — not `dist`. Wrong output = old or blank UI.
+1. **Dashboard overrides:** In Vercel → **Settings** → **Build & Development**, turn **off** “Override” for Build Command and Output Directory so `vercel.json` wins (`build` → `dist/`). If Override is on, set Output to **`dist`** (not `web-dist`). Root Directory = repo root (folder with `vercel.json`).
 2. **Confirm the new build:** After deploy, the header badge should show **`build 2.5`** (see `src/renderer/src/config/uiBuild.ts`). If it shows an older number, the browser or CDN is serving a cached shell — hard-refresh (**Ctrl+Shift+R**) or open the unique deployment URL from the **Deployments** tab.
 3. **Repo must include `vite.config.ts`:** The default Vite preset runs `vite build` without `--config`; this repo’s real config lives in `vite.web.config.ts` and is re-exported from root **`vite.config.ts`** so output always goes to **`web-dist/`**.
 4. **Build must succeed:** Run `npm run build` locally before pushing. If Vercel builds fail, Production keeps showing the **previous** successful deployment (old UI). This project uses **Tailwind CSS v3** with PostCSS (`tailwindcss` v4 requires a different PostCSS setup).

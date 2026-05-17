@@ -17,6 +17,11 @@ function fail(msg) {
 
 if (!fs.existsSync(dist)) fail(`Missing ${dist} — run npm run web:build first.`)
 
+const distMirror = path.join(root, 'dist')
+if (process.env.VERCEL === '1' && !fs.existsSync(distMirror)) {
+  fail('Missing dist/ after sync — Vercel deploy will fail. Check scripts/sync-vercel-output.mjs.')
+}
+
 const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8')
 if (!html.includes('कथा एकादेशको') && !html.includes('Katha')) {
   fail('index.html does not look like Katha Ekadeshko.')
