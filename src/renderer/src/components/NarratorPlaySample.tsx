@@ -8,7 +8,10 @@ import {
 } from '../utils/narratorPreviewAudioCache'
 import { buildNarratorPreviewApiUrl, runNarratorPreviewOnClick } from '../utils/narratorPreviewClick'
 import { speakNarratorBrowserPreview } from '../utils/narratorBrowserSpeech'
-import { speakFirstBrowserPreviewClauseInGesture } from '../utils/playNarratorPreviewAudio'
+import {
+  prepareNarratorPreviewAudio,
+  speakFirstBrowserPreviewClauseInGesture
+} from '../utils/playNarratorPreviewAudio'
 import { previewLog } from '../utils/narratorPreviewDebug'
 import { VoiceReactiveBars } from './VoiceReactiveBars'
 
@@ -123,6 +126,7 @@ export function NarratorPlaySample({ narratorId, disabled, compact = false }: Pr
 
     const session = ++sessionRef.current
     const audio = new Audio()
+    prepareNarratorPreviewAudio(audio)
     audioRef.current = audio
     bindAudioProgress(audio)
 

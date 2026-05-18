@@ -5,6 +5,7 @@
 import {
   fetchNarratorPreviewMp3,
   playNarratorBrowserPreview,
+  prepareNarratorPreviewAudio,
   unlockHtmlAudioInGesture,
   unlockSpeechInGesture
 } from './playNarratorPreviewAudio'
@@ -24,6 +25,12 @@ export type NarratorPreviewClickOpts = {
   bindEnded: (stop: () => void) => void
 }
 
+function stopBrowserSpeech() {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel()
+  }
+}
+
 export function runNarratorPreviewOnClick(opts: NarratorPreviewClickOpts): () => void {
   const ac = new AbortController()
   unlockHtmlAudioInGesture(opts.audio)
@@ -41,9 +48,7 @@ export function runNarratorPreviewOnClick(opts: NarratorPreviewClickOpts): () =>
     ac.abort()
     opts.audio.pause()
     opts.audio.removeAttribute('src')
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-    }
+    stopBrowserSpeech()
   }
 
   opts.onPlaying('browser')
@@ -54,29 +59,33 @@ export function runNarratorPreviewOnClick(opts: NarratorPreviewClickOpts): () =>
     skipFirstClause: true
   })
 
-  const playMp3 = async (blob: Blob): Promise<boolean> => {
+  const playMp3FromSrc = async (src: string, revokeAfter: boolean): Promise<boolean> => {
     if (!opts.isActive()) return false
-    mp3Won = true
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-    }
-    const blobUrl = URL.createObjectURL(blob)
-    opts.audio.src = blobUrl
+    prepareNarratorPreviewAudio(opts.audio)
+    opts.audio.src = src
     opts.onPlaying('openai')
-    previewLog('mp3_play_attempt', { bytes: blob.size })
+    previewLog('mp3_play_attempt', { revokeAfter })
     try {
       await opts.audio.play()
-      previewLog('mp3_play_ok')
+      mp3Won = true
+      stopBrowserSpeech()
+      previewLog('mp3_play_ok', { volume: opts.audio.volume, muted: opts.audio.muted })
       opts.bindEnded(stopAll)
       return true
     } catch (e) {
-      mp3Won = false
       opts.audio.pause()
       opts.audio.removeAttribute('src')
-      URL.revokeObjectURL(blobUrl)
+      if (revokeAfter) URL.revokeObjectURL(src)
       previewWarn('mp3_play_blocked', { message: e instanceof Error ? e.message : String(e) })
       return false
     }
+  }
+
+  const playMp3 = async (blob: Blob): Promise<boolean> => {
+    const blobUrl = URL.createObjectURL(blob)
+    const ok = await playMp3FromSrc(blobUrl, true)
+    if (!ok) URL.revokeObjectURL(blobUrl)
+    return ok
   }
 
   const finish = async () => {
@@ -100,28 +109,10 @@ export function runNarratorPreviewOnClick(opts: NarratorPreviewClickOpts): () =>
     try {
       const cachedUrl = getCachedNarratorPreviewBlobUrl(opts.previewUrl)
       if (cachedUrl && opts.isActive()) {
-        mp3Won = true
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel()
-        }
-        opts.audio.src = cachedUrl
-        opts.onPlaying('openai')
-        try {
-          await opts.audio.play()
-          previewLog('cached_mp3_play_ok')
-          opts.bindEnded(stopAll)
-          return
-        } catch (e) {
-          mp3Won = false
-          opts.audio.removeAttribute('src')
-          previewWarn('cached_mp3_play_blocked', {
-            message: e instanceof Error ? e.message : String(e)
-          })
-        }
+        if (await playMp3FromSrc(cachedUrl, false)) return
       }
       const blob = await fetchNarratorPreviewMp3(opts.previewUrl, ac.signal)
       if (await playMp3(blob)) return
-      mp3Won = false
     } catch (e) {
       if ((e as Error).name === 'AbortError') return
       const msg = e instanceof Error ? e.message : String(e)

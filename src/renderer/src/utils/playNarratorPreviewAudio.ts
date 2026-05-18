@@ -22,11 +22,21 @@ const CLIENT_FETCH_MS = 28_000
 const SILENT_WAV =
   'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=='
 
+/** Full-volume, audible HTMLAudio for narrator MP3 preview. */
+export function prepareNarratorPreviewAudio(audio: HTMLAudioElement) {
+  audio.setAttribute('playsinline', '')
+  audio.preload = 'auto'
+  audio.muted = false
+  audio.volume = 1
+  audio.defaultMuted = false
+}
+
 /** Call synchronously inside a click handler before any await. */
 export function unlockHtmlAudioInGesture(audio: HTMLAudioElement) {
-  audio.setAttribute('playsinline', '')
-  audio.volume = 0.001
+  prepareNarratorPreviewAudio(audio)
   const prev = audio.src
+  const unlockVol = 0.001
+  audio.volume = unlockVol
   audio.src = SILENT_WAV
   void audio
     .play()
@@ -39,17 +49,21 @@ export function unlockHtmlAudioInGesture(audio: HTMLAudioElement) {
       if (prev) audio.src = prev
       else audio.removeAttribute('src')
     })
+    .finally(() => {
+      audio.volume = 1
+      audio.muted = false
+    })
 }
 
-/** Resume / prime speech synthesis during a user gesture. */
+/** Resume speech synthesis during a user gesture (do not queue silent utterances — they can block real speech). */
 export function unlockSpeechInGesture() {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
   const syn = window.speechSynthesis
-  if (syn.paused) syn.resume()
-  const u = new SpeechSynthesisUtterance(' ')
-  u.volume = 0
-  u.rate = 10
-  syn.speak(u)
+  try {
+    if (syn.paused) syn.resume()
+  } catch {
+    // ignore
+  }
 }
 
 export function buildNarratorPreviewApiUrl(
@@ -168,6 +182,7 @@ function utteranceForPart(
   u.lang = utterLang
   u.rate = rate
   u.pitch = pitch
+  u.volume = 1
   return u
 }
 
