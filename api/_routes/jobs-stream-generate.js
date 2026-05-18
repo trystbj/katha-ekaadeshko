@@ -8,7 +8,7 @@ import { setSecurityHeaders } from '../_lib/http.js'
 import { initSseResponse, sseWrite } from '../_lib/sse.js'
 import { slimStreamGenerateResult } from '../_lib/streamGenerateResult.js'
 import { isServerlessRuntime, serverlessPipelineBudgetMs } from '../../backend/utils/runtime.js'
-import { STORY_IDEA_MAX_CHARS } from '../../shared/storyIdeaLimits.js'
+import { STORY_IDEA_MAX_CHARS, clampStoryIdea } from '../../shared/storyIdeaLimits.js'
 
 const NarratorIdSchema = z.preprocess(
   (val) => normalizeNarratorId(typeof val === 'string' ? val : ''),
@@ -179,7 +179,7 @@ export default async function handler(req, res) {
           ? String(input.audienceAgeCategory).trim()
           : undefined,
         storyTone: input.storyTone ? String(input.storyTone).trim() : undefined,
-        seedLine: input.seedLine ? String(input.seedLine).trim() : undefined,
+        seedLine: input.seedLine ? clampStoryIdea(String(input.seedLine).trim()) : undefined,
         styleId: input.styleId || 'soft_anime_fantasy',
         customVisualPrompt:
           input.styleId === 'custom' && input.customVisualPrompt

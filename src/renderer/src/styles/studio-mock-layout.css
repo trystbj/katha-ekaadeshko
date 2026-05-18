@@ -2652,6 +2652,20 @@
     0 0 10px rgba(212, 175, 55, 0.35);
 }
 
+.studio-mock-char-count--soft-warn {
+  color: rgba(255, 196, 120, 0.98);
+}
+
+.studio-mock-char-soft-warn {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-weight: 600;
+  color: rgba(255, 180, 100, 0.92);
+  text-align: right;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.72);
+}
+
 .studio-mock-monitor-ic {
   opacity: 0.85;
 }
@@ -3899,7 +3913,7 @@
 /* Pre-bible: taller seed field (fixed height — content scrolls inside) */
 .studio-mock-idea-panel--with-generate .studio-mock-idea-textarea.idea-input--cinematic {
   min-height: calc(88px + 12mm);
-  max-height: min(calc(220px + 12mm), 36vh);
+  max-height: min(calc(320px + 12mm), 44vh);
   padding-bottom: 10px !important;
   padding-right: 11px !important;
 }
@@ -4077,7 +4091,7 @@
   box-sizing: border-box;
   height: auto;
   min-height: 88px;
-  max-height: min(220px, 32vh);
+  max-height: min(320px, 42vh);
   resize: none;
   field-sizing: content;
   overflow-x: hidden;

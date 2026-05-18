@@ -15,7 +15,7 @@ import {
 } from '../utils/episodeSeriesFlow'
 import { narratorIdentityForId } from '../constants/narratorVoiceProfiles'
 import { drainSseBuffer } from '../utils/parseSseStream'
-import { STORY_IDEA_MAX_CHARS } from '../constants/storyIdeaLimits'
+import { clampStoryIdea } from '../constants/storyIdeaLimits'
 
 export function useBackendGenerate() {
   const uiText = useUiText()
@@ -111,7 +111,7 @@ export function useBackendGenerate() {
           ...(styleId === 'custom' ? { customVisualPrompt: customVisualPrompt.trim() } : {}),
           ...(visualAccent ? { visualAccent } : {}),
           ...(toneRaw ? { storyTone: toneRaw } : {}),
-          seedLine: idea.slice(0, STORY_IDEA_MAX_CHARS),
+          seedLine: clampStoryIdea(idea),
           projectId,
           ...(priorMemorySummary ? { priorMemorySummary } : {}),
           ...(priorWorldState ? { priorWorldState } : {}),

@@ -1,6 +1,6 @@
 import { useUiText } from '../i18n/useAppI18n'
 import { SAMPLE_IDEA_KEYS } from '../constants/storySeedSamples'
-import { STORY_IDEA_MAX_CHARS } from '../constants/storyIdeaLimits'
+import { clampStoryIdea } from '../constants/storyIdeaLimits'
 import { useStudioStore } from '../store/useStudioStore'
 
 type Tone = '' | 'warm' | 'tense' | 'epic' | 'tender' | 'whimsical' | 'noir'
@@ -38,7 +38,7 @@ export function StorySeedEnhancements({ busy, onRandomIdea }: Props) {
       uiText('promptEnhancerBulletAnchorVisual'),
       uiText('promptEnhancerBulletDialogueVertical')
     ].join('\n')
-    setIdea(bundle.slice(0, STORY_IDEA_MAX_CHARS))
+    setIdea(clampStoryIdea(bundle))
   }
 
   return (
@@ -54,7 +54,7 @@ export function StorySeedEnhancements({ busy, onRandomIdea }: Props) {
                 type="button"
                 className="genre-chip"
                 disabled={Boolean(busy)}
-                onClick={() => setIdea(line.slice(0, STORY_IDEA_MAX_CHARS))}
+                onClick={() => setIdea(clampStoryIdea(line))}
               >
                 {line.length > 48 ? `${line.slice(0, 46)}…` : line}
               </button>

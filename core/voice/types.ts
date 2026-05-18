@@ -70,6 +70,7 @@ export interface VoiceDirectorContext {
   customVisualPrompt?: string
   narratorId?: string
   narratorName?: string
+  /** User story seed; UI/API allow up to 10_000 chars (see shared/storyIdeaLimits.js). */
   seedLine?: string
   characters?: Array<{ name?: string; personality?: string }>
   autoVoiceDirector?: boolean

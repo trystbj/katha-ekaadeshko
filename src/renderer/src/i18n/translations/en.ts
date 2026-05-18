@@ -81,6 +81,8 @@ export const en = {
   ideaSeedTitleWireframe: 'One line story',
   ideaFieldWireframe: 'Write your story seed here (up to {{max}} characters)',
   ideaCharLimitHint: 'Story seed — up to {{max}} characters',
+  ideaCharSoftWarn:
+    'Long seed (over {{soft}} characters). Generation may take longer; quality stays best under {{max}}.',
   voiceFabAria: 'Voice input for story seed',
   voiceFabHint: 'Voice to story — live captions into the seed box',
   voiceFabStopHint: 'Stop listening',

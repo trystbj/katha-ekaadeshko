@@ -9,6 +9,7 @@ import { memoryContinuityBlueprintBlock } from '../cinematic/storyMemoryContinui
 import { worldSimulationBlueprintBlock } from '../cinematic/worldSimulation.js'
 import { relationshipBlueprintBlock } from '../cinematic/emotionalRelationshipEngine.js'
 import { creatorPreferencesBlueprintBlock } from '../cinematic/creatorPreferenceLearning.js'
+import { compactSeedLineForPipeline } from '../../shared/storyIdeaLimits.js'
 
 /** Base language code → human label for prompts */
 const LANG_LABEL = {
@@ -60,10 +61,16 @@ export function normalizePipelineInput(input) {
   const storyLanguage = String(src.storyLanguage || 'en').trim() || 'en'
   const rawAge = src.audienceAgeCategory != null ? String(src.audienceAgeCategory).trim() : ''
   const audienceAgeCategory = rawAge ? rawAge.slice(0, 48) : undefined
+  const rawSeed = src.seedLine != null ? String(src.seedLine).trim() : ''
+  const seedLine = rawSeed ? compactSeedLineForPipeline(rawSeed) : undefined
   const { audienceAgeCategory: _omitAge, ...rest } = src
   return {
     ...rest,
     storyLanguage,
+    seedLine,
+    ...(rawSeed && rawSeed.length > (seedLine?.length || 0)
+      ? { seedLineFullChars: rawSeed.length }
+      : {}),
     ...(audienceAgeCategory ? { audienceAgeCategory } : {})
   }
 }

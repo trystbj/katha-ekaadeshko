@@ -3,6 +3,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useDeferredValue,
   useMemo,
   useRef,
   useState,
@@ -11,7 +12,11 @@ import {
 } from 'react'
 import { useUiText } from './i18n/useAppI18n'
 import { Glyphs } from './i18n/uiGlyphs'
-import { STORY_IDEA_MAX_CHARS } from './constants/storyIdeaLimits'
+import {
+  STORY_IDEA_MAX_CHARS,
+  STORY_IDEA_SOFT_WARN_CHARS,
+  isStoryIdeaSoftWarn
+} from './constants/storyIdeaLimits'
 import { useSyncUiLanguageToI18n } from './i18n/useSyncUiLanguageToI18n'
 import { getCachedStylePreviewUrl } from './utils/stylePreviewImageCache'
 import { migrateVisualStyleId } from './utils/styleIdMigration'
@@ -120,6 +125,8 @@ export default function App() {
   const storyLanguage = useStudioStore((s) => s.storyLanguage)
   const uiFontMode = useStudioStore((s) => s.uiFontMode)
   const idea = useStudioStore((s) => s.idea)
+  const ideaCountDisplay = useDeferredValue(idea.length)
+  const ideaSoftWarn = isStoryIdeaSoftWarn(ideaCountDisplay)
   const setIdea = useStudioStore((s) => s.setIdea)
   const backendTheme = useStudioStore((s) => s.backendTheme)
   const backendGenre = useStudioStore((s) => s.backendGenre)
@@ -993,12 +1000,21 @@ export default function App() {
               </div>
               <p
                 id="studio-story-seed-count"
-                className="studio-mock-char-count"
+                className={`studio-mock-char-count${ideaSoftWarn ? ' studio-mock-char-count--soft-warn' : ''}`}
                 data-idea-max={STORY_IDEA_MAX_CHARS}
+                data-idea-soft-warn={STORY_IDEA_SOFT_WARN_CHARS}
                 title={uiText('ideaCharLimitHint', { max: STORY_IDEA_MAX_CHARS })}
               >
-                {idea.length} / {STORY_IDEA_MAX_CHARS}
+                {ideaCountDisplay} / {STORY_IDEA_MAX_CHARS}
               </p>
+              {ideaSoftWarn ? (
+                <p className="studio-mock-char-soft-warn" role="status">
+                  {uiText('ideaCharSoftWarn', {
+                    soft: STORY_IDEA_SOFT_WARN_CHARS,
+                    max: STORY_IDEA_MAX_CHARS
+                  })}
+                </p>
+              ) : null}
               {!project?.bible ? (
                 <div className="studio-mock-generate-strip">
                   <button
