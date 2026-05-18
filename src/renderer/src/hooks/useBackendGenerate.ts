@@ -269,7 +269,19 @@ export function useBackendGenerate() {
         number: 1,
         pacing: 'Normal',
         estimatedDurationSec: 90,
-        scenes: scenes.slice(0, 10),
+        scenes: scenes.slice(
+          0,
+          Math.min(
+            16,
+            Math.max(
+              6,
+              Number(
+                (out.metadata?.longStoryIntelligence as { targetSceneCount?: number } | undefined)
+                  ?.targetSceneCount
+              ) || 10
+            )
+          )
+        ),
         cliffhanger: cliffLine.slice(0, 280) || '—',
         rawStructured: JSON.stringify(out, null, 2),
         status: 'done',

@@ -37,5 +37,15 @@ export interface JobsStreamGenerateResult {
     storyLanguage?: string
     /** Compact blueprint summary for debugging / downstream tooling. */
     generationBlueprint?: Record<string, unknown>
+    longStoryIntelligence?: {
+      active?: boolean
+      seedChars?: number
+      targetSceneCount?: number
+      sceneCount?: number
+      dramaticBeats?: string[]
+      pacingProfile?: string
+    }
+    serverlessFastPath?: boolean
+    cinematicDirectorDegraded?: boolean
   }
 }

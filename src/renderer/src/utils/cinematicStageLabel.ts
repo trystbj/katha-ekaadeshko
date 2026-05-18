@@ -1,6 +1,9 @@
 /** Pick the closest cinematic stage label for banner transitions (English-regex heuristics). */
 export function cinematicStageLabelKey(stage: string, logTail: string): string {
   const blob = `${stage}\n${logTail}`.toLowerCase()
+  if (/long_story|narrative_structure|scene_outline|context_memory|analyzing story seed|planning \d+ cinematic/.test(blob)) {
+    return 'cinemaStageLongStoryIntelligence'
+  }
   if (/understand|prompt|seed|parse/.test(blob)) return 'cinemaStageUnderstandingStory'
   if (/screenplay|script write|writing script/.test(blob)) return 'cinemaStageWritingScreenplay'
   if (/character|cast|portrait|leonardo/.test(blob)) return 'cinemaStageGeneratingCharacters'

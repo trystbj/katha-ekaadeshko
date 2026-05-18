@@ -29,6 +29,10 @@ import {
   normalizePipelineInput
 } from '../utils/generationBlueprint.js'
 import { isServerlessRuntime, serverlessFastPipeline } from '../utils/runtime.js'
+import {
+  runLongStoryIntelligence,
+  enrichContextMemoryFromOutputs
+} from '../storyIntelligence/longStoryOrchestrator.js'
 
 const PROVIDERS = [
   {
@@ -157,18 +161,28 @@ export async function runKathaPipeline(input, req, opts = {}) {
   const normalized = normalizePipelineInput(input)
   const region = getRegionForCountry(normalized.country)
   const blueprintPack = buildGenerationBlueprint(normalized)
-  const pinnedInput = {
+  let pinnedInput = {
     ...normalized,
     __generationBlueprint: blueprintPack.blueprintBlock,
     __storyLanguageDisplay: blueprintPack.languageDisplayName,
     __generationBlueprintMeta: blueprintPack.compactMeta
   }
+
+  const longStoryPlan = runLongStoryIntelligence(pinnedInput, { onProgress })
+  if (longStoryPlan?.active && longStoryPlan.blueprintBlock) {
+    pinnedInput = {
+      ...pinnedInput,
+      __longStoryIntelligence: longStoryPlan,
+      __generationBlueprint: `${pinnedInput.__generationBlueprint}\n\n${longStoryPlan.blueprintBlock}`
+    }
+  }
+
   const memory = await getMemoryStore()
 
   const providersUsed = {}
 
   // Stage 1 — Story generation (auto: OpenAI → Gemini → DeepSeek)
-  if (onProgress) onProgress({ stage: 'story', progress: 5, message: 'Drafting story' })
+  if (onProgress) onProgress({ stage: 'story', progress: 8, message: 'Drafting story' })
   const storyPrompt = buildStoryPrompt({ ...pinnedInput, region, memory })
   const { json: story, provider: storyProvider } = await aiJsonAuto({
     purpose: 'story',
@@ -289,8 +303,24 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
     })
   }
 
+  const longPlan = pinnedInput.__longStoryIntelligence
+  if (longPlan?.active) {
+    longPlan.contextMemory = enrichContextMemoryFromOutputs(
+      longPlan.contextMemory,
+      finalStory,
+      null
+    )
+  }
+
   // Stage 4 — Script generation (auto: OpenAI → Gemini → DeepSeek)
-  if (onProgress) onProgress({ stage: 'script', progress: 50, message: 'Writing script' })
+  if (onProgress) {
+    const n = longPlan?.targetSceneCount
+    onProgress({
+      stage: 'script',
+      progress: 50,
+      message: n ? `Writing screenplay (${n} scenes)` : 'Writing script'
+    })
+  }
   const { json: script, provider: scriptProvider } = await aiJsonAuto({
     purpose: 'script',
     schemaHint: 'Script',
@@ -298,6 +328,14 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
     order: ['openai', 'gemini', 'deepseek']
   })
   providersUsed.script = scriptProvider
+
+  if (longPlan?.active) {
+    longPlan.contextMemory = enrichContextMemoryFromOutputs(
+      longPlan.contextMemory,
+      finalStory,
+      script
+    )
+  }
 
   // Stage 5 — Parallel content generation
   if (onProgress) onProgress({ stage: 'images', progress: 65, message: 'Generating images + audio' })
@@ -343,6 +381,7 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
         script,
         input: {
           ...pinnedInput,
+          longStoryIntelligence: longPlan?.active ? longPlan : null,
           priorMemorySummary: pinnedInput.priorMemorySummary || '',
           priorWorldState: pinnedInput.priorWorldState || null,
           priorRelationships: pinnedInput.priorRelationships || [],
@@ -400,7 +439,19 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
       ...(renderAssemblyPlan ? { renderAssemblyPlan } : {}),
       visualStyleProfileKey: vsProfile.key,
       visualStyleHybrid: vsHybrid,
-      ...(fast ? { serverlessFastPath: true } : {})
+      ...(fast ? { serverlessFastPath: true } : {}),
+      ...(longPlan?.active
+        ? {
+            longStoryIntelligence: {
+              active: true,
+              seedChars: longPlan.seedChars,
+              targetSceneCount: longPlan.targetSceneCount,
+              sceneCount: longPlan.sceneOutline?.length || 0,
+              dramaticBeats: longPlan.structure?.dramaticBeats || [],
+              pacingProfile: longPlan.structure?.pacingProfile
+            }
+          }
+        : {})
     }
   }
 }

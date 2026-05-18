@@ -68,9 +68,7 @@ export function normalizePipelineInput(input) {
     ...rest,
     storyLanguage,
     seedLine,
-    ...(rawSeed && rawSeed.length > (seedLine?.length || 0)
-      ? { seedLineFullChars: rawSeed.length }
-      : {}),
+    ...(rawSeed ? { seedLineRaw: rawSeed, seedLineFullChars: rawSeed.length } : {}),
     ...(audienceAgeCategory ? { audienceAgeCategory } : {})
   }
 }

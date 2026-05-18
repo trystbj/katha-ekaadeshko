@@ -13,6 +13,7 @@ export function stageToStepIndex(
     if (/voice|tts|narrat/i.test(s)) return 4
     if (/video|render|ffmpeg|encode|1080p|4k|upscale|uploading|downloading/i.test(s)) return 5
     if (/final|complete|done/i.test(s)) return 6
+    if (/long_story|narrative_structure|scene_outline|context_memory/i.test(s)) return 0
     if (/story|bible|outline|writing|starting/i.test(s)) return 0
     const p = Math.max(0, Math.min(99, jobProgress))
     return Math.min(6, Math.floor((p / 100) * 7))

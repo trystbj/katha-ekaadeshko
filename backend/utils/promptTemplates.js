@@ -2,6 +2,19 @@ import { summarizeMemory } from './memoryStore.js'
 import { buildStoryStyleHintLine, buildScriptVisualStyleSection } from './visualStyleLock.js'
 import { languageDisplayName } from './generationBlueprint.js'
 
+function longStoryScriptSection(inputLike) {
+  const plan = inputLike?.__longStoryIntelligence
+  if (!plan?.active) return ''
+  const n = plan.structure?.targetSceneCount || plan.targetSceneCount || 8
+  const outline = plan.tokenBudget?.scriptContext || ''
+  return `
+LONG-STORY SCENE PLAN (mandatory):
+- Produce exactly ${n} scenes (not fewer unless USER SEED is shorter).
+- Honor scene emotional beats and continuity from the seed analysis.
+- Avoid repeated narration lines and emotional resets between scenes.
+${outline ? `Planned beats:\n${outline}\n` : ''}`
+}
+
 function blueprintPreamble(inputLike) {
   const block = String(inputLike?.__generationBlueprint || '').trim()
   const repair = String(inputLike?.blueprintRepairNotes || '').trim()
@@ -158,9 +171,11 @@ Metadata:
 
 ${visualLock}
 
+${longStoryScriptSection(input)}
+
 Rules:
 - Follow GENERATION BLUEPRINT locks (genre, region, pacing, visual card).
-- 6–10 scenes.
+- 6–10 scenes (use LONG-STORY SCENE PLAN count when provided above).
 - Each scene must include:
   - scene (number)
   - visual_description (shot + key actions + setting)

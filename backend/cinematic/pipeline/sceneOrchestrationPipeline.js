@@ -17,6 +17,29 @@ import {
 } from './synchronizedMasterTimeline.js'
 import { buildRenderAssemblyPlan } from './renderAssemblyEngine.js'
 
+/** Blend pre-script scene outline hints into post-script breakdown units. */
+function mergeLongStorySceneHints(sceneUnits, longPlan) {
+  if (!longPlan?.active || !Array.isArray(sceneUnits) || !sceneUnits.length) return sceneUnits
+  const outline = longPlan.sceneOutline || []
+  return sceneUnits.map((unit, i) => {
+    const hint = outline[i] || outline[outline.length - 1]
+    if (!hint) return unit
+    return {
+      ...unit,
+      beatType: unit.beatType || hint.beatType,
+      emotionalIntensity: Math.min(
+        1,
+        Math.max(unit.emotionalIntensity || 0.4, hint.beatType === 'emotional' ? 0.75 : 0.5)
+      ),
+      longStoryHint: {
+        continuityNote: hint.continuityNote,
+        emotionalTone: hint.emotionalTone,
+        dialogueHeavy: hint.dialogueHeavy
+      }
+    }
+  })
+}
+
 export const PIPELINE_STAGES = [
   'story_analysis',
   'scene_breakdown',
@@ -46,7 +69,8 @@ export function buildSceneOrchestratedPlan(params) {
     }
   }
 
-  const sceneUnits = buildSceneBreakdown(script, story, input)
+  let sceneUnits = buildSceneBreakdown(script, story, input)
+  sceneUnits = mergeLongStorySceneHints(sceneUnits, input?.longStoryIntelligence)
   const emotionProfiles = buildEmotionProfiles(sceneUnits, script, input)
   const narrationPlans = buildNarrationOrchestrationPlan(sceneUnits, script, input)
 

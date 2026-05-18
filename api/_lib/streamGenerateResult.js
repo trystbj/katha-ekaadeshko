@@ -24,7 +24,8 @@ export function slimStreamGenerateResult(result) {
       memorySummaryPatch: meta.memorySummaryPatch,
       visualStyleProfileKey: meta.visualStyleProfileKey,
       visualStyleHybrid: meta.visualStyleHybrid,
-      serverlessFastPath: Boolean(meta.serverlessFastPath)
+      serverlessFastPath: Boolean(meta.serverlessFastPath),
+      ...(meta.longStoryIntelligence ? { longStoryIntelligence: meta.longStoryIntelligence } : {})
     }
   }
 }
