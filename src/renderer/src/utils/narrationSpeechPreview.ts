@@ -372,6 +372,21 @@ export function runNarrationSpeechPreview(
 
   callbacks.onStart()
 
+  const sampleEarly = narrationSampleText(narration.languageId, smartCtx.narratorId)
+  const partsEarly = splitPreviewUtterances(sampleEarly)
+  if (partsEarly[0]) {
+    try {
+      syn.resume()
+    } catch {
+      // ignore
+    }
+    const u0 = new SpeechSynthesisUtterance(partsEarly[0])
+    u0.lang = bcp47FromLangId(narration.languageId)
+    u0.rate = 1
+    u0.pitch = 1
+    syn.speak(u0)
+  }
+
   void (async () => {
     const voices = await waitForSpeechVoices(syn)
     if (gen !== narrationPreviewGeneration) return
@@ -382,6 +397,7 @@ export function runNarrationSpeechPreview(
 
     const sample = narrationSampleText(narration.languageId, smartCtx.narratorId)
     const parts = splitPreviewUtterances(sample)
+    let idx = partsEarly[0] && parts[0] === partsEarly[0] ? 1 : 0
 
     const base = smartPreviewBaseline(smartCtx.narratorId)
     const mod = applySmartProsodyModifiers(smartCtx, base)
@@ -390,8 +406,6 @@ export function runNarrationSpeechPreview(
 
     const utterLang =
       voice?.lang && voiceLangMatchesHints(voice.lang, hints) ? voice.lang : bcp47FromLangId(narration.languageId)
-
-    let idx = 0
 
     const speakNext = () => {
       if (gen !== narrationPreviewGeneration || cleaned) return

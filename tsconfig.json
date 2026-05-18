@@ -17,7 +17,9 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@renderer/*": ["src/renderer/src/*"]
+      "@renderer/*": ["src/renderer/src/*"],
+      "@shared/*": ["shared/*"],
+      "@core/*": ["core/*"]
     }
   },
   "include": ["web/**/*", "src/web/kathaWebBridge.ts", "src/renderer/src/**/*", "core/**/*", "shared/**/*"]

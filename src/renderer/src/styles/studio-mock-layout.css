@@ -3898,9 +3898,8 @@
 
 /* Pre-bible: taller seed field (fixed height — content scrolls inside) */
 .studio-mock-idea-panel--with-generate .studio-mock-idea-textarea.idea-input--cinematic {
-  height: calc(88px + 12mm) !important;
-  min-height: calc(88px + 12mm) !important;
-  max-height: calc(88px + 12mm) !important;
+  min-height: calc(88px + 12mm);
+  max-height: min(calc(220px + 12mm), 36vh);
   padding-bottom: 10px !important;
   padding-right: 11px !important;
 }
@@ -4076,11 +4075,11 @@
 
 .studio-mock-frame .idea-input--cinematic {
   box-sizing: border-box;
-  height: 88px !important;
-  min-height: 88px !important;
-  max-height: 88px !important;
-  resize: none !important;
-  field-sizing: fixed;
+  height: auto;
+  min-height: 88px;
+  max-height: min(220px, 32vh);
+  resize: none;
+  field-sizing: content;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;

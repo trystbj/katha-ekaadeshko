@@ -5,6 +5,10 @@ import { json, setSecurityHeaders } from '../_lib/http.js'
 import { checkRateLimit, clientIp } from '../_lib/rateLimit.js'
 import { publicErrorMessage, safeLog } from '../_lib/log.js'
 
+function ttsKeyConfigured() {
+  return Boolean(process.env.TTS_API_KEY || process.env.OPENAI_API_KEY)
+}
+
 function pickNarratorId(req) {
   const raw =
     req.query?.narratorId ||
@@ -54,6 +58,8 @@ function pickNarrationLanguage(req) {
 
 export default async function handler(req, res) {
   setSecurityHeaders(res)
+  res.setHeader('X-Katha-Tts-Configured', ttsKeyConfigured() ? '1' : '0')
+
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.setHeader('Allow', 'GET, POST')
     res.status(405).send('Method not allowed')
@@ -63,18 +69,27 @@ export default async function handler(req, res) {
   const rl = checkRateLimit(`narrator-preview:${clientIp(req)}`, { max: 40, windowMs: 60_000 })
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfterSec))
-    json(res, 429, { error: 'Too many preview requests' })
+    json(res, 429, { error: 'Too many preview requests', code: 'RATE_LIMIT' })
     return
   }
 
   const narratorId = pickNarratorId(req)
   if (!narratorId) {
-    json(res, 400, { error: 'Invalid or missing narratorId' })
+    json(res, 400, { error: 'Invalid or missing narratorId', code: 'BAD_REQUEST' })
     return
   }
   const uiLang = pickUiLang(req)
   const storyLanguage = pickStoryLanguage(req)
   const narrationLanguage = pickNarrationLanguage(req)
+
+  safeLog('warn', 'narrator-preview request', {
+    narratorId,
+    storyLanguage: storyLanguage || null,
+    uiLang,
+    ttsConfigured: ttsKeyConfigured(),
+    method: req.method
+  })
+
   try {
     const buf = await generateNarratorPreviewMp3(narratorId, {
       uiLang,
@@ -84,15 +99,26 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'audio/mpeg')
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
     const preset = getNarratorPreset(narratorId)
-    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v10-gender')
+    res.setHeader('X-Katha-Preview-Engine', 'cinematic-v12-debug')
     res.setHeader('X-Katha-Tts-Voice', preset.openAiVoice)
     res.setHeader('X-Katha-Narrator-Id', narratorId)
     res.setHeader('X-Katha-Preview-Bytes', String(buf.length))
     res.status(200).send(buf)
   } catch (e) {
-    safeLog('warn', 'narrator-preview failed', { message: e instanceof Error ? e.message : String(e) })
+    const code = e?.code || 'PREVIEW_FAILED'
+    safeLog('warn', 'narrator-preview failed', {
+      narratorId,
+      code,
+      status: e?.status,
+      message: e instanceof Error ? e.message : String(e),
+      ttsConfigured: ttsKeyConfigured()
+    })
     const status = e?.status && typeof e.status === 'number' ? e.status : 500
     if (res.headersSent) return
-    json(res, status, { error: publicErrorMessage(e) })
+    json(res, status, {
+      error: publicErrorMessage(e),
+      code,
+      ttsConfigured: ttsKeyConfigured()
+    })
   }
 }

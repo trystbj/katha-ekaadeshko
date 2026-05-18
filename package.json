@@ -14,7 +14,7 @@
     "dev:vercel": "vercel dev --listen 4173",
     "web:dev": "vite",
     "web:build": "vite build",
-    "build": "npm run web:build && node scripts/sync-vercel-output.mjs && node scripts/assert-production-bundle.mjs",
+    "build": "npm run web:build && node scripts/assert-idea-limit.mjs && node scripts/sync-vercel-output.mjs && node scripts/assert-production-bundle.mjs",
     "verify": "npm run typecheck && npm run lint && npm run build && node scripts/assert-production-bundle.mjs",
     "desktop:dev": "cd desktop/src-tauri && cargo tauri dev",
     "desktop:build": "cd desktop/src-tauri && cargo tauri build",

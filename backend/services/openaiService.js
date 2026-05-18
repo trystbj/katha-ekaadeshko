@@ -1,4 +1,5 @@
 import { createHttpClient } from '../utils/httpClient.js'
+import { llmHttpRetries, llmHttpTimeoutMs } from '../utils/runtime.js'
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -16,7 +17,7 @@ You must return ONLY valid JSON for the requested schema. No markdown fences. No
 
 export async function openaiJson({ purpose, schemaHint, prompt }) {
   const key = requireKey()
-  const http = createHttpClient({ timeoutMs: 90_000, retries: 2 })
+  const http = createHttpClient({ timeoutMs: llmHttpTimeoutMs(), retries: llmHttpRetries() })
   const raw = await http(OPENAI_URL, {
     method: 'POST',
     headers: {

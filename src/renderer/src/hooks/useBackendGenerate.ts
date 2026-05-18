@@ -14,6 +14,8 @@ import {
   plannedTotalEpisodesFromStreamSetup
 } from '../utils/episodeSeriesFlow'
 import { narratorIdentityForId } from '../constants/narratorVoiceProfiles'
+import { drainSseBuffer } from '../utils/parseSseStream'
+import { STORY_IDEA_MAX_CHARS } from '../constants/storyIdeaLimits'
 
 export function useBackendGenerate() {
   const uiText = useUiText()
@@ -109,7 +111,7 @@ export function useBackendGenerate() {
           ...(styleId === 'custom' ? { customVisualPrompt: customVisualPrompt.trim() } : {}),
           ...(visualAccent ? { visualAccent } : {}),
           ...(toneRaw ? { storyTone: toneRaw } : {}),
-          seedLine: idea.slice(0, 500),
+          seedLine: idea.slice(0, STORY_IDEA_MAX_CHARS),
           projectId,
           ...(priorMemorySummary ? { priorMemorySummary } : {}),
           ...(priorWorldState ? { priorWorldState } : {}),
@@ -126,58 +128,67 @@ export function useBackendGenerate() {
       let buf = ''
       let out: JobsStreamGenerateResult | null = null
       let lastError: string | null = null
+      let sawStreamActivity = false
       const log: string[] = []
 
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        buf += dec.decode(value, { stream: true })
-        let idx = buf.indexOf('\n\n')
-        while (idx !== -1) {
-          const raw = buf.slice(0, idx).trim()
-          buf = buf.slice(idx + 2)
-          if (raw.startsWith('data:')) {
-            const json = raw.slice(5).trim()
-            try {
-              const evt = JSON.parse(json)
-              if (evt.type === 'job') {
-                useStudioStore.getState().setWorkspaceJob(workspaceIx, {
-                  id: evt.id,
-                  stage: 'starting',
-                  progress: 0,
-                  log: []
-                })
-              } else if (evt.type === 'progress') {
-                const msg = evt.message ? String(evt.message) : String(evt.stage || '')
-                const hintKey = sseLiveStatusHint(String(evt.stage || ''), msg)
-                log.push(hintKey ? uiText(hintKey) : msg)
-                const stJob = useStudioStore.getState().workspaceRuntime[workspaceIx]?.job
-                useStudioStore.getState().setWorkspaceJob(workspaceIx, {
-                  id: stJob?.id || 'job',
-                  stage: String(evt.stage || ''),
-                  progress: Number(evt.progress || 0),
-                  log: log.slice(-60)
-                })
-              } else if (evt.type === 'result') {
-                out = evt.result as JobsStreamGenerateResult
-              } else if (evt.type === 'error') {
-                const errMsg = String(evt.error || 'Generation failed')
-                lastError = errMsg
-                throw new Error(errMsg)
-              }
-            } catch (e) {
-              if (e instanceof SyntaxError) continue
-              if (e instanceof Error && lastError && e.message === lastError) throw e
-              throw e
-            }
+      const handleEvents = (events: Record<string, unknown>[]) => {
+        for (const evt of events) {
+          if (evt.type === 'job' || evt.type === 'progress' || evt.type === 'result' || evt.type === 'error') {
+            sawStreamActivity = true
           }
-          idx = buf.indexOf('\n\n')
+          if (evt.type === 'job') {
+            useStudioStore.getState().setWorkspaceJob(workspaceIx, {
+              id: evt.id as string | null,
+              stage: 'starting',
+              progress: 0,
+              log: []
+            })
+          } else if (evt.type === 'progress') {
+            const msg = evt.message ? String(evt.message) : String(evt.stage || '')
+            const hintKey = sseLiveStatusHint(String(evt.stage || ''), msg)
+            log.push(hintKey ? uiText(hintKey) : msg)
+            const stJob = useStudioStore.getState().workspaceRuntime[workspaceIx]?.job
+            useStudioStore.getState().setWorkspaceJob(workspaceIx, {
+              id: stJob?.id || 'job',
+              stage: String(evt.stage || ''),
+              progress: Number(evt.progress || 0),
+              log: log.slice(-60)
+            })
+          } else if (evt.type === 'result') {
+            out = evt.result as JobsStreamGenerateResult
+          } else if (evt.type === 'error') {
+            const errMsg = String(evt.error || 'Generation failed')
+            lastError = errMsg
+            throw new Error(errMsg)
+          }
         }
       }
 
+      while (true) {
+        const { value, done } = await reader.read()
+        if (value) buf += dec.decode(value, { stream: true })
+        if (done) {
+          buf += dec.decode()
+          break
+        }
+        const drained = drainSseBuffer(buf)
+        buf = drained.rest
+        handleEvents(drained.events)
+      }
+
+      const tail = drainSseBuffer(buf)
+      handleEvents(tail.events)
+
       if (!out) {
         if (lastError) throw new Error(lastError)
-        throw new Error('No result returned (stream ended without a result event)')
+        if (sawStreamActivity || log.length > 0) {
+          throw new Error(
+            'Generation stopped before finishing (server time limit or connection closed). Try again — use a shorter length, or redeploy the latest build.'
+          )
+        }
+        throw new Error(
+          'Story generation did not start (no stream from server). Check that OPENAI_API_KEY, GEMINI_API_KEY, or DEEPSEEK_API_KEY is set on Vercel and redeploy.'
+        )
       }
 
       const pipelineImages: { image_url?: string; imageUrl?: string; scene?: string | number; prompt?: string }[] =

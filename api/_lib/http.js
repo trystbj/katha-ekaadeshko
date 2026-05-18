@@ -10,7 +10,14 @@ export function setSecurityHeaders(res) {
 
 export function json(res, status, body) {
   setSecurityHeaders(res)
-  res.status(status).json(body)
+  const payload = JSON.stringify(body ?? {})
+  if (typeof res.status === 'function' && typeof res.json === 'function') {
+    res.status(status).json(body)
+    return
+  }
+  res.statusCode = status
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.end(payload)
 }
 
 export function methodNotAllowed(res, methods = ['POST']) {

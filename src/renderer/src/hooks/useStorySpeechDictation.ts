@@ -13,10 +13,11 @@ import {
   type DictationInsertMode,
   type VoiceCommandEffect
 } from '../utils/speechDictation'
+import { STORY_IDEA_MAX_CHARS } from '../constants/storyIdeaLimits'
 
 export type VoiceMicPhase = 'idle' | 'listening' | 'paused' | 'processing' | 'error' | 'complete'
 
-const MAX_IDEA = 500
+const MAX_IDEA = STORY_IDEA_MAX_CHARS
 
 async function primeSpeechMic(): Promise<void> {
   if (!navigator.mediaDevices?.getUserMedia) return

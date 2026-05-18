@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { useUiText } from './i18n/useAppI18n'
 import { Glyphs } from './i18n/uiGlyphs'
+import { STORY_IDEA_MAX_CHARS } from './constants/storyIdeaLimits'
 import { useSyncUiLanguageToI18n } from './i18n/useSyncUiLanguageToI18n'
 import { getCachedStylePreviewUrl } from './utils/stylePreviewImageCache'
 import { migrateVisualStyleId } from './utils/styleIdMigration'
@@ -971,10 +972,11 @@ export default function App() {
                   id="studio-story-seed"
                   className={`idea-input idea-input--cinematic studio-mock-idea-textarea${busy || streamReveal ? ' idea-input--live-gen' : ''}`}
                   ref={ideaRef}
-                  maxLength={500}
+                  maxLength={STORY_IDEA_MAX_CHARS}
                   value={idea}
                   onChange={(e) => setIdea(e.target.value)}
-                  placeholder={uiText('ideaFieldWireframe')}
+                  placeholder={uiText('ideaFieldWireframe', { max: STORY_IDEA_MAX_CHARS })}
+                  aria-describedby="studio-story-seed-count"
                 />
                 {project?.bible ? (
                   <button
@@ -989,11 +991,13 @@ export default function App() {
                   </button>
                 ) : null}
               </div>
-              <p className="studio-mock-char-count">
-                {idea.length}
-                {Glyphs.slash}
-                {Glyphs.space}
-                {Glyphs.charsMax500}
+              <p
+                id="studio-story-seed-count"
+                className="studio-mock-char-count"
+                data-idea-max={STORY_IDEA_MAX_CHARS}
+                title={uiText('ideaCharLimitHint', { max: STORY_IDEA_MAX_CHARS })}
+              >
+                {idea.length} / {STORY_IDEA_MAX_CHARS}
               </p>
               {!project?.bible ? (
                 <div className="studio-mock-generate-strip">

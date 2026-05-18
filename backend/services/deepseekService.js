@@ -1,4 +1,5 @@
 import { createHttpClient } from '../utils/httpClient.js'
+import { llmHttpRetries, llmHttpTimeoutMs } from '../utils/runtime.js'
 
 const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions'
 
@@ -17,7 +18,7 @@ Rules:
 
 export async function deepseekJson({ purpose, schemaHint, prompt }) {
   const key = requireKey()
-  const http = createHttpClient({ timeoutMs: 90_000, retries: 2 })
+  const http = createHttpClient({ timeoutMs: llmHttpTimeoutMs(), retries: llmHttpRetries() })
   const raw = await http(DEEPSEEK_URL, {
     method: 'POST',
     headers: {

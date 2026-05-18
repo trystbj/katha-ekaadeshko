@@ -1,4 +1,5 @@
 import { buildLeonardoScenePrompt } from '../utils/visualStyleLock.js'
+import { isServerlessRuntime } from '../utils/runtime.js'
 
 const LEONARDO_API = 'https://cloud.leonardo.ai/api/rest/v1'
 
@@ -22,6 +23,8 @@ export async function leonardoGenerateForScript({ script, input, onProgress }) {
   // Serverless-safe: Leonardo returns hosted URLs; no local storage required.
   // You can disable explicitly if desired.
   if (process.env.KATHA_DISABLE_LEONARDO === '1') return []
+  // Sequential scene polls exceed Vercel ~60s — story/script still return; images can be added later.
+  if (isServerlessRuntime() && process.env.KATHA_SERVERLESS_LEONARDO !== '1') return []
   // If no key, just return empty array (backend still returns story/script/audio).
   if (!process.env.LEONARDO_API_KEY) return []
   const modelId = process.env.LEONARDO_MODEL_ID || '7b592283-e8a7-4c5a-9ba6-d18c31f258b9'
@@ -115,7 +118,8 @@ async function generateOne({ prompt, modelId, width, height, seed }) {
   const generationId = created?.sdGenerationJob?.generationId
   if (!generationId) throw new Error('Leonardo: missing generationId')
 
-  const deadline = Date.now() + 120_000
+  const maxPollMs = isServerlessRuntime() ? 22_000 : 120_000
+  const deadline = Date.now() + maxPollMs
   while (Date.now() < deadline) {
     await sleep(2500)
     const gRes = await fetch(`${LEONARDO_API}/generations/${generationId}`, {

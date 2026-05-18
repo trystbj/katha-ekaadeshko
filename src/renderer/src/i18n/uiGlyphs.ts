@@ -14,7 +14,6 @@ export const Glyphs = {
   space: ' ',
   chevronLeft: '‹',
   chevronRight: '›',
-  charsMax500: '500',
   prevTrack: '⏮',
   nextChapter: '⏭',
   pauseMedia: '⏸',

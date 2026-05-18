@@ -28,6 +28,7 @@ import {
   buildGenerationBlueprint,
   normalizePipelineInput
 } from '../utils/generationBlueprint.js'
+import { isServerlessRuntime, serverlessFastPipeline } from '../utils/runtime.js'
 
 const PROVIDERS = [
   {
@@ -183,8 +184,8 @@ export async function runKathaPipeline(input, req, opts = {}) {
   const prevSigs = await recentSignatures()
   const tooSimilar = prevSigs.some((p) => jaccard(sig, p.sig) >= 0.42)
   const repetitive = await shouldRejectAsRepetitive(fp)
-  if (repetitive || tooSimilar) {
-    // Force a stronger variation attempt once
+  if ((repetitive || tooSimilar) && !isServerlessRuntime()) {
+    // Force a stronger variation attempt once (skipped on serverless — saves one full LLM round-trip).
     const { json: story2, provider: story2Provider } = await aiJsonAuto({
       purpose: 'story',
       schemaHint: 'Story',
@@ -238,43 +239,55 @@ export async function runKathaPipeline(input, req, opts = {}) {
 }
 
 async function continuePipelineFromStory(pinnedInput, region, story, req, providersUsed, onProgress, memory) {
-  // Stage 2 — Parallel processing
-  if (onProgress) onProgress({ stage: 'validate', progress: 20, message: 'Validating + enhancing' })
-  const validationPrompt = buildValidationPrompt({ story, input: pinnedInput, region })
-  const enhancementPrompt = buildEnhancementPrompt({ story, input: pinnedInput, region })
+  const fast = serverlessFastPipeline()
+  let finalStory = story
 
-  const [{ json: validated, provider: validateProvider }, { json: enhanced, provider: enhanceProvider }] =
-    await Promise.all([
-      aiJsonAuto({
-        purpose: 'validate',
-        schemaHint: 'ValidatedStory',
-        prompt: validationPrompt,
-        // DeepSeek is best at consistency checks, but fall back if missing/quota.
-        order: ['deepseek', 'openai', 'gemini']
-      }),
-      aiJsonAuto({
-        purpose: 'enhance',
-        schemaHint: 'EnhancedStory',
-        prompt: enhancementPrompt,
-        // Gemini is best at cultural/dialogue enhancements, but fall back if missing/quota.
-        order: ['gemini', 'openai', 'deepseek']
+  if (fast) {
+    if (onProgress) {
+      onProgress({
+        stage: 'merge',
+        progress: 28,
+        message: 'Preparing story (serverless fast path)'
       })
-    ])
-  providersUsed.validate = validateProvider
-  providersUsed.enhance = enhanceProvider
+    }
+    providersUsed.validate = 'skipped_serverless'
+    providersUsed.enhance = 'skipped_serverless'
+  } else {
+    // Stage 2 — Parallel processing
+    if (onProgress) onProgress({ stage: 'validate', progress: 20, message: 'Validating + enhancing' })
+    const validationPrompt = buildValidationPrompt({ story, input: pinnedInput, region })
+    const enhancementPrompt = buildEnhancementPrompt({ story, input: pinnedInput, region })
 
-  // Stage 3 — Merge results
-  if (onProgress) onProgress({ stage: 'merge', progress: 35, message: 'Merging results' })
-  let finalStory = mergeResults(story, validated, enhanced)
+    const [{ json: validated, provider: validateProvider }, { json: enhanced, provider: enhanceProvider }] =
+      await Promise.all([
+        aiJsonAuto({
+          purpose: 'validate',
+          schemaHint: 'ValidatedStory',
+          prompt: validationPrompt,
+          order: ['deepseek', 'openai', 'gemini']
+        }),
+        aiJsonAuto({
+          purpose: 'enhance',
+          schemaHint: 'EnhancedStory',
+          prompt: enhancementPrompt,
+          order: ['gemini', 'openai', 'deepseek']
+        })
+      ])
+    providersUsed.validate = validateProvider
+    providersUsed.enhance = enhanceProvider
 
-  finalStory = await maybeBlueprintRepairStory({
-    pinnedInput,
-    region,
-    memory,
-    finalStory,
-    providersUsed,
-    onProgress
-  })
+    if (onProgress) onProgress({ stage: 'merge', progress: 35, message: 'Merging results' })
+    finalStory = mergeResults(story, validated, enhanced)
+
+    finalStory = await maybeBlueprintRepairStory({
+      pinnedInput,
+      region,
+      memory,
+      finalStory,
+      providersUsed,
+      onProgress
+    })
+  }
 
   // Stage 4 — Script generation (auto: OpenAI → Gemini → DeepSeek)
   if (onProgress) onProgress({ stage: 'script', progress: 50, message: 'Writing script' })
@@ -323,35 +336,40 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
   let creatorPreferencesPatch = null
   let sceneOrchestration = null
   let renderAssemblyPlan = null
-  try {
-    const evolution = buildSceneOrchestratedPlan({
-      script,
-      input: {
-        ...pinnedInput,
+  const skipOrchestration = fast || pinnedInput.performancePreferLow
+  if (!skipOrchestration) {
+    try {
+      const evolution = buildSceneOrchestratedPlan({
+        script,
+        input: {
+          ...pinnedInput,
+          priorMemorySummary: pinnedInput.priorMemorySummary || '',
+          priorWorldState: pinnedInput.priorWorldState || null,
+          priorRelationships: pinnedInput.priorRelationships || [],
+          creatorPreferences: pinnedInput.creatorPreferences || null,
+          directorPersonalityPreference: pinnedInput.directorPersonalityPreference || 'auto',
+          performancePreferLow: pinnedInput.performancePreferLow
+        },
+        storyAudioPlan,
+        story: finalStory,
         priorMemorySummary: pinnedInput.priorMemorySummary || '',
-        priorWorldState: pinnedInput.priorWorldState || null,
-        priorRelationships: pinnedInput.priorRelationships || [],
-        creatorPreferences: pinnedInput.creatorPreferences || null,
-        directorPersonalityPreference: pinnedInput.directorPersonalityPreference || 'auto',
-        performancePreferLow: pinnedInput.performancePreferLow
-      },
-      storyAudioPlan,
-      story: finalStory,
-      priorMemorySummary: pinnedInput.priorMemorySummary || '',
-      projectId: pinnedInput.projectId
-    })
-    cinematicDirectorPlan = evolution.cinematicDirectorPlan
-    storyAudioPlan = evolution.storyAudioPlan
-    storyMemorySnapshot = evolution.storyMemorySnapshot
-    memorySummaryForClient = evolution.memorySummaryPatch
-    worldStateSnapshot = evolution.worldStateSnapshot
-    relationshipSnapshot = evolution.relationshipSnapshot
-    creatorPreferencesPatch = evolution.creatorPreferencesPatch
-    sceneOrchestration = evolution.sceneOrchestration ?? null
-    renderAssemblyPlan = evolution.renderAssemblyPlan ?? null
-  } catch (e) {
+        projectId: pinnedInput.projectId
+      })
+      cinematicDirectorPlan = evolution.cinematicDirectorPlan
+      storyAudioPlan = evolution.storyAudioPlan
+      storyMemorySnapshot = evolution.storyMemorySnapshot
+      memorySummaryForClient = evolution.memorySummaryPatch
+      worldStateSnapshot = evolution.worldStateSnapshot
+      relationshipSnapshot = evolution.relationshipSnapshot
+      creatorPreferencesPatch = evolution.creatorPreferencesPatch
+      sceneOrchestration = evolution.sceneOrchestration ?? null
+      renderAssemblyPlan = evolution.renderAssemblyPlan ?? null
+    } catch (e) {
+      cinematicDirectorDegraded = true
+      console.warn('[sceneOrchestrationPipeline] fallback to base audio plan:', e?.message || e)
+    }
+  } else {
     cinematicDirectorDegraded = true
-    console.warn('[sceneOrchestrationPipeline] fallback to base audio plan:', e?.message || e)
   }
   const vsProfile = resolveStyleProfile(pinnedInput)
   const vsHybrid = detectStyleHybridRequested(pinnedInput)
@@ -381,7 +399,8 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
       ...(sceneOrchestration ? { sceneOrchestration } : {}),
       ...(renderAssemblyPlan ? { renderAssemblyPlan } : {}),
       visualStyleProfileKey: vsProfile.key,
-      visualStyleHybrid: vsHybrid
+      visualStyleHybrid: vsHybrid,
+      ...(fast ? { serverlessFastPath: true } : {})
     }
   }
 }

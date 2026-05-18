@@ -1,11 +1,22 @@
 /**
- * Cinematic TTS sample for the narrator picker — same global director as full pipeline.
+ * Fast cinematic TTS for narrator picker — minimal instructions to avoid timeouts.
  */
 import { getNarratorPreset } from '../utils/narratorPresets.js'
 import { getCinematicPreviewScript } from '../voice/narratorPreviewScripts.js'
-import { buildGlobalNarrationPlan } from '../voice/cinematicNarrationDirector.js'
 import { resolvePreviewLanguage } from '../../core/voice/previewLanguage.js'
+import { getLanguageDeliveryBlock } from '../voice/languageDeliveryProfiles.js'
+import {
+  isNepaliLanguage,
+  nepaliDeliveryInstructionBlock
+} from '../voice/nepaliPronunciationEngine.js'
 import { withTimeout } from '../../api/_lib/http.js'
+import { safeLog } from '../../api/_lib/log.js'
+
+const MAX_INSTRUCTION_CHARS = 3600
+
+function ttsKeyConfigured() {
+  return Boolean(process.env.TTS_API_KEY || process.env.OPENAI_API_KEY)
+}
 
 /**
  * @param {string} narratorId
@@ -15,8 +26,13 @@ import { withTimeout } from '../../api/_lib/http.js'
 export async function generateNarratorPreviewMp3(narratorId, options = {}) {
   const key = process.env.TTS_API_KEY || process.env.OPENAI_API_KEY
   if (!key) {
+    safeLog('warn', 'narrator-preview TTS key missing', {
+      ttsConfigured: false,
+      narratorId
+    })
     const e = new Error('TTS is not configured. Set TTS_API_KEY or OPENAI_API_KEY.')
     e.status = 503
+    e.code = 'TTS_NOT_CONFIGURED'
     throw e
   }
 
@@ -28,37 +44,36 @@ export async function generateNarratorPreviewMp3(narratorId, options = {}) {
   })
   const text = getCinematicPreviewScript(narratorId, previewLang, { forApi: true })
 
-  const plan = buildGlobalNarrationPlan(
-    {
-      narration: text,
-      storyLanguage: previewLang,
-      narratorId,
-      autoVoiceDirector: true,
-      genre: 'fantasy',
-      storyTone: 'warm',
-      styleId: 'cinematic_anime'
-    },
-    { extendedPreview: true, skipSceneAdapt: false }
-  )
+  const langBlock = isNepaliLanguage(previewLang)
+    ? nepaliDeliveryInstructionBlock({ extendedPreview: true }, { narratorId })
+    : getLanguageDeliveryBlock(previewLang, { extendedPreview: true })
 
-  const baseSpeed = typeof preset.speed === 'number' ? preset.speed : 1
-  const neSlow = previewLang === 'ne' ? 0.94 : 0.96
-  const previewSpeed = Math.min(1.03, Math.max(0.88, baseSpeed * plan.speedMul * neSlow))
-
-  const instructions = [preset.instructions, plan.instructionSuffix]
+  const instructions = [preset.instructions, langBlock]
     .filter(Boolean)
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim()
+    .slice(0, MAX_INSTRUCTION_CHARS)
+
+  const baseSpeed = typeof preset.speed === 'number' ? preset.speed : 1
+  const previewSpeed = Math.min(1.05, Math.max(0.9, baseSpeed * 0.98))
 
   const payload = {
     model: 'gpt-4o-mini-tts',
     voice: preset.openAiVoice,
-    format: 'mp3',
     input: text,
     speed: previewSpeed
   }
   if (instructions) payload.instructions = instructions
+
+  safeLog('warn', 'narrator-preview OpenAI TTS request', {
+    narratorId,
+    previewLang,
+    voice: preset.openAiVoice,
+    model: payload.model,
+    inputChars: text.length,
+    ttsConfigured: ttsKeyConfigured()
+  })
 
   const res = await withTimeout(
     fetch('https://api.openai.com/v1/audio/speech', {
@@ -69,15 +84,33 @@ export async function generateNarratorPreviewMp3(narratorId, options = {}) {
       },
       body: JSON.stringify(payload)
     }),
-    25_000,
+    22_000,
     'OpenAI narrator preview'
   )
   if (!res.ok) {
     const t = await res.text()
+    safeLog('warn', 'narrator-preview OpenAI TTS failed', {
+      narratorId,
+      httpStatus: res.status,
+      bodyPreview: t.slice(0, 180)
+    })
     const e = new Error(t || 'OpenAI TTS failed')
-    e.status = 502
+    e.status = res.status === 401 ? 401 : res.status === 429 ? 429 : 502
+    e.code = res.status === 401 ? 'TTS_UNAUTHORIZED' : 'TTS_UPSTREAM'
     throw e
   }
-  return Buffer.from(await res.arrayBuffer())
+  const buf = Buffer.from(await res.arrayBuffer())
+  if (buf.length < 64) {
+    safeLog('warn', 'narrator-preview OpenAI empty audio', { narratorId, bytes: buf.length })
+    const e = new Error('OpenAI TTS returned empty audio')
+    e.status = 502
+    e.code = 'TTS_EMPTY'
+    throw e
+  }
+  safeLog('warn', 'narrator-preview OpenAI TTS ok', {
+    narratorId,
+    bytes: buf.length,
+    voice: preset.openAiVoice
+  })
+  return buf
 }
-

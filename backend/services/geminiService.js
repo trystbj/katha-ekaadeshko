@@ -1,4 +1,5 @@
 import { createHttpClient } from '../utils/httpClient.js'
+import { llmHttpRetries, llmHttpTimeoutMs } from '../utils/runtime.js'
 
 function requireKey() {
   const key = process.env.GEMINI_API_KEY
@@ -20,7 +21,7 @@ export async function geminiJson({ purpose, schemaHint, prompt }) {
     key
   )}`
 
-  const http = createHttpClient({ timeoutMs: 90_000, retries: 2 })
+  const http = createHttpClient({ timeoutMs: llmHttpTimeoutMs(), retries: llmHttpRetries() })
   const raw = await http(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

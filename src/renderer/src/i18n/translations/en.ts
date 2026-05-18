@@ -79,7 +79,8 @@ export const en = {
   wireframeSlotLength: 'Length',
   wireframeSlotCountry: 'Country',
   ideaSeedTitleWireframe: 'One line story',
-  ideaFieldWireframe: 'Write your one-line idea here',
+  ideaFieldWireframe: 'Write your story seed here (up to {{max}} characters)',
+  ideaCharLimitHint: 'Story seed — up to {{max}} characters',
   voiceFabAria: 'Voice input for story seed',
   voiceFabHint: 'Voice to story — live captions into the seed box',
   voiceFabStopHint: 'Stop listening',
@@ -618,8 +619,11 @@ export const en = {
   narratorPersonalityPenguin: 'Sweet, warm, feminine',
   narratorPlaySample: 'Play short voice sample',
   narratorPlayStop: 'Stop sample',
-  narratorSampleError: 'Sample could not be played. Check TTS (OpenAI) keys on the server.',
-  narratorSampleErrorShort: 'No server audio',
+  narratorSampleError:
+    'Preview could not play. Allow sound in the browser, or check Vercel logs for /api/narrator-preview.',
+  narratorSampleErrorShort: 'Preview failed',
+  narratorSampleRetry: 'Retry',
+  narratorSampleGenerating: 'Generating voice preview...',
   /** Shown in the card while the sample loads or plays. */
   narratorSampleSpokenLine:
     'Hello — this is a quick sample. The app is कथा एकादेशको (also written Katha Ekadeshko in Roman), read in this narrator’s style.',
@@ -632,7 +636,7 @@ export const en = {
   narratorSampleUsingBrowserVoice:
     'Short browser voice only — server TTS is off or failed. Set OPENAI_API_KEY on Vercel and redeploy for the full cinematic preview.',
   narratorSampleCinematicVoice: 'Cinematic narrator preview (OpenAI TTS, ~30s).',
-  narratorSampleLoading: 'Loading sample…',
+  narratorSampleLoading: 'Generating voice preview...',
   /** Compact skeleton inside the play chip while audio buffers */
   narratorSampleLoadingDots: '···',
   narratorNameM1: 'Vikram — deep',

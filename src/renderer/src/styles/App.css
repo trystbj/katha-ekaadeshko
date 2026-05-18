@@ -847,6 +847,20 @@ input.select:focus-visible {
   animation: narrator-play-pulse 0.7s ease-in-out infinite;
 }
 
+.narrator-list__play-loading {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255, 228, 160, 0.92);
+  max-width: 9rem;
+  line-height: 1.2;
+}
+
+.narrator-list__play-retry {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  margin-left: 4px;
+}
+
 .narrator-list__play-err {
   font-size: 0.6rem;
   color: #f87171;

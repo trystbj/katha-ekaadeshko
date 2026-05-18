@@ -19,6 +19,7 @@ import type { StoryBible } from '../types/story'
 import { uiTextGlobal } from '../i18n/uiTextGlobal'
 import { normalizeNarratorId } from '../constants/narrators'
 import { normalizeUiLanguageCode } from '../i18n/resources'
+import { STORY_IDEA_MAX_CHARS } from '../constants/storyIdeaLimits'
 import {
   composeCustomVisualPrompt,
   parseCustomVisualPrompt,
@@ -412,7 +413,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setUiLanguagePending: (uiLanguagePending) => set({ uiLanguagePending }),
   setStoryLanguage: (storyLanguage) => set({ storyLanguage }),
   setStoryCountry: (storyCountry) => set({ storyCountry }),
-  setIdea: (idea) => set({ idea }),
+  setIdea: (idea) => set({ idea: String(idea ?? '').slice(0, STORY_IDEA_MAX_CHARS) }),
   setWorkingTitle: (workingTitle) => set({ workingTitle }),
   setMainCharacterName: (mainCharacterName) => set({ mainCharacterName }),
   setUiFontMode: (uiFontMode) => set({ uiFontMode }),
