@@ -3910,10 +3910,11 @@
   }
 }
 
-/* Pre-bible: taller seed field (fixed height — content scrolls inside) */
+/* Pre-bible: taller seed field (fixed height — long seeds scroll inside) */
 .studio-mock-idea-panel--with-generate .studio-mock-idea-textarea.idea-input--cinematic {
-  min-height: calc(88px + 12mm);
-  max-height: min(calc(320px + 12mm), 44vh);
+  height: calc(88px + 12mm) !important;
+  min-height: calc(88px + 12mm) !important;
+  max-height: calc(88px + 12mm) !important;
   padding-bottom: 10px !important;
   padding-right: 11px !important;
 }
@@ -4089,13 +4090,15 @@
 
 .studio-mock-frame .idea-input--cinematic {
   box-sizing: border-box;
-  height: auto;
-  min-height: 88px;
-  max-height: min(320px, 42vh);
-  resize: none;
-  field-sizing: content;
+  height: 88px !important;
+  min-height: 88px !important;
+  max-height: 88px !important;
+  resize: none !important;
+  field-sizing: fixed;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
   padding: 10px 11px !important;
