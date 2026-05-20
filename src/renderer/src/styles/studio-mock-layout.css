@@ -29,8 +29,8 @@
   background: transparent !important;
   position: relative;
   z-index: 1;
-  /* Horizontal overflow: studio-desktop-lock.css uses #root scroll for sub-min-width viewports. */
-  overflow-x: visible;
+  /* Prevent horizontal page scrollbar from minor mm nudges. */
+  overflow-x: clip;
 }
 
 .app-shell.studio-mock-layout--fullscreen {
@@ -63,6 +63,72 @@
   flex: 1;
   min-height: 0;
   height: 100%;
+}
+
+/* Fullscreen studio: fixed four-column row at every viewport (no breakpoint stacking). */
+.app-shell.studio-mock-layout--fullscreen .studio-mock-row-4 > .studio-mock-col--style,
+.app-shell.studio-mock-layout--fullscreen .studio-mock-row-4 > .studio-mock-col--preview,
+.app-shell.studio-mock-layout--fullscreen .studio-mock-row-4 > .studio-mock-col--story,
+.app-shell.studio-mock-layout--fullscreen .studio-mock-row-4 > .studio-mock-col--monitor {
+  align-self: stretch;
+  min-height: 0;
+  height: 100%;
+}
+
+.app-shell.studio-mock-layout--fullscreen .studio-mock-row-4 > .studio-mock-col--preview {
+  width: calc(100% + 1.5mm);
+  margin-inline-end: -1.5mm;
+  box-sizing: border-box;
+  overflow-x: visible;
+  overflow-y: hidden;
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  max-height: none;
+  grid-column: auto;
+  min-height: 0;
+}
+
+.app-shell.studio-mock-layout--fullscreen .studio-mock-row-4 > .studio-mock-col--monitor {
+  width: calc(100% + 2mm);
+  margin-inline-start: -2mm;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 0;
+  max-height: none;
+  grid-column: auto;
+  min-height: 0;
+}
+
+.app-shell.studio-mock-layout--fullscreen .studio-mock-row-4 > .studio-mock-col--story {
+  position: relative;
+  z-index: 1;
+}
+
+.app-shell.studio-mock-layout--fullscreen
+  .studio-mock-row-4
+  > .studio-mock-col--monitor
+  .studio-mock-monitor-body {
+  margin-bottom: 1.5mm;
+}
+
+.app-shell.studio-mock-layout--fullscreen
+  .studio-mock-row-4
+  > .studio-mock-col--style
+  > .studio-mock-panel.studio-mock-panel--fill {
+  padding-top: 0 !important;
+}
+
+.app-shell.studio-mock-layout--fullscreen
+  .studio-mock-row-4
+  > .studio-mock-col--story
+  > .studio-mock-panel:first-child {
+  padding-top: 0 !important;
+}
+
+.app-shell.studio-mock-layout--fullscreen .studio-mock-foot {
+  flex-direction: row;
+  text-align: start;
 }
 
 .app-shell.studio-mock-layout--fullscreen .studio-mock-col--style .studio-mock-panel.studio-mock-panel--fill {
@@ -4408,19 +4474,19 @@
 }
 
 @media (max-width: 1280px) {
-  .studio-mock-row-4 {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-row-4 {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto;
     max-height: none;
   }
 
-  .studio-mock-col--preview {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-col--preview {
     grid-column: 1 / -1;
     max-height: min(52vh, 520px);
     min-height: 280px;
   }
 
-  .studio-mock-col--monitor {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-col--monitor {
     grid-column: 1 / -1;
     max-height: min(42vh, 480px);
     min-height: 240px;
@@ -4428,46 +4494,48 @@
 }
 
 @media (max-width: 780px) {
-  .app-shell.studio-mock-layout {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) {
     /* Corner logo slightly taller on narrow widths — keep Style column clear */
     --studio-mock-style-col-offset-top: clamp(5.05rem, 6vw + 3.15rem, 7.25rem);
   }
 
-  .studio-mock-col--style,
-  .studio-mock-col--preview,
-  .studio-mock-col--story {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-col--style,
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-col--preview,
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-col--story {
     padding-bottom: 8px;
     margin-bottom: 2px;
   }
 
-  .studio-mock-col--monitor {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-col--monitor {
     padding-top: 4px;
   }
 
-  .studio-mock-brand-corner {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-brand-corner {
     padding: 4px 8px 6px 8px;
     max-width: min(100%, 100vw - 16px);
   }
 
-  .studio-mock-logo-dev.studio-mock-logo-dev--hero {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen)
+    .studio-mock-logo-dev.studio-mock-logo-dev--hero {
     font-size: clamp(1.34rem, calc(5.35vw + 0.2rem), 1.8rem);
     line-height: 1.32;
     margin-bottom: -0.06em;
   }
 
-  .studio-mock-logo-text.studio-mock-logo-text--hero {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen)
+    .studio-mock-logo-text.studio-mock-logo-text--hero {
     padding-top: 11px;
   }
 
-  .studio-mock-logo-en--hero {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-logo-en--hero {
     max-width: min(100%, 100vw - 32px);
   }
 
-  .studio-mock-row-4 {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-row-4 {
     grid-template-columns: 1fr;
   }
 
-  .studio-mock-foot {
+  .app-shell.studio-mock-layout:not(.studio-mock-layout--fullscreen) .studio-mock-foot {
     flex-direction: column;
     gap: 8px;
     text-align: center;
