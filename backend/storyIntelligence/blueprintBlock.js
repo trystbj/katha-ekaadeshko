@@ -11,7 +11,7 @@ export function formatLongStoryBlueprintBlock(plan) {
 ${plan.tokenBudget?.blueprintExcerpt || ''}
 
 Scene-by-scene obligations:
-- Generate exactly ${plan.structure?.targetSceneCount || 8} script scenes unless USER SEED demands fewer.
+- Generate between 6 and ${Math.min(10, plan.structure?.targetSceneCount || plan.targetSceneCount || 8)} script scenes (fit one valid JSON array).
 - Preserve emotional continuity: ${plan.contextMemory?.narratorTone || 'cinematic'}.
 - Do not contradict character memory or relationship states established in the seed.
 - Match dramatic beats: ${(plan.structure?.dramaticBeats || []).join(', ') || 'standard arc'}.

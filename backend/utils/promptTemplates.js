@@ -5,12 +5,14 @@ import { languageDisplayName } from './generationBlueprint.js'
 function longStoryScriptSection(inputLike) {
   const plan = inputLike?.__longStoryIntelligence
   if (!plan?.active) return ''
-  const n = plan.structure?.targetSceneCount || plan.targetSceneCount || 8
+  const raw = plan.structure?.targetSceneCount || plan.targetSceneCount || 8
+  const n = Math.min(10, Math.max(6, Number(raw) || 8))
   const outline = plan.tokenBudget?.scriptContext || ''
   return `
 LONG-STORY SCENE PLAN (mandatory):
-- Produce exactly ${n} scenes (not fewer unless USER SEED is shorter).
+- Produce between 6 and ${n} scenes (prefer the upper end when the story supports it; stay within this range so JSON stays valid).
 - Honor scene emotional beats and continuity from the seed analysis.
+- Keep each scene's narration concise enough that the full array fits in one JSON response.
 - Avoid repeated narration lines and emotional resets between scenes.
 ${outline ? `Planned beats:\n${outline}\n` : ''}`
 }

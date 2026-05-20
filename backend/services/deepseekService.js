@@ -28,7 +28,7 @@ export async function deepseekJson({ purpose, schemaHint, prompt }) {
     body: JSON.stringify({
       model: 'deepseek-chat',
       temperature: 0.2,
-      max_tokens: 3072,
+      max_tokens: purpose === 'script' ? 8192 : 3072,
       messages: [
         { role: 'system', content: SYSTEM_CORE },
         {

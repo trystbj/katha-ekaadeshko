@@ -33,7 +33,10 @@ export async function geminiJson({ purpose, schemaHint, prompt }) {
           parts: [{ text: `TASK: ${purpose}\nSCHEMA: ${schemaHint}\n\n${prompt}\n\nReturn ONLY JSON.` }]
         }
       ],
-      generationConfig: { temperature: 0.65, maxOutputTokens: 4096 }
+      generationConfig: {
+        temperature: 0.65,
+        maxOutputTokens: purpose === 'script' ? 8192 : 4096
+      }
     })
   })
 

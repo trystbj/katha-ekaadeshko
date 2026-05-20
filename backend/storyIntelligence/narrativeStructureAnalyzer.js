@@ -15,12 +15,13 @@ export function analyzeNarrativeStructure(rawSeed, analysis, input = {}) {
 
   const lengthBucket = String(input.length || '').toLowerCase()
   let targetSceneCount = 8
-  if (len > 7_000 || lengthBucket.includes('long')) targetSceneCount = 14
-  else if (len > 4_000 || lengthBucket.includes('medium')) targetSceneCount = 11
+  // Cap at 10: script JSON must fit model output limits (4096–8192 tokens); more scenes → truncation / invalid JSON.
+  if (len > 7_000 || lengthBucket.includes('long')) targetSceneCount = 10
+  else if (len > 4_000 || lengthBucket.includes('medium')) targetSceneCount = 10
   else if (len > 2_000) targetSceneCount = 9
   else targetSceneCount = 7
 
-  targetSceneCount = Math.min(16, Math.max(6, targetSceneCount + Math.floor(n / 6)))
+  targetSceneCount = Math.min(10, Math.max(6, targetSceneCount + Math.floor(n / 6)))
 
   const actCount = len > 5_000 ? 3 : len > 2_500 ? 2 : 1
   const acts = []

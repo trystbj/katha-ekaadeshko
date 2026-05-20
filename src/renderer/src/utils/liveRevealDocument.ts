@@ -24,7 +24,7 @@ export function buildLiveRevealDocument(out: JobsStreamGenerateResult): string {
   chunks.push('')
 
   chunks.push('# Full Story')
-  const prose = String(story.setting || '').trim()
+  const prose = String(story.story || story.setting || '').trim()
   const paras = prose.split(/\n\n+/).filter(Boolean)
   chunks.push(...(paras.length ? paras : [prose || '—']))
   chunks.push('')

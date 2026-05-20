@@ -33,6 +33,8 @@ import {
   runLongStoryIntelligence,
   enrichContextMemoryFromOutputs
 } from '../storyIntelligence/longStoryOrchestrator.js'
+import { normalizeScriptJson } from '../utils/normalizeScriptJson.js'
+import { safeLog } from '../../api/_lib/log.js'
 
 const PROVIDERS = [
   {
@@ -168,13 +170,20 @@ export async function runKathaPipeline(input, req, opts = {}) {
     __generationBlueprintMeta: blueprintPack.compactMeta
   }
 
-  const longStoryPlan = runLongStoryIntelligence(pinnedInput, { onProgress })
-  if (longStoryPlan?.active && longStoryPlan.blueprintBlock) {
-    pinnedInput = {
-      ...pinnedInput,
-      __longStoryIntelligence: longStoryPlan,
-      __generationBlueprint: `${pinnedInput.__generationBlueprint}\n\n${longStoryPlan.blueprintBlock}`
+  let longStoryPlan = { active: false }
+  try {
+    longStoryPlan = runLongStoryIntelligence(pinnedInput, { onProgress })
+    if (longStoryPlan?.active && longStoryPlan.blueprintBlock) {
+      pinnedInput = {
+        ...pinnedInput,
+        __longStoryIntelligence: longStoryPlan,
+        __generationBlueprint: `${pinnedInput.__generationBlueprint}\n\n${longStoryPlan.blueprintBlock}`
+      }
     }
+  } catch (e) {
+    safeLog('warn', 'long-story intelligence skipped', {
+      message: e instanceof Error ? e.message : String(e)
+    })
   }
 
   const memory = await getMemoryStore()
@@ -321,12 +330,18 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
       message: n ? `Writing screenplay (${n} scenes)` : 'Writing script'
     })
   }
-  const { json: script, provider: scriptProvider } = await aiJsonAuto({
+  const { json: scriptRaw, provider: scriptProvider } = await aiJsonAuto({
     purpose: 'script',
     schemaHint: 'Script',
     prompt: buildScriptPrompt({ story: finalStory, input: pinnedInput, region }),
     order: ['openai', 'gemini', 'deepseek']
   })
+  let script = normalizeScriptJson(scriptRaw)
+  if (!script.length) {
+    throw new Error(
+      'Script generation returned no scenes. Try a shorter seed or tap Generate again.'
+    )
+  }
   providersUsed.script = scriptProvider
 
   if (longPlan?.active) {

@@ -246,8 +246,15 @@ export function useBackendGenerate() {
         narration: narrationDraft
       }
 
+      const scriptRows = Array.isArray(out.script) ? out.script : []
+      if (!scriptRows.length) {
+        throw new Error(
+          'Story finished but the screenplay was empty. Try again with a shorter seed or different length.'
+        )
+      }
+
       const scenes: StoryScene[] = []
-      for (const s of out.script) {
+      for (const s of scriptRows) {
         const narration = typeof s.narration === 'string' ? s.narration : ''
         const visualDescription =
           typeof s.visual_description === 'string' ? s.visual_description : undefined
