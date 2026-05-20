@@ -29,8 +29,8 @@
   background: transparent !important;
   position: relative;
   z-index: 1;
-  /* Prevent horizontal page scrollbar from minor mm nudges. */
-  overflow-x: clip;
+  /* Horizontal overflow: studio-desktop-lock.css uses #root scroll for sub-min-width viewports. */
+  overflow-x: visible;
 }
 
 .app-shell.studio-mock-layout--fullscreen {

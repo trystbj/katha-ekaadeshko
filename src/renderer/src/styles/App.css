@@ -45,8 +45,9 @@ body,
 html:has(.studio-mock-layout--fullscreen),
 html:has(.studio-mock-layout--fullscreen) body {
   min-height: 100dvh;
-  /* Prevent page-level scrollbars; internal panels handle scrolling. */
-  overflow: hidden;
+  /* Horizontal pan lives on `#root` when content is wider than the viewport — see studio-desktop-lock.css */
+  overflow-x: hidden;
+  overflow-y: hidden;
   overscroll-behavior: none;
 }
 
