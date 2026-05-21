@@ -914,7 +914,13 @@ export default function App() {
         </div>
       </div>
       <main className="main studio-mock-main">
-        <div className="studio-mock-banner-row">{lastError ? <div className="error-banner">{lastError}</div> : null}</div>
+        <div className="studio-mock-banner-row" aria-live="polite">
+          {lastError ? (
+            <div className="error-banner" role="alert">
+              {lastError}
+            </div>
+          ) : null}
+        </div>
 
         <div className="studio-mock-body">
           <div className="studio-mock-row-4">
