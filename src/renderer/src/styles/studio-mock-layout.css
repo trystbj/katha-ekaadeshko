@@ -3985,15 +3985,15 @@
   overflow: visible;
 }
 
-/* Story seed: +4mm taller box; wrap eats extra height so nothing below shifts. */
+/* Story seed: +6.5mm taller box; wrap eats extra height so nothing below shifts. */
 .studio-mock-col--story > .studio-mock-panel:first-child > .studio-mock-idea-wrap {
-  margin-bottom: -4mm;
+  margin-bottom: -6.5mm;
 }
 
 .studio-mock-col--story > .studio-mock-panel:first-child .studio-mock-idea-textarea.idea-input--cinematic {
-  height: calc(88px + 4mm) !important;
-  min-height: calc(88px + 4mm) !important;
-  max-height: calc(88px + 4mm) !important;
+  height: calc(88px + 6.5mm) !important;
+  min-height: calc(88px + 6.5mm) !important;
+  max-height: calc(88px + 6.5mm) !important;
 }
 
 .studio-mock-idea-panel--with-generate > .studio-mock-generate-strip {
