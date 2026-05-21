@@ -3976,9 +3976,9 @@
 }
 
 .studio-mock-idea-panel--with-generate .studio-mock-idea-textarea.idea-input--cinematic {
-  height: 88px !important;
-  min-height: 88px !important;
-  max-height: 88px !important;
+  height: calc(88px + 4mm) !important;
+  min-height: calc(88px + 4mm) !important;
+  max-height: calc(88px + 4mm) !important;
   padding-bottom: 10px !important;
   padding-right: 11px !important;
 }
@@ -4198,6 +4198,9 @@
 }
 
 .studio-mock-frame .idea-input--cinematic.studio-mock-idea-textarea {
+  height: calc(88px + 4mm) !important;
+  min-height: calc(88px + 4mm) !important;
+  max-height: calc(88px + 4mm) !important;
   padding-bottom: 40px !important;
   padding-right: 48px !important;
 }
