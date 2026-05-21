@@ -1,0 +1,161 @@
+.script-review-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 10px 10px;
+  box-sizing: border-box;
+}
+
+.script-review-workspace__head {
+  flex-shrink: 0;
+}
+
+.script-review-workspace__title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--mock-text);
+  text-shadow: var(--mock-text-shadow);
+}
+
+.script-review-workspace__subtitle,
+.script-review-workspace__status {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.script-review-workspace__stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.script-review-workspace__stage {
+  font-size: 0.62rem;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  color: rgba(255, 248, 232, 0.72);
+}
+
+.script-review-workspace__stage--on {
+  border-color: rgba(212, 175, 55, 0.75);
+  color: #fffef8;
+  background: rgba(212, 175, 55, 0.12);
+}
+
+.script-review-workspace__stage--done {
+  color: rgba(180, 255, 200, 0.9);
+}
+
+.script-review-workspace__actions--global {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.script-review-workspace__scenes {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+}
+
+.script-review-scene-card {
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  border-radius: 10px;
+  background: var(--studio-readable-surface, rgba(0, 0, 0, 0.28));
+}
+
+.script-review-scene-card--active {
+  border-color: rgba(212, 175, 55, 0.72);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.2);
+}
+
+.script-review-scene-card__head {
+  margin: 0;
+}
+
+.script-review-scene-card__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.script-review-scene-card__num {
+  font-weight: 800;
+  color: rgba(158, 218, 242, 0.98);
+  min-width: 1.5rem;
+}
+
+.script-review-scene-card__title {
+  flex: 1;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.script-review-scene-card__badge {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+}
+
+.script-review-scene-card__body {
+  padding: 0 10px 8px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: rgba(255, 252, 248, 0.94);
+}
+
+.script-review-scene-card__body p {
+  margin: 0 0 6px;
+}
+
+.script-review-scene-card__dialogue {
+  margin: 4px 0 0;
+  padding-left: 1.1rem;
+}
+
+.script-review-scene-card__speaker {
+  font-weight: 700;
+}
+
+.script-review-scene-card__edit-label {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.72rem;
+}
+
+.script-review-scene-card__edit {
+  width: 100%;
+  margin-top: 4px;
+  min-height: 4rem;
+  font-size: 0.78rem;
+}
+
+.script-review-scene-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}

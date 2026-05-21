@@ -22,6 +22,25 @@ export type NarratorGender = 'female' | 'male'
 
 export type EpisodePacing = 'Action' | 'Emotional' | 'Normal' | 'Climax'
 
+export type ProductionStage =
+  | 'writing'
+  | 'script_review'
+  | 'visual_generation'
+  | 'narration_motion'
+  | 'video_assembly'
+  | 'export_complete'
+
+export type SceneProductionStatus =
+  | 'script_ready'
+  | 'awaiting_review'
+  | 'scene_approved'
+  | 'queued'
+  | 'skipped'
+  | 'generating_visuals'
+  | 'visual_ready'
+  | 'narration_ready'
+  | 'video_ready'
+
 export type SceneLineType = 'Dialogue' | 'Thought'
 
 /** Structured screenplay line from pipeline `dialogue[]`. */
@@ -141,6 +160,13 @@ export interface StoryScene {
   visualDescription?: string
   /** Pipeline asset status for monitor / storyboard. */
   generationStatus?: 'writing' | 'image' | 'narration' | 'motion' | 'complete' | 'image_failed'
+  /** Screenplay review card fields (stage 1). */
+  sceneTitle?: string
+  emotionalTone?: string
+  cameraDirection?: string
+  environment?: string
+  characterActions?: string
+  productionStatus?: SceneProductionStatus
 }
 
 export interface StoryEpisode {
@@ -278,6 +304,11 @@ export interface ProjectState {
   storyboardPartial?: boolean
   /** Scene indices still missing images after last generation pass. */
   missingSceneImageIndices?: number[]
+  /** Two-step pipeline: writing → script review → visuals → motion → video. */
+  productionStage?: ProductionStage
+  /** Step 1 complete — user may review script before visuals. */
+  scriptReviewReady?: boolean
+  scriptReviewReadyAt?: string
 }
 
 export const STYLE_PRESETS: Record<

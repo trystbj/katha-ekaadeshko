@@ -30,6 +30,9 @@ import { getGenerateReadiness, i18nKeyForMissing } from './utils/generateReadine
 import { StudioAmbientBackdrop } from './components/StudioAmbientBackdrop'
 import { PreviewStage } from './components/PreviewStage'
 import { StoryboardPreviewWorkspace } from './components/StoryboardPreviewWorkspace'
+import { ScriptReviewWorkspace } from './components/ScriptReviewWorkspace'
+import { showScriptReviewWorkspace } from './utils/productionWorkflow'
+import { useVisualGeneration } from './hooks/useVisualGeneration'
 import { CinematicStoryboardMonitor } from './components/CinematicStoryboardMonitor'
 import { MonitorEpisodeAccordion } from './components/MonitorEpisodeAccordion'
 import { canShowStoryboardWorkspace } from './utils/storyboardWorkflow'
@@ -149,6 +152,7 @@ export default function App() {
   const { generateEpisode } = useStoryGeneration()
   const { generateCharacterBase } = useLeonardo()
   const { generate: backendGenerate } = useBackendGenerate()
+  const { generateVisuals } = useVisualGeneration()
 
   const [projectsMeta, setProjectsMeta] = useState<
     { id: string; title: string; status: string; updatedAt: string }[]
@@ -479,15 +483,21 @@ export default function App() {
     return () => obs.disconnect()
   }, [idea, project?.bible])
 
+  const showScriptReview = useMemo(
+    () => Boolean(project?.bible && !project.lastRenderVideoUrl && !streamReveal && showScriptReviewWorkspace(project)),
+    [project, streamReveal]
+  )
+
   const showStoryboardPreview = useMemo(
     () =>
       Boolean(
         project?.bible &&
           !project.lastRenderVideoUrl &&
           !streamReveal &&
+          !showScriptReview &&
           (canShowStoryboardWorkspace(project) || project.storyboardReady)
       ),
-    [project, streamReveal]
+    [project, streamReveal, showScriptReview]
   )
 
   const onRegenerateMissingSceneImages = useCallback(async () => {
@@ -518,6 +528,11 @@ export default function App() {
     const prev = prevBusyCelebrateRef.current
     prevBusyCelebrateRef.current = busy
     if (busy || lastError) return
+    if (prev === 'generating' && showScriptReview) {
+      console.info('[katha:production]', 'celebrate_script_review_ready')
+      setCelebratePipelineComplete(true)
+      return
+    }
     if (prev === 'generating' && showStoryboardPreview) {
       console.info('[katha:storyboard]', 'celebrate_storyboard_ready')
       setCelebratePipelineComplete(true)
@@ -529,7 +544,7 @@ export default function App() {
       })
       setCelebratePipelineComplete(true)
     }
-  }, [busy, lastError, project?.lastRenderVideoUrl, showStoryboardPreview])
+  }, [busy, lastError, project?.lastRenderVideoUrl, showStoryboardPreview, showScriptReview])
 
   useEffect(() => {
     if (!celebratePipelineComplete) return
@@ -1018,6 +1033,19 @@ export default function App() {
                     episodeNumber={selectedEpisode ?? project.episodes[0]?.number ?? 1}
                   />
                 </Suspense>
+              ) : showScriptReview && activeEpisode && project ? (
+                <ScriptReviewWorkspace
+                  project={project}
+                  episode={activeEpisode}
+                  busyLabel={busy}
+                  onGenerateVisuals={(opts) => void generateVisuals(opts)}
+                  onNextScene={(sceneIndex) => {
+                    const ix = activeEpisode.scenes.findIndex((s) => s.index === sceneIndex)
+                    const next = activeEpisode.scenes[ix + 1]
+                    if (next) setEmbeddedPreviewIndex(ix + 1)
+                  }}
+                  patchProject={patchProject}
+                />
               ) : showStoryboardPreview && activeEpisode ? (
                 <StoryboardPreviewWorkspace
                   project={project}

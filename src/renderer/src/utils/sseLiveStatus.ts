@@ -8,6 +8,7 @@ export function sseLiveStatusHint(stage: string, message: string): string | null
   if (/world|bible|setting|concept|blueprint/.test(blob)) return 'liveGenSseWorld'
   if (/character|cast|persona|voice/.test(blob)) return 'liveGenSseCharacters'
   if (/dialogue|dialog|speech/.test(blob)) return 'liveGenSseDialogue'
+  if (/script_review|review before|screenplay ready/.test(blob)) return 'liveGenSseScriptReview'
   if (/scene|shot|screenplay|script(?!ure)/.test(blob)) return 'liveGenSseScenes'
   if (/polish|refine|edit|touch/.test(blob)) return 'liveGenSsePolish'
   if (/visual|image|still|leonardo|prompt/.test(blob)) return 'liveGenSseVisuals'

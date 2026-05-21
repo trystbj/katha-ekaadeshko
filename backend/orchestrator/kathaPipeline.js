@@ -376,18 +376,33 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
     )
   }
 
-  // Stage 5 — Parallel content generation
-  if (onProgress) onProgress({ stage: 'images', progress: 65, message: 'Generating images + audio' })
-  const [images, audio] = await Promise.all([
-    leonardoGenerateForScript({
-      script,
-      input: pinnedInput,
-      region,
-      onProgress,
-      characters: finalStory?.characters || story?.characters || []
-    }),
-    ttsGenerateForScript({ script, input: pinnedInput, region, req, story: finalStory })
-  ])
+  const scriptOnly = pinnedInput.scriptOnly === true
+
+  // Stage 5 — Visuals + audio (skipped in script-only / screenplay review mode)
+  let images = []
+  let audio = []
+  if (scriptOnly) {
+    if (onProgress) {
+      onProgress({
+        stage: 'script_review',
+        progress: 72,
+        message: 'Script ready — review before generating visuals'
+      })
+    }
+    console.info('[katha:pipeline]', 'script_only_complete', { scenes: script.length })
+  } else {
+    if (onProgress) onProgress({ stage: 'images', progress: 65, message: 'Generating images + audio' })
+    ;[images, audio] = await Promise.all([
+      leonardoGenerateForScript({
+        script,
+        input: pinnedInput,
+        region,
+        onProgress,
+        characters: finalStory?.characters || story?.characters || []
+      }),
+      ttsGenerateForScript({ script, input: pinnedInput, region, req, story: finalStory })
+    ])
+  }
 
   if (onProgress) onProgress({ stage: 'done', progress: 100, message: 'Done' })
   const ambientBedUrl = resolveAmbientBedUrl({
@@ -504,7 +519,8 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
               pacingProfile: longPlan.structure?.pacingProfile
             }
           }
-        : {})
+        : {}),
+      ...(scriptOnly ? { scriptOnlyComplete: true, productionStage: 'script_review' } : {})
     }
   }
 }

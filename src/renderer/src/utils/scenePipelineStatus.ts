@@ -1,6 +1,21 @@
 import type { AssetRef, ProjectState, StoryScene } from '../types/story'
 import { sceneIndexFromPipelineRow, sceneUrlForIndex } from './sceneAssetMap'
 
+function strField(row: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const k of keys) {
+    const v = row[k]
+    if (typeof v === 'string' && v.trim()) return v.trim()
+  }
+  return undefined
+}
+
+function sceneTitleFromRow(row: Record<string, unknown>, sceneNum: number): string {
+  return (
+    strField(row, 'scene_title', 'title') ||
+    `Scene ${sceneNum}`
+  )
+}
+
 export type SceneGenerationStatus =
   | 'writing'
   | 'image'
@@ -76,6 +91,7 @@ export function buildEpisodeScenesFromScriptRows(
           }))
           .filter((d) => d.line.length > 0)
       : []
+    const row = s as Record<string, unknown>
     scenes.push({
       index: sceneNum,
       lineType: 'Dialogue',
@@ -83,8 +99,13 @@ export function buildEpisodeScenesFromScriptRows(
       text: composed || narration,
       narrationText: narration,
       ...(dialogueLines.length ? { dialogueLines } : {}),
-      visualDescription:
-        typeof s.visual_description === 'string' ? s.visual_description : undefined
+      visualDescription: strField(row, 'visual_description'),
+      sceneTitle: sceneTitleFromRow(row, sceneNum),
+      emotionalTone: strField(row, 'mood', 'emotional_tone', 'tone'),
+      cameraDirection: strField(row, 'camera', 'camera_angle', 'camera_direction'),
+      environment: strField(row, 'environment', 'location', 'setting'),
+      characterActions: strField(row, 'action', 'character_actions', 'actions'),
+      productionStatus: 'awaiting_review'
     })
   }
   return { scenes, sceneIndices }

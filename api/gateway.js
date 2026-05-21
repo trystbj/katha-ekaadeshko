@@ -4,6 +4,7 @@
  */
 import health from './_routes/health.js'
 import jobsStreamGenerate from './_routes/jobs-stream-generate.js'
+import jobsGenerateVisuals from './_routes/jobs-generate-visuals.js'
 import leonardoGenerate from './_routes/leonardo-generate.js'
 import narratorPreview from './_routes/narrator-preview.js'
 import creatorCopilot from './_routes/creator-copilot.js'
@@ -27,6 +28,7 @@ import workerComplete from './_routes/worker-complete.js'
 const ROUTES = {
   health,
   'jobs-stream-generate': jobsStreamGenerate,
+  'jobs-generate-visuals': jobsGenerateVisuals,
   'leonardo-generate': leonardoGenerate,
   'narrator-preview': narratorPreview,
   'creator-copilot': creatorCopilot,

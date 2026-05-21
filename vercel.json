@@ -11,6 +11,7 @@
   "rewrites": [
     { "source": "/api/health", "destination": "/api/gateway?target=health" },
     { "source": "/api/jobs-stream-generate", "destination": "/api/gateway?target=jobs-stream-generate" },
+    { "source": "/api/jobs-generate-visuals", "destination": "/api/gateway?target=jobs-generate-visuals" },
     { "source": "/api/leonardo-generate", "destination": "/api/gateway?target=leonardo-generate" },
     { "source": "/api/narrator-preview", "destination": "/api/gateway?target=narrator-preview" },
     { "source": "/api/creator-copilot", "destination": "/api/gateway?target=creator-copilot" },

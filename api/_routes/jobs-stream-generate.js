@@ -111,6 +111,8 @@ const InputSchema = z
       )
       .max(12)
       .optional(),
+    /** Step 1: story + script only — no Leonardo/TTS until user approves visuals */
+    scriptOnly: z.boolean().optional(),
     characterReference: z
       .object({
         lockAllEpisodes: z.boolean().optional(),
@@ -240,7 +242,18 @@ export default async function handler(req, res) {
         narrationLanguageId: input.narration?.languageId
           ? String(input.narration.languageId).trim()
           : undefined,
-        performancePreferLow: input.performancePreferLow ?? isServerlessRuntime()
+        performancePreferLow: input.performancePreferLow ?? isServerlessRuntime(),
+        scriptOnly: input.scriptOnly === true,
+        projectId: input.projectId,
+        priorMemorySummary: input.priorMemorySummary,
+        priorWorldState: input.priorWorldState,
+        priorRelationships: input.priorRelationships,
+        creatorPreferences: input.creatorPreferences,
+        directorPersonalityPreference: input.directorPersonalityPreference,
+        studioOrchestration: input.studioOrchestration,
+        multiCharacterVoices: input.multiCharacterVoices,
+        bibleCharacters: input.bibleCharacters,
+        characterReference: input.characterReference
       },
       req,
       {

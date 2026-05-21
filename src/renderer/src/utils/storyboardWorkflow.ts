@@ -31,7 +31,14 @@ export function isStoryboardReady(project: ProjectState | null | undefined): boo
 export function canShowStoryboardWorkspace(project: ProjectState | null | undefined): boolean {
   if (!project?.bible) return false
   const ep = project.episodes[0]
-  return Boolean(ep?.scenes?.length)
+  if (!ep?.scenes?.length) return false
+  const hasSceneAsset = (project.assets ?? []).some(
+    (a) => a.kind === 'scene' && typeof a.url === 'string' && a.url.length > 0
+  )
+  if (project.scriptReviewReady && project.productionStage === 'script_review' && !hasSceneAsset) {
+    return false
+  }
+  return hasSceneAsset || Boolean(project.storyboardReady)
 }
 
 export function deriveWorkflowPhase(

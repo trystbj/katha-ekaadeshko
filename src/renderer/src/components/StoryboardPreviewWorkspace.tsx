@@ -46,6 +46,7 @@ export function StoryboardPreviewWorkspace({
   celebrateComplete,
   celebrateTitleKey = 'previewCelebrateStoryboard',
   onGenerateFinalVideo,
+  onRegenerateMissingSceneImages,
   patchProject
 }: Props) {
   const uiText = useUiText()

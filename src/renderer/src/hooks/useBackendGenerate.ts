@@ -6,7 +6,6 @@ import type {
   CharacterIdentitySlot,
   StoryBible,
   StoryEpisode,
-  StoryScene,
   VisualStyleId
 } from '../types/story'
 import { useStudioStore } from '../store/useStudioStore'
@@ -22,9 +21,7 @@ import {
 import { narratorIdentityForId } from '../constants/narratorVoiceProfiles'
 import { drainSseBuffer } from '../utils/parseSseStream'
 import { clampStoryIdea } from '../constants/storyIdeaLimits'
-import { episodeSceneImageCoverage, withStoryboardReady } from '../utils/storyboardWorkflow'
 import {
-  attachSceneGenerationStatuses,
   buildEpisodeScenesFromScriptRows,
   filterAssetsToSceneIndices
 } from '../utils/scenePipelineStatus'
@@ -38,10 +35,8 @@ import {
   buildProjectMemoryPatch,
   mergeProjectMemoryIntoPreferences
 } from '@shared/projectMemory.js'
-import {
-  buildSceneAssetsFromPipeline,
-  mergeProjectAssets
-} from '../utils/sceneAssetMap'
+import { mergeProjectAssets } from '../utils/sceneAssetMap'
+import { withScriptReviewReady } from '../utils/productionWorkflow'
 
 export function useBackendGenerate() {
   const uiText = useUiText()
@@ -156,6 +151,7 @@ export function useBackendGenerate() {
                 }))
               }
             : {}),
+          scriptOnly: true,
           ...(prefersReducedMotion
             ? { performancePreferLow: true }
             : { studioOrchestration: true, multiCharacterVoices: true })
@@ -234,9 +230,6 @@ export function useBackendGenerate() {
 
       const pipelineResult: JobsStreamGenerateResult = out
 
-      const pipelineImages: { image_url?: string; imageUrl?: string; scene?: string | number; prompt?: string }[] =
-        Array.isArray(pipelineResult.images) ? pipelineResult.images : []
-
       const namingPolicy = analyzeNamingPolicy(idea, themeEnriched)
       const sanitizedCast = sanitizeStoryCharacters(
         Array.isArray(pipelineResult.story?.characters) ? pipelineResult.story.characters : [],
@@ -248,8 +241,7 @@ export function useBackendGenerate() {
       })
 
       const priorAssets = wsProject?.assets ?? []
-      const assetsFromPipeline = buildSceneAssetsFromPipeline(pipelineImages)
-      const mergedAssets = mergeProjectAssets(priorAssets, assetsFromPipeline)
+      const mergedAssets = mergeProjectAssets(priorAssets, [])
 
       const st = useStudioStore.getState()
       const mainChar = st.mainCharacterName.trim()
@@ -409,7 +401,7 @@ export function useBackendGenerate() {
                     characterIdentityMemory,
                     videoStudio: defaultVideoStudioState(resolvedTitle)
                   },
-                  episode1,
+                  episode1 as unknown as Record<string, unknown>,
                   pipelineResult.metadata
                 )
               )
@@ -424,31 +416,19 @@ export function useBackendGenerate() {
         narration: narrationDraft,
         projectMemory: buildProjectMemoryPatch(
           { bible, narration: narrationDraft, characterIdentityMemory },
-          episode1,
+          episode1 as unknown as Record<string, unknown>,
           pipelineResult.metadata
         )
       })
-      const cov = episodeSceneImageCoverage(baseProject, 1)
-      const withStatuses = {
+      const nextProject = withScriptReviewReady({
         ...baseProject,
-        episodes: [
-          {
-            ...episode1,
-            scenes: attachSceneGenerationStatuses(baseProject, 1, Boolean(narrationAudioUrl))
-          }
-        ]
-      }
-      const nextProject = withStoryboardReady(withStatuses, {
-        partial: cov.missing.length > 0,
-        missingSceneIndices: cov.missing
+        episodes: [episode1]
       })
-      console.info('[katha:storyboard]', 'storyboard_ready', {
+      console.info('[katha:production]', 'script_review_ready', {
         projectId,
-        sceneAssets: filteredAssets.filter((a) => a.kind === 'scene').length,
         scenes: episode1.scenes.length,
-        missingImages: cov.missing.length
+        scriptOnly: true
       })
-      console.info('[katha:render]', 'auto_render_skipped', { reason: 'manual_final_video_only' })
 
       const prefersReduced =
         typeof window !== 'undefined' &&
