@@ -59,6 +59,8 @@ type Props = {
   liveTimelineRevision?: number
   productionMode?: ProductionWorkflowMode
   previewTier?: PreviewQualityTier
+  /** Pipeline scene stills aligned with `scenes[]` order (shown under video during playback). */
+  sceneStillUrls?: string[]
 }
 
 function formatClock(sec: number) {
@@ -79,7 +81,8 @@ export function CinematicVideoPlayer({
   cinematicDirectorPlan = null,
   liveTimelineRevision = 0,
   productionMode: productionModeProp,
-  previewTier: previewTierProp
+  previewTier: previewTierProp,
+  sceneStillUrls = []
 }: Props) {
   const storeMode = useProductionPipelineStore((s) => s.productionMode)
   const storeTier = useProductionPipelineStore((s) => s.previewTier)
@@ -202,10 +205,11 @@ export function CinematicVideoPlayer({
 
   useEffect(() => {
     return () => {
+      console.info('[katha:render] player_vtt_cleanup', { videoUrl })
       if (vttUrl) URL.revokeObjectURL(vttUrl)
       if (secondaryVttUrl) URL.revokeObjectURL(secondaryVttUrl)
     }
-  }, [vttUrl, secondaryVttUrl])
+  }, [vttUrl, secondaryVttUrl, videoUrl])
 
   const syncTextTracks = useCallback(() => {
     const el = videoRef.current
@@ -233,6 +237,13 @@ export function CinematicVideoPlayer({
     const ix = sceneIndexForPlayback(playbackTimeline, currentTime)
     return Math.max(0, Math.min(Math.max(0, scenes.length - 1), ix))
   }, [currentTime, scenes.length, playbackTimeline])
+
+  const sceneStillUrl = sceneStillUrls[sceneIndex] || ''
+  useEffect(() => {
+    if (sceneStillUrl) {
+      console.info('[katha:preview]', 'player_scene_still', { sceneIndex: sceneIndex + 1, hasUrl: true })
+    }
+  }, [sceneStillUrl, sceneIndex])
 
   const draftMotion: VideoMotionPreset =
     draft.motionBySceneIndex[sceneIndex + 1] ?? draft.motionGlobal
@@ -458,6 +469,15 @@ export function CinematicVideoPlayer({
             aria-hidden
           />
           <div className="cinematic-player__evo" style={cinematicScene.evolutionStyle} aria-hidden />
+          {sceneStillUrl ? (
+            <div
+              className="cinematic-player__scene-still"
+              style={{
+                backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.42)), url(${sceneStillUrl})`
+              }}
+              aria-hidden
+            />
+          ) : null}
           <video
             key={videoUrl}
             ref={videoRef}

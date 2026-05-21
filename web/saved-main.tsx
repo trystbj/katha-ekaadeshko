@@ -2,10 +2,12 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import '../src/renderer/src/i18n/config'
 import { SavedProjectsWindow } from '../src/renderer/src/components/SavedProjectsWindow'
+import '../src/renderer/src/styles/display-quality.css'
 import '../src/renderer/src/styles/tailwind-input.css'
 import '../src/renderer/src/styles/App.css'
 import '../src/renderer/src/styles/studio-cinematic.css'
 import '../src/renderer/src/styles/studio-mock-layout.css'
+import '../src/renderer/src/styles/studio-theme-system.css'
 import './web.css'
 import { ensureKathaBridge } from './kathaWebBridge'
 import i18n from 'i18next'
@@ -19,7 +21,15 @@ import LocalizedAppRoot from '../src/renderer/src/i18n/LocalizedAppRoot'
 
 ensureKathaBridge()
 
-document.documentElement.setAttribute('data-theme', 'dark')
+function applySavedPageTheme() {
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const resolved = dark ? 'dark' : 'light'
+  document.documentElement.setAttribute('data-theme', resolved)
+  document.documentElement.style.colorScheme = resolved
+}
+
+applySavedPageTheme()
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySavedPageTheme)
 
 const initialUi = (() => {
   try {

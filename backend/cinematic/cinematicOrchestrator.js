@@ -21,6 +21,7 @@ import { inferCliffhangerPlan } from './cliffhangerDirector.js'
 import { buildCharacterVoiceCast } from './multiCharacterVoice.js'
 import { inferSmartPerformanceProfile } from './smartPerformance.js'
 import { buildCommunityFoundationMeta } from './communityFoundation.js'
+import { buildContinuityState, mergeContinuityIntoMemory } from './continuityTracker.js'
 
 /**
  * Full ultimate plan + optional memory merge text for project persistence.
@@ -89,7 +90,9 @@ export function buildUltimateCinematicPlan(params) {
     enrichedScenes[i].timeline = buildSceneTimelineLayers(enrichedScenes[i], secondsPerScene)
   }
 
-  const storyMemory = buildStoryMemorySnapshot(story, script, priorMemorySummary)
+  let storyMemory = buildStoryMemorySnapshot(story, script, priorMemorySummary)
+  const continuity = buildContinuityState(script, input?.priorWorldState || null)
+  storyMemory = mergeContinuityIntoMemory(storyMemory, continuity)
   const memorySummaryPatch = mergeMemorySummaryForProject(priorMemorySummary, storyMemory)
   const cliffhanger = inferCliffhangerPlan(script, story, input?.genre)
   const multiCharacterVoices = buildCharacterVoiceCast(story, input)

@@ -1,4 +1,5 @@
 import type { VideoStudioState } from './videoStudio'
+import type { StoryboardWorkflowPhase } from '../utils/storyboardWorkflow'
 
 export type ProjectStatus = 'new' | 'in_progress' | 'completed'
 
@@ -22,6 +23,12 @@ export type NarratorGender = 'female' | 'male'
 export type EpisodePacing = 'Action' | 'Emotional' | 'Normal' | 'Climax'
 
 export type SceneLineType = 'Dialogue' | 'Thought'
+
+/** Structured screenplay line from pipeline `dialogue[]`. */
+export interface StoryDialogueLine {
+  character: string
+  line: string
+}
 
 /** Primary story / narration tongue — aligned with story-region `languageCode` (`constants/storyLocaleOptions`). */
 export type NarrationLanguageId =
@@ -88,6 +95,20 @@ export interface NarrationSettings {
   }
 }
 
+export type NamingPolicyMode = 'names' | 'pronoun_only' | 'anonymous'
+
+/** Locked cast identity for Leonardo + playback (per project). */
+export interface CharacterIdentitySlot {
+  slot: number
+  label: string
+  gender: 'male' | 'female' | 'neutral' | 'unknown'
+  role: string
+  visualIdentity: string
+  baseImagePrompt: string
+  hair?: string
+  clothing?: string
+}
+
 export interface StoryCharacter {
   id: string
   name: string
@@ -96,16 +117,30 @@ export interface StoryCharacter {
   baseImagePrompt: string
   leonardoSeed?: number
   baseImageUrl?: string
+  /** Optional cast metadata for prompts and Character Manager. */
+  gender?: string
+  age?: string
+  role?: string
+  appearance?: string
+  /** Per-character reference stills (face / side / expression). */
+  referenceImages?: CharacterReferenceImage[]
 }
 
 export interface StoryScene {
   index: number
   lineType: SceneLineType
   character: string
+  /** Full playback body (narration + woven dialogue) for TTS/subtitles. */
   text: string
+  /** Pure voiceover when dialogue is split for script display. */
+  narrationText?: string
+  /** Character lines when the pipeline returns structured dialogue. */
+  dialogueLines?: StoryDialogueLine[]
   emoji?: string
   /** Shot / staging line from the pipeline script (paired with Leonardo stills). */
   visualDescription?: string
+  /** Pipeline asset status for monitor / storyboard. */
+  generationStatus?: 'writing' | 'image' | 'narration' | 'motion' | 'complete' | 'image_failed'
 }
 
 export interface StoryEpisode {
@@ -120,12 +155,18 @@ export interface StoryEpisode {
   videoExportComplete?: boolean
   /** Auto-picked ambient bed URL when using Generate Story pipeline (pass as `backgroundMusic` to `/api/render`). */
   ambientBedUrl?: string
+  /** First scene narration MP3 from pipeline TTS (`/public/audio/...` or absolute URL). */
+  narrationAudioUrl?: string
   /** Segmented music/SFX mix recipe from backend pipeline (`storyAudioPlan` render payload). */
   storyAudioPlan?: Record<string, unknown>
   /** AI cinematic director per-scene plan (expression, ambience, environment, mix). */
   cinematicDirectorPlan?: Record<string, unknown>
+  /** Worker timing assembly from pipeline orchestration. */
+  renderAssemblyPlan?: Record<string, unknown>
   /** Episodic memory snapshot for continuity (v3 cinematic orchestrator). */
   storyMemorySnapshot?: Record<string, unknown>
+  /** Pre-render quality report from premium studio layer. */
+  qualityReport?: Record<string, unknown>
 }
 
 export interface StoryBible {
@@ -198,6 +239,8 @@ export interface ProjectState {
   relationshipSnapshot?: Record<string, unknown>[]
   /** Learned creator cinematic preferences. */
   creatorPreferences?: Record<string, unknown>
+  /** Long-term studio memory (subtitle, export, cast, tone). */
+  projectMemory?: Record<string, unknown>
   /** Hybrid creator studio — overrides, undo history, presets. */
   creatorStudio?: import('./creatorStudio').CreatorStudioProjectState
   /** Live production workflow preferences (mode, collaboration stub). */
@@ -210,6 +253,8 @@ export interface ProjectState {
   qualityMerge: boolean
   /** Last completed worker render (Supabase public URL); used for in-app playback after refresh. */
   lastRenderVideoUrl?: string
+  /** Active Supabase `render_jobs` row — resume polling after refresh until MP4 URL is stored. */
+  renderJobId?: string
   /** Post-export cinematic editor / publish drafts (optional). */
   videoStudio?: VideoStudioState | null
   /** Narrator language/voice selection per project (independent across parallel slots). */
@@ -220,6 +265,19 @@ export interface ProjectState {
   translateContentToUiLanguage?: boolean
   /** Optional per-project character reference images for consistency across generations. */
   characterReference?: CharacterReferenceConfig
+  /** User seed naming lock (pronoun-only vs proper names). */
+  namingPolicyMode?: NamingPolicyMode
+  /** Persistent cast locks passed to image generation and UI. */
+  characterIdentityMemory?: CharacterIdentitySlot[]
+  /** Storyboard-first workflow phase. */
+  workflowPhase?: StoryboardWorkflowPhase
+  /** True after pipeline story/script/images land (before manual final render). */
+  storyboardReady?: boolean
+  storyboardReadyAt?: string
+  /** True when one or more episode scenes lack Leonardo stills. */
+  storyboardPartial?: boolean
+  /** Scene indices still missing images after last generation pass. */
+  missingSceneImageIndices?: number[]
 }
 
 export const STYLE_PRESETS: Record<
@@ -304,10 +362,16 @@ export function defaultProject(partial?: Partial<ProjectState>): ProjectState {
     // kept for backward compatibility; multi-pass is now automatic (not shown in UI)
     qualityMerge: partial?.qualityMerge ?? true,
     lastRenderVideoUrl: partial?.lastRenderVideoUrl,
+    renderJobId: partial?.renderJobId,
     videoStudio: partial?.videoStudio,
     narration: partial?.narration,
     uiLanguage: partial?.uiLanguage,
     translateContentToUiLanguage: partial?.translateContentToUiLanguage,
-    characterReference: partial?.characterReference
+    characterReference: partial?.characterReference,
+    namingPolicyMode: partial?.namingPolicyMode,
+    characterIdentityMemory: partial?.characterIdentityMemory,
+    workflowPhase: partial?.workflowPhase,
+    storyboardReady: partial?.storyboardReady,
+    storyboardReadyAt: partial?.storyboardReadyAt
   }
 }

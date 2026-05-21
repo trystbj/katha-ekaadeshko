@@ -32,6 +32,8 @@ import {
   isSubtitlePlaybackPresetId
 } from '../constants/subtitlePlaybackPresets'
 import { pushStoryToCloudIfSignedIn, pushStoryToHistory } from '../utils/storyHistory'
+import { resumeEpisodeVideoRenderIfNeeded } from '../utils/episodeVideoRender'
+import { resolveOngoingEpisodeNumber } from '../utils/episodeSeriesFlow'
 import type { WorkspaceSlotSnapshot } from '../types/workspaceSlot'
 import {
   emptyWorkspaceSlot,
@@ -401,6 +403,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     void pushStoryToHistory(next)
     void pushStoryToCloudIfSignedIn(next)
     set({ busy: null })
+    console.info('[katha:storyboard]', 'stream_reveal_finalized', {
+      projectId: next.id,
+      sceneAssets: next.assets?.filter((a) => a.kind === 'scene').length ?? 0
+    })
+    console.info('[katha:render]', 'auto_render_skipped', { reason: 'manual_final_video_only' })
   },
   clearStreamRevealDiscard: () => {
     const ix = get().activeWorkspaceSlotIndex
@@ -454,8 +461,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     }
     set({
       project: next,
-      selectedEpisode: next.episodes.length ? next.episodes[next.episodes.length - 1].number : null
+      selectedEpisode: next.bible ? resolveOngoingEpisodeNumber(next) : null
     })
+    resumeEpisodeVideoRenderIfNeeded(next)
   },
   patchProject: (fn) => {
     const p = get().project
@@ -533,7 +541,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     if (i === get().activeWorkspaceSlotIndex) {
       set({
         project,
-        selectedEpisode: project?.episodes.length ? project.episodes[project.episodes.length - 1].number : null
+        selectedEpisode: project?.bible ? resolveOngoingEpisodeNumber(project) : null
       })
     }
   },

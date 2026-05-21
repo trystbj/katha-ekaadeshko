@@ -11,10 +11,18 @@ export function buildRegenerationPlan(target, sceneIndex, episode) {
   const plan = episode?.cinematicDirectorPlan
   const scenes = plan?.scenes || []
   const sc = scenes[sceneIndex] || scenes[sceneIndex - 1]
+  const orch = plan?.orchestration
   const preserve = {
     storyMemory: Boolean(episode?.storyMemorySnapshot),
+    emotionalMemory: Boolean(orch?.premiumStudio || episode?.storyMemorySnapshot),
     timelineSync: true,
-    adjacentScenes: [sceneIndex - 1, sceneIndex + 1].filter((i) => i >= 0 && i < scenes.length)
+    characterIdentity: true,
+    cinematicStyle: true,
+    colorGrade: sc?.colorGrade ? { ...sc.colorGrade } : null,
+    emotionalTone: sc?.emotion || sc?.aiDirector?.arcPhase,
+    adjacentScenes: [sceneIndex - 1, sceneIndex + 1].filter((i) => i >= 0 && i < scenes.length),
+    doNotRegenerateOtherScenes: true,
+    lockCast: true
   }
 
   const jobs = []

@@ -1,9 +1,11 @@
-/* Web-only shell polish (Leonardo-like dark studio vibe) */
+/* Web shell — theme-aware backdrop (wallpaper shows through studio frame) */
 html,
 body {
-  background: radial-gradient(900px 600px at 20% 10%, rgba(143, 163, 255, 0.18), transparent 60%),
-    radial-gradient(900px 600px at 80% 30%, rgba(196, 166, 255, 0.16), transparent 60%),
-    linear-gradient(180deg, #0b0f18 0%, #0b0f18 100%);
+  background: #e8ecf1;
+}
+
+[data-theme='light'] body {
+  background: linear-gradient(165deg, #e8eef4 0%, #dce4ec 42%, #cfd9e4 100%);
 }
 
 [data-theme='dark'] body {

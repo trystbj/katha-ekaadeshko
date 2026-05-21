@@ -33,6 +33,8 @@ const InputSchema = z
     projectId: z.string().optional(),
     priorMemorySummary: z.string().max(4000).optional(),
     performancePreferLow: z.boolean().optional(),
+    studioOrchestration: z.boolean().optional(),
+    multiCharacterVoices: z.boolean().optional(),
     priorWorldState: z.record(z.unknown()).optional(),
     priorRelationships: z.array(z.record(z.unknown())).max(32).optional(),
     creatorPreferences: z.record(z.unknown()).optional(),
@@ -83,6 +85,50 @@ const InputSchema = z
     autoVoiceDirector: z.boolean().optional(),
     narratorGenderPreference: z
       .enum(['auto', 'male', 'female', 'child', 'elder', 'mythical', 'dark_entity', 'anime_hero', 'anime_villain'])
+      .optional(),
+    bibleCharacters: z
+      .array(
+        z
+          .object({
+            name: z.string().max(120),
+            gender: z.string().max(32).optional(),
+            age: z.string().max(32).optional(),
+            appearance: z.string().max(400).optional(),
+            visualIdentity: z.string().max(400).optional(),
+            referenceImages: z
+              .array(
+                z.object({
+                  id: z.string(),
+                  role: z.enum(['front', 'side', 'expression', 'other']).optional(),
+                  dataUrl: z.string().max(1_200_000),
+                  filename: z.string().optional()
+                })
+              )
+              .max(3)
+              .optional()
+          })
+          .passthrough()
+      )
+      .max(12)
+      .optional(),
+    characterReference: z
+      .object({
+        lockAllEpisodes: z.boolean().optional(),
+        strength: z.enum(['light', 'balanced', 'strong']).optional(),
+        autoTurnaroundPreview: z.boolean().optional(),
+        images: z
+          .array(
+            z.object({
+              id: z.string(),
+              role: z.enum(['front', 'side', 'expression', 'other']).optional(),
+              dataUrl: z.string().max(1_200_000),
+              filename: z.string().optional(),
+              addedAt: z.string().optional()
+            })
+          )
+          .max(3)
+          .optional()
+      })
       .optional()
   })
   .superRefine((data, ctx) => {

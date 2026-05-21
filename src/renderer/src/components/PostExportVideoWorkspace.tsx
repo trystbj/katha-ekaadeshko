@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import type { ProjectState } from '../types/story'
 import type { VideoStudioDraft } from '../types/videoStudio'
 import type { SubtitleStudioState } from '../types/subtitleStudio'
@@ -15,6 +15,7 @@ import {
 import { useStudioStore } from '../store/useStudioStore'
 import { LiveProductionBar } from './LiveProductionBar'
 import { useLivePreviewSync } from '../realtime/useLivePreview'
+import { sceneStillUrlsForEpisode } from '../utils/sceneAssetMap'
 
 type Props = {
   videoUrl: string
@@ -114,6 +115,11 @@ export function PostExportVideoWorkspace({
       ? project.episodes.find((e) => e.number === episodeNumber)?.cinematicDirectorPlan
       : project.episodes[0]?.cinematicDirectorPlan
 
+  const sceneStillUrls = useMemo(
+    () => sceneStillUrlsForEpisode(project, scenes),
+    [project, scenes]
+  )
+
   return (
     <div className="post-export-workspace">
       <LiveProductionBar />
@@ -127,6 +133,7 @@ export function PostExportVideoWorkspace({
         onSubtitleStudioPatch={patchSubtitleStudio}
         cinematicDirectorPlan={cinematicDirectorPlan ?? null}
         liveTimelineRevision={liveRevision}
+        sceneStillUrls={sceneStillUrls}
       />
       <SubtitleStudioPanel scenes={scenes} studio={vs.subtitleStudio} patchSubtitleStudio={patchSubtitleStudio} />
       <VideoEditorPublishDock

@@ -21,13 +21,18 @@ function clampSpeed(n, storyLanguage) {
 /** @type {import('./VoiceProvider.js').VoiceProvider} */
 export const openaiTtsProvider = {
   id: 'openai',
-  async synthesize({ text, narratorId, input, scriptRow }) {
+  async synthesize({ text, narratorId, input, scriptRow, overrideVoice, deliveryRole }) {
     const key = process.env.TTS_API_KEY || process.env.OPENAI_API_KEY
     if (!key) return ''
 
     const preset = getNarratorPreset(narratorId)
     const plan = buildGlobalNarrationPlan({
-      narration: text,
+      narration: scriptRow?.narration || text,
+      composedNarration:
+        scriptRow?.composed_narration ||
+        (typeof text === 'string' ? text : ''),
+      composed_narration: scriptRow?.composed_narration,
+      dialogue: scriptRow?.dialogue,
       visualDescription: scriptRow?.visual_description,
       genre: input?.genre,
       theme: input?.theme,
@@ -51,14 +56,21 @@ export const openaiTtsProvider = {
     const baseSpeed = typeof preset.speed === 'number' ? preset.speed : 1
     const adapted = clampSpeed(baseSpeed * plan.speedMul, input?.storyLanguage)
 
+    const voice = String(overrideVoice || preset.openAiVoice || 'alloy').trim()
+    const roleHint = deliveryRole
+      ? ` Character delivery: ${deliveryRole} — emotional acting, natural pauses, conversational rhythm.`
+      : ''
+
     const payload = {
       model: 'gpt-4o-mini-tts',
-      voice: preset.openAiVoice,
+      voice,
       format: 'mp3',
       input: ttsInput,
       speed: adapted
     }
-    if (mergedInstructions) payload.instructions = mergedInstructions
+    if (mergedInstructions || roleHint) {
+      payload.instructions = [mergedInstructions, roleHint].filter(Boolean).join(' ').trim()
+    }
 
     const res = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',

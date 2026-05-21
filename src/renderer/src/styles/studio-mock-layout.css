@@ -2705,31 +2705,18 @@
   margin-bottom: 8px;
 }
 
-.studio-mock-char-count {
-  margin: 4px 0 0;
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255, 228, 140, 0.96);
-  text-align: right;
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.72),
-    0 0 10px rgba(212, 175, 55, 0.35);
-}
-
-.studio-mock-char-count--soft-warn {
-  color: rgba(255, 196, 120, 0.98);
-}
-
-.studio-mock-char-soft-warn {
-  margin: 2px 0 0;
-  font-size: 0.72rem;
-  line-height: 1.35;
-  font-weight: 600;
-  color: rgba(255, 180, 100, 0.92);
-  text-align: right;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.72);
+/* Story seed: no character counter or limit hints in the writing box */
+.studio-mock-char-count,
+.studio-mock-char-count--soft-warn,
+.studio-mock-char-soft-warn,
+#studio-story-seed-count,
+#studio-story-seed-soft-warn {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
 }
 
 .studio-mock-monitor-ic {
@@ -4065,7 +4052,7 @@
 
 .studio-mock-narrator-wireframe-muted {
   opacity: 0.88;
-  transform: scale(0.98);
+  transform: none;
   transform-origin: top left;
 }
 

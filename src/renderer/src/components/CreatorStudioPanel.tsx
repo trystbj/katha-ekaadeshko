@@ -122,9 +122,26 @@ export function CreatorStudioPanel({ project, episode, episodeNumber, patchProje
       setBusy(true)
       setRegenStatus('')
       try {
-        const { regenerationPlan } = await fetchRegenerationPlan(target, sceneIx, episode)
+        const project = useStudioStore.getState().project
+        const { regenerationPlan, execution } = await fetchRegenerationPlan(target, sceneIx, episode, {
+          execute: true,
+          studioInput: {
+            narratorId: project?.bible?.narratorId,
+            styleId: project?.bible?.styleId,
+            storyLanguage: project?.bible?.language,
+            aspectMode: project?.bible?.aspectMode,
+            characters: project?.bible?.characters || []
+          }
+        })
         const jobs = (regenerationPlan as { jobs?: unknown[] }).jobs
-        setRegenStatus(`${target}: ${jobs?.length ?? 0} jobs planned (provider slots ready)`)
+        const done = (execution as { results?: Array<{ status?: string }> } | undefined)?.results?.filter(
+          (r) => r.status === 'ok'
+        ).length
+        setRegenStatus(
+          done
+            ? `${target}: ${done}/${jobs?.length ?? 0} assets regenerated`
+            : `${target}: ${jobs?.length ?? 0} jobs planned`
+        )
       } catch (e) {
         setRegenStatus(e instanceof Error ? e.message : String(e))
       } finally {

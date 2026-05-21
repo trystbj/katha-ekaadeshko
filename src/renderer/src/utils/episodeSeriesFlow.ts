@@ -32,6 +32,21 @@ export function episodeWrittenMax(project: ProjectState | null): number {
   return project.episodes.reduce((m, e) => Math.max(m, e.number), 0)
 }
 
+/**
+ * The single episode the studio treats as "ongoing" in Story Monitor:
+ * first chapter not yet written, or written but not yet exported.
+ */
+export function resolveOngoingEpisodeNumber(project: ProjectState | null): number {
+  if (!project?.bible) return 1
+  const total = Math.max(1, project.bible.totalEpisodes)
+  for (let n = 1; n <= total; n++) {
+    const ep = project.episodes.find((e) => e.number === n)
+    if (!ep) return n
+    if (!ep.videoExportComplete) return n
+  }
+  return total
+}
+
 export function previousEpisodeVideoExportDone(
   project: ProjectState | null,
   nextEpisodeNumber: number

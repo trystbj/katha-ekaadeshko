@@ -10,8 +10,10 @@ MANDATES:
 - Avoid repetition vs. listed fingerprints: do not reuse same beats, lines, or twist patterns.
 - Original fiction only: do not copy or closely imitate existing published works, franchises, or recognizable characters.
 - Optimize beats for short-form vertical/horizontal video: clear visual staging, readable emotion, punchy rhythm.
-- Output ONLY in the requested structured format. No unstructured prose outside the template.
-- Dialogue: spoken lines only. Thoughts: optional inner voice with at most ONE emoji when truly needed; never spam emoji.
+- Cinematic prose: emotionally directed narration with atmosphere, sensory detail, and filmic pacing — never robotic exposition or repeated transition clichés.
+- Dialogue: natural spoken lines with personality memory — interruptions, reactions, and relationship-aware tone; not narration duplicated as speech.
+- Thoughts: optional inner voice with at most ONE emoji when truly needed; never spam emoji.
+- Emotional flow: scenes connect with intentional buildup, contrast, and cooldown — no abrupt neutral resets.
 - Every episode MUST end with a concrete cliffhanger line (hook), separate from scenes.`
 
 function hybridBlendRequested(...parts: (string | undefined)[]): boolean {

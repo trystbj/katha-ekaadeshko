@@ -34,6 +34,9 @@ import {
   enrichContextMemoryFromOutputs
 } from '../storyIntelligence/longStoryOrchestrator.js'
 import { normalizeScriptJson } from '../utils/normalizeScriptJson.js'
+import { attachComposedNarrationToScript } from '../cinematic/cinematicStoryWriting.js'
+import { analyzeNamingPolicy, sanitizeStoryCharacters } from '../character/characterIdentityMemory.js'
+import { mergeBibleCharactersIntoCast } from '../utils/mergeBibleCharacters.js'
 import { safeLog } from '../../api/_lib/log.js'
 
 const PROVIDERS = [
@@ -193,6 +196,7 @@ export async function runKathaPipeline(input, req, opts = {}) {
   // Stage 1 — Story generation (auto: OpenAI → Gemini → DeepSeek)
   if (onProgress) onProgress({ stage: 'story', progress: 8, message: 'Drafting story' })
   const storyPrompt = buildStoryPrompt({ ...pinnedInput, region, memory })
+
   const { json: story, provider: storyProvider } = await aiJsonAuto({
     purpose: 'story',
     schemaHint: 'Story',
@@ -321,6 +325,21 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
     )
   }
 
+  const namingPolicy = analyzeNamingPolicy(pinnedInput.seedLine || '', pinnedInput.theme || '')
+  if (Array.isArray(finalStory?.characters)) {
+    const sanitized = sanitizeStoryCharacters(finalStory.characters, namingPolicy)
+    const mergedCast = mergeBibleCharactersIntoCast(sanitized, pinnedInput.bibleCharacters)
+    finalStory = {
+      ...finalStory,
+      characters: mergedCast
+    }
+    console.info('[katha:character]', 'story_cast_policy', {
+      mode: namingPolicy.mode,
+      count: finalStory.characters.length,
+      withRefs: mergedCast.filter((c) => Array.isArray(c.referenceImages) && c.referenceImages.length).length
+    })
+  }
+
   // Stage 4 — Script generation (auto: OpenAI → Gemini → DeepSeek)
   if (onProgress) {
     const n = longPlan?.targetSceneCount
@@ -342,6 +361,11 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
       'Script generation returned no scenes. Try a shorter seed or tap Generate again.'
     )
   }
+  script = attachComposedNarrationToScript(script, finalStory)
+  console.info('[katha:story-writing]', 'script_enriched', {
+    scenes: script.length,
+    withDialogue: script.filter((r) => Array.isArray(r.dialogue) && r.dialogue.length > 0).length
+  })
   providersUsed.script = scriptProvider
 
   if (longPlan?.active) {
@@ -355,8 +379,14 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
   // Stage 5 — Parallel content generation
   if (onProgress) onProgress({ stage: 'images', progress: 65, message: 'Generating images + audio' })
   const [images, audio] = await Promise.all([
-    leonardoGenerateForScript({ script, input: pinnedInput, region, onProgress }),
-    ttsGenerateForScript({ script, input: pinnedInput, region, req })
+    leonardoGenerateForScript({
+      script,
+      input: pinnedInput,
+      region,
+      onProgress,
+      characters: finalStory?.characters || story?.characters || []
+    }),
+    ttsGenerateForScript({ script, input: pinnedInput, region, req, story: finalStory })
   ])
 
   if (onProgress) onProgress({ stage: 'done', progress: 100, message: 'Done' })
@@ -389,7 +419,10 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
   let creatorPreferencesPatch = null
   let sceneOrchestration = null
   let renderAssemblyPlan = null
-  const skipOrchestration = fast || pinnedInput.performancePreferLow
+  let qualityReport = null
+  const studioOrchestration =
+    process.env.KATHA_STUDIO_ORCHESTRATION === '1' || pinnedInput.studioOrchestration === true
+  const skipOrchestration = (fast || pinnedInput.performancePreferLow) && !studioOrchestration
   if (!skipOrchestration) {
     try {
       const evolution = buildSceneOrchestratedPlan({
@@ -418,6 +451,7 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
       creatorPreferencesPatch = evolution.creatorPreferencesPatch
       sceneOrchestration = evolution.sceneOrchestration ?? null
       renderAssemblyPlan = evolution.renderAssemblyPlan ?? null
+      qualityReport = evolution.qualityReport ?? sceneOrchestration?.premiumStudio?.qualityReport ?? null
     } catch (e) {
       cinematicDirectorDegraded = true
       console.warn('[sceneOrchestrationPipeline] fallback to base audio plan:', e?.message || e)
@@ -452,6 +486,10 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
       ...(creatorPreferencesPatch ? { creatorPreferencesPatch } : {}),
       ...(sceneOrchestration ? { sceneOrchestration } : {}),
       ...(renderAssemblyPlan ? { renderAssemblyPlan } : {}),
+      ...(qualityReport ? { qualityReport } : {}),
+      ...(cinematicDirectorPlan?.cinematicBookends
+        ? { cinematicBookends: cinematicDirectorPlan.cinematicBookends }
+        : {}),
       visualStyleProfileKey: vsProfile.key,
       visualStyleHybrid: vsHybrid,
       ...(fast ? { serverlessFastPath: true } : {}),

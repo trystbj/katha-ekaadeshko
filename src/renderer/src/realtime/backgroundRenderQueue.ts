@@ -35,14 +35,17 @@ export async function pollBackgroundRenderJob(jobId: string): Promise<Background
   const res = await fetch(`/api/render-status?id=${encodeURIComponent(jobId)}`)
   if (!res.ok) return null
   const row = (await res.json()) as StatusRow
+  const raw = String(row.status || '').toLowerCase()
   const status =
-    row.status === 'complete' || row.status === 'completed'
+    raw === 'complete' || raw === 'completed' || raw === 'done'
       ? 'complete'
-      : row.status === 'failed'
+      : raw === 'failed' || raw === 'error'
         ? 'failed'
-        : row.status === 'processing' || row.status === 'in_progress'
-          ? 'processing'
-          : 'queued'
+        : raw === 'cancelled'
+          ? 'cancelled'
+          : raw === 'processing' || raw === 'in_progress' || raw === 'running'
+            ? 'processing'
+            : 'queued'
 
   return {
     id: row.id,

@@ -16,9 +16,14 @@ type Props = {
   /** Live typing pass after stream JSON returns (initial Generate Story). */
   streamReveal?: StreamRevealState | null
   focusedSpeaker?: string | null
-  onSceneFocus?: (speaker: string) => void
+  onSceneFocus?: (speaker: string, sceneIndex: number) => void
   /** Overrides default empty-state copy (e.g. mock UI placeholder). */
   emptyHint?: string
+  /**
+   * Scene | Script | Voice panel: live stream during generation; after generate,
+   * scene staging + dialogue only (narration belongs in Story Monitor / storyboard).
+   */
+  scriptVoicePanel?: boolean
 }
 
 export function LiveScriptPreview({
@@ -29,7 +34,8 @@ export function LiveScriptPreview({
   streamReveal,
   focusedSpeaker,
   onSceneFocus,
-  emptyHint
+  emptyHint,
+  scriptVoicePanel = false
 }: Props) {
   const uiText = useUiText()
   const reduced = usePrefersReducedMotion()
@@ -67,7 +73,8 @@ export function LiveScriptPreview({
 
   const showRevealStream = Boolean(streamReveal)
   const showJobStream = Boolean(busy) && streamText.length > 0 && !showRevealStream
-  const showScenes = scenes.length > 0 && !showJobStream && !showRevealStream
+  const showScenes =
+    scenes.length > 0 && !showJobStream && (!showRevealStream || scriptVoicePanel)
 
   const revealSlice = streamReveal ? streamReveal.fullDoc.slice(0, streamReveal.visibleLen) : ''
   const revealPhaseKey = streamReveal ? liveRevealPhaseKey(streamReveal.fullDoc, streamReveal.visibleLen) : 'liveGenPhaseTitle'
@@ -133,6 +140,18 @@ export function LiveScriptPreview({
               const isNarrator =
                 s.character.trim().toLowerCase() === 'narrator' ||
                 s.character.trim().toLowerCase() === 'narration'
+              const narrationBody = (s.narrationText ?? s.text).trim()
+              const dialogueLines = s.dialogueLines ?? []
+              const sceneStaging = (s.visualDescription ?? '').trim()
+              const voiceOnly = scriptVoicePanel
+              const sceneStoryBody = voiceOnly
+                ? sceneStaging ||
+                  (dialogueLines.length
+                    ? ''
+                    : narrationBody && !isNarrator
+                      ? narrationBody
+                      : '')
+                : narrationBody
               return (
                 <motion.li
                   key={s.index}
@@ -150,34 +169,67 @@ export function LiveScriptPreview({
                   className={`live-script-preview__block ${focused ? 'live-script-preview__block--focus' : ''} ${
                     isNarrator ? 'live-script-preview__block--narrator' : ''
                   }`}
-                  onClick={() => onSceneFocus?.(s.character)}
+                  onClick={() => onSceneFocus?.(s.character, s.index)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      onSceneFocus?.(s.character)
+                      onSceneFocus?.(s.character, s.index)
                     }
                   }}
                   role="button"
                   tabIndex={0}
                 >
                   <span className="live-script-preview__who">
-                    {s.character}
-                    {s.lineType === 'Thought' ? (
+                    {voiceOnly ? uiText('cineSceneNum', { n: s.index }) : s.character}
+                    {!voiceOnly && s.lineType === 'Thought' ? (
                       <span className="live-script-preview__thought-tag">{uiText('scriptThoughtTag')}</span>
                     ) : null}
                     {Glyphs.colon}
                   </span>
-                  <span className="live-script-preview__line">
-                    {Glyphs.ldquo}
-                    {s.text}
-                    {Glyphs.rdquo}
-                    {s.emoji ? (
-                      <span aria-hidden>
-                        {Glyphs.space}
-                        {s.emoji}
-                      </span>
-                    ) : null}
-                  </span>
+                  {sceneStoryBody ? (
+                    <span
+                      className={
+                        voiceOnly
+                          ? 'live-script-preview__line live-script-preview__line--scene-story'
+                          : 'live-script-preview__line'
+                      }
+                    >
+                      {voiceOnly ? (
+                        sceneStoryBody
+                      ) : (
+                        <>
+                          {Glyphs.ldquo}
+                          {sceneStoryBody}
+                          {Glyphs.rdquo}
+                        </>
+                      )}
+                      {!voiceOnly && s.emoji ? (
+                        <span aria-hidden>
+                          {Glyphs.space}
+                          {s.emoji}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : voiceOnly ? (
+                    <span className="live-script-preview__line live-script-preview__line--scene-story live-script-preview__line--muted">
+                      {uiText('scriptSceneVoiceEmpty')}
+                    </span>
+                  ) : null}
+                  {dialogueLines.length
+                    ? dialogueLines.map((d, di) => (
+                        <span key={`${s.index}-d-${di}`} className="live-script-preview__dialogue">
+                          <span className="live-script-preview__who">
+                            {d.character}
+                            {Glyphs.colon}
+                          </span>
+                          <span className="live-script-preview__line">
+                            {Glyphs.ldquo}
+                            {d.line}
+                            {Glyphs.rdquo}
+                          </span>
+                        </span>
+                      ))
+                    : null}
                 </motion.li>
               )
             })}

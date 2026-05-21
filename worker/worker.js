@@ -294,7 +294,14 @@ async function processJob(job) {
   const storyAudioPlan = p.storyAudioPlan && typeof p.storyAudioPlan === 'object' ? p.storyAudioPlan : null
   const subtitles = Array.isArray(p.subtitles) ? p.subtitles : []
   const fps = Number.isFinite(p.fps) ? p.fps : 30
-  const secondsPerImage = Number.isFinite(p.secondsPerImage) ? p.secondsPerImage : 4
+  let secondsPerImage = Number.isFinite(p.secondsPerImage) ? p.secondsPerImage : 4
+  const assembly = p.renderAssemblyPlan && typeof p.renderAssemblyPlan === 'object' ? p.renderAssemblyPlan : null
+  if (assembly && Number.isFinite(assembly.secondsPerScene)) {
+    secondsPerImage = assembly.secondsPerScene
+  }
+  if (p.renderMode === 'trailer' && Number.isFinite(p.secondsPerImage)) {
+    secondsPerImage = Math.min(secondsPerImage, p.secondsPerImage)
+  }
 
   await api('POST', '/api/worker-claim', { id, workerId: WORKER_ID })
   console.log(`Job ${id} claimed (${images.length} images)`)

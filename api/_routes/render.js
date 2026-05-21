@@ -18,7 +18,11 @@ const BodySchema = z.object({
     )
     .optional(),
   fps: z.number().int().min(24).max(60).optional(),
-  secondsPerImage: z.number().min(1).max(15).optional()
+  secondsPerImage: z.number().min(1).max(15).optional(),
+  renderAssemblyPlan: z.record(z.unknown()).optional(),
+  cinematicExportPreset: z.string().max(64).optional(),
+  renderMode: z.enum(['full', 'trailer']).optional(),
+  trailerSceneIndices: z.array(z.number().int().min(1)).max(24).optional()
 })
 
 export default createJsonHandler({

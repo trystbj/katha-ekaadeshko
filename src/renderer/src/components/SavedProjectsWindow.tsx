@@ -32,6 +32,30 @@ export function SavedProjectsWindow({
   const runtime = useStudioStore((s) => s.workspaceRuntime)
   const switchWorkspaceSlot = useStudioStore((s) => s.switchWorkspaceSlot)
   const createNewWorkspaceProject = useStudioStore((s) => s.createNewWorkspaceProject)
+  const theme = useStudioStore((s) => s.theme)
+
+  const resolvedTheme = useMemo((): 'light' | 'dark' => {
+    if (theme === 'system') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+    return theme
+  }, [theme])
+
+  useEffect(() => {
+    if (embedded) return
+    document.documentElement.setAttribute('data-theme', resolvedTheme)
+    document.documentElement.style.colorScheme = resolvedTheme
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const fn = () => {
+      if (useStudioStore.getState().theme === 'system') {
+        const next = mq.matches ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', next)
+        document.documentElement.style.colorScheme = next
+      }
+    }
+    mq.addEventListener('change', fn)
+    return () => mq.removeEventListener('change', fn)
+  }, [embedded, resolvedTheme, theme])
   const [items, setItems] = useState<Meta[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<ProjectState | null>(null)
@@ -135,7 +159,6 @@ export function SavedProjectsWindow({
       className={
         embedded ? 'saved-projects-window saved-projects-window--monitor' : 'saved-projects-window'
       }
-      data-theme="dark"
     >
       <header className="saved-projects-window__head">
         <div>

@@ -6,19 +6,23 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const assets = path.join(root, 'web-dist', 'assets')
-
 function fail(msg) {
   console.error(`[assert-idea-limit] ${msg}`)
   process.exit(1)
 }
 
-if (!fs.existsSync(assets)) fail('Missing web-dist/assets — run npm run web:build first.')
+function readBridgeChunk(dirLabel, baseDir) {
+  const assets = path.join(root, baseDir, 'assets')
+  if (!fs.existsSync(assets)) fail(`Missing ${dirLabel}/assets — run npm run web:build first.`)
+  const bridge = fs.readdirSync(assets).find((f) => /^kathaWebBridge-.*\.js$/.test(f))
+  if (!bridge) fail(`Missing kathaWebBridge chunk in ${dirLabel}.`)
+  return fs.readFileSync(path.join(assets, bridge), 'utf8')
+}
 
-const bridge = fs.readdirSync(assets).find((f) => /^kathaWebBridge-.*\.js$/.test(f))
-if (!bridge) fail('Missing kathaWebBridge chunk.')
-
-const text = fs.readFileSync(path.join(assets, bridge), 'utf8')
+const text = readBridgeChunk('web-dist', 'web-dist')
+const distText = fs.existsSync(path.join(root, 'dist', 'assets'))
+  ? readBridgeChunk('dist', 'dist')
+  : null
 
 if (/maxLength:\s*500\b|maxlength:\s*500\b|maxLength=500/.test(text)) {
   fail('Bundle still contains maxLength 500 for story idea.')
@@ -36,8 +40,19 @@ if (!/STORY_IDEA_SOFT_WARN_CHARS\s*=\s*6_?000/.test(sharedLimits)) {
   fail('shared/storyIdeaLimits.js must set STORY_IDEA_SOFT_WARN_CHARS = 6000.')
 }
 
-if (!text.includes('data-idea-max')) {
-  fail('Bundle missing data-idea-max attribute on char counter.')
+function assertNoVisibleSeedCounter(bundleText, label) {
+  if (bundleText.includes('id:"studio-story-seed-count"')) {
+    fail(`${label} still renders story-seed character counter — run npm run web:build.`)
+  }
+  if (bundleText.includes('ideaFieldWireframe",{max:')) {
+    fail(`${label} still uses character-limit placeholder — run npm run web:build.`)
+  }
+  if (/studio-mock-char-count\$\{/.test(bundleText)) {
+    fail(`${label} still renders story-seed character counter — run npm run web:build.`)
+  }
 }
 
-console.log('[assert-idea-limit] OK — story idea limit is 10000 in production bundle.')
+assertNoVisibleSeedCounter(text, 'web-dist')
+if (distText) assertNoVisibleSeedCounter(distText, 'dist')
+
+console.log('[assert-idea-limit] OK — story idea limit is 10000; seed UI has no counter or limit hint.')

@@ -166,6 +166,7 @@ export function ScriptWorkbench({
       <div className="script-workbench__body">
         {tab === 'dialogue' ? (
           <LiveScriptPreview
+            scriptVoicePanel
             scenes={scenes}
             rawStructured={rawStructured}
             busy={busy}

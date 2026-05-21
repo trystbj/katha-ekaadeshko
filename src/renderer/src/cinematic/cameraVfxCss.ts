@@ -33,6 +33,18 @@ export function ultimateSceneStyleVars(
     out['--cin-act-gesture'] = String(acting.gestureIntensity ?? 0.4)
     out['--cin-act-still'] = acting.stillnessMoment ? '1' : '0'
   }
+  const grade = (scene as { colorGrade?: { warmth?: number; contrast?: number; vignette?: number } }).colorGrade
+  if (grade) {
+    out['--cin-grade-warmth'] = String(grade.warmth ?? 0.5)
+    out['--cin-grade-contrast'] = String(grade.contrast ?? 1)
+    out['--cin-grade-vignette'] = String(grade.vignette ?? 0.15)
+  }
+  const life = (scene as { environment?: { life?: { particleDensity?: number; fogDrift?: string } } })
+    .environment?.life
+  if (life) {
+    out['--cin-life-particles'] = String(life.particleDensity ?? 0)
+    if (life.fogDrift && life.fogDrift !== 'off') out['--cin-vfx-fog'] = String(Math.max(Number(out['--cin-vfx-fog']) || 0, 0.35))
+  }
   return out
 }
 

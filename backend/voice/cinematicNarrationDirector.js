@@ -4,7 +4,7 @@
 
 import { narrationSceneAdaptationInstructions } from '../utils/narrationSceneAdaptation.js'
 import { analyzeSceneEmotion } from './emotionNarrationEngine.js'
-import { analyzeDialogueInNarration } from './dialogueNarrationHints.js'
+import { analyzeDialogueInNarration, analyzeStructuredDialogue } from './dialogueNarrationHints.js'
 import { humanSpeechRealismBlock } from './humanSpeechRealism.js'
 import { getLanguageDeliveryBlock } from './languageDeliveryProfiles.js'
 import { preprocessNarrationForTts } from './pronunciationPreprocessor.js'
@@ -86,8 +86,13 @@ export function buildGlobalNarrationPlan(ctx, opts = {}) {
   const storyLanguage = ctx?.storyLanguage || profile.language
 
   const emotion = analyzeSceneEmotion(ctx, profile)
-  const preprocessed = preprocessNarrationForTts(ctx?.narration || '', storyLanguage)
-  const dialogue = analyzeDialogueInNarration(preprocessed.text || ctx?.narration)
+  const rawNarration =
+    String(ctx?.composedNarration || ctx?.composed_narration || '').trim() ||
+    String(ctx?.narration || '').trim()
+  const preprocessed = preprocessNarrationForTts(rawNarration, storyLanguage)
+  const structuredDialogue = analyzeStructuredDialogue(ctx?.dialogue)
+  const dialogue = analyzeDialogueInNarration(preprocessed.text || rawNarration, structuredDialogue)
+  const isNe = isNepaliLanguage(storyLanguage)
 
   const languageBlock = getLanguageDeliveryBlock(storyLanguage, {
     extendedPreview: Boolean(opts.extendedPreview)
@@ -96,7 +101,7 @@ export function buildGlobalNarrationPlan(ctx, opts = {}) {
   const sceneAdapt =
     autoDirector && !opts.skipSceneAdapt
       ? narrationSceneAdaptationInstructions({
-          narration: ctx?.narration,
+          narration: rawNarration,
           visualDescription: ctx?.visualDescription,
           genre: ctx?.genre,
           theme: ctx?.theme,

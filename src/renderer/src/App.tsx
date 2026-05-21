@@ -3,20 +3,13 @@ import {
   Suspense,
   useCallback,
   useEffect,
-  useDeferredValue,
   useMemo,
   useRef,
-  useState,
-  type Dispatch,
-  type SetStateAction
+  useState
 } from 'react'
 import { useUiText } from './i18n/useAppI18n'
 import { Glyphs } from './i18n/uiGlyphs'
-import {
-  STORY_IDEA_MAX_CHARS,
-  STORY_IDEA_SOFT_WARN_CHARS,
-  isStoryIdeaSoftWarn
-} from './constants/storyIdeaLimits'
+import { STORY_IDEA_MAX_CHARS } from './constants/storyIdeaLimits'
 import { useSyncUiLanguageToI18n } from './i18n/useSyncUiLanguageToI18n'
 import { getCachedStylePreviewUrl } from './utils/stylePreviewImageCache'
 import { migrateVisualStyleId } from './utils/styleIdMigration'
@@ -36,6 +29,12 @@ import { NARRATOR_UI_PRESETS, normalizeNarratorId } from './constants/narrators'
 import { getGenerateReadiness, i18nKeyForMissing } from './utils/generateReadiness'
 import { StudioAmbientBackdrop } from './components/StudioAmbientBackdrop'
 import { PreviewStage } from './components/PreviewStage'
+import { StoryboardPreviewWorkspace } from './components/StoryboardPreviewWorkspace'
+import { CinematicStoryboardMonitor } from './components/CinematicStoryboardMonitor'
+import { MonitorEpisodeAccordion } from './components/MonitorEpisodeAccordion'
+import { canShowStoryboardWorkspace } from './utils/storyboardWorkflow'
+import { regenerateMissingSceneImages } from './utils/regenerateMissingSceneImages'
+import { queueEpisodeVideoRender } from './utils/episodeVideoRender'
 
 const PostExportVideoWorkspace = lazy(() =>
   import('./components/PostExportVideoWorkspace').then((m) => ({ default: m.PostExportVideoWorkspace }))
@@ -76,15 +75,16 @@ import { normalizeUiLanguageCode } from './i18n/resources'
 import {
   allEpisodesWritten as projectEveryEpisodeDrafted,
   canJumpToFinale,
-  episodeArcLabelKey,
-  episodeWrittenMax,
   previousEpisodeVideoExportDone,
+  resolveOngoingEpisodeNumber,
   seriesFullyExported
 } from './utils/episodeSeriesFlow'
 import './styles/episode-series-flow.css'
 import { BrandTitleStardust } from './components/BrandTitleStardust'
-import { tEpisodePacing } from './utils/i18nEpisodePacing'
 import { repairProjectOnLoad } from './utils/projectRecovery'
+import { collectRenderImageUrls } from './utils/collectRenderImageUrls'
+import { orderedSceneImageUrls, sceneUrlForIndex } from './utils/sceneAssetMap'
+import { resumeEpisodeVideoRenderIfNeeded } from './utils/episodeVideoRender'
 import { CreatorStudioPanel } from './components/CreatorStudioPanel'
 
 function splitStudioSubtitleGraphemes(text: string): string[] {
@@ -101,16 +101,6 @@ function splitStudioSubtitleGraphemes(text: string): string[] {
   return Array.from(text)
 }
 
-function collectRenderImageUrls(project: ProjectState | null): string[] {
-  if (!project?.assets?.length) return []
-  const withUrl = project.assets.filter(
-    (a): a is (typeof a & { url: string }) => typeof a.url === 'string' && a.url.length > 0
-  )
-  const sceneBg = withUrl.filter((a) => a.kind === 'scene' || a.kind === 'background').map((a) => a.url)
-  if (sceneBg.length) return sceneBg
-  return withUrl.filter((a) => a.kind === 'character').map((a) => a.url)
-}
-
 function isOngoingHistoryStatus(s: string) {
   return s === 'in_progress' || s === 'new'
 }
@@ -125,8 +115,6 @@ export default function App() {
   const storyLanguage = useStudioStore((s) => s.storyLanguage)
   const uiFontMode = useStudioStore((s) => s.uiFontMode)
   const idea = useStudioStore((s) => s.idea)
-  const ideaCountDisplay = useDeferredValue(idea.length)
-  const ideaSoftWarn = isStoryIdeaSoftWarn(ideaCountDisplay)
   const setIdea = useStudioStore((s) => s.setIdea)
   const backendTheme = useStudioStore((s) => s.backendTheme)
   const backendGenre = useStudioStore((s) => s.backendGenre)
@@ -146,6 +134,7 @@ export default function App() {
   const setProject = useStudioStore((s) => s.setProject)
   const patchProject = useStudioStore((s) => s.patchProject)
   const busy = useStudioStore((s) => s.busy)
+  const setBusy = useStudioStore((s) => s.setBusy)
   const lastError = useStudioStore((s) => s.lastError)
   const setError = useStudioStore((s) => s.setError)
   const job = useStudioStore((s) => s.job)
@@ -199,6 +188,7 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', resolvedTheme)
+    document.documentElement.style.colorScheme = resolvedTheme
   }, [resolvedTheme])
 
   useEffect(() => {
@@ -243,10 +233,9 @@ export default function App() {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const fn = () => {
       if (useStudioStore.getState().theme === 'system') {
-        document.documentElement.setAttribute(
-          'data-theme',
-          mq.matches ? 'dark' : 'light'
-        )
+        const next = mq.matches ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', next)
+        document.documentElement.style.colorScheme = next
       }
     }
     mq.addEventListener('change', fn)
@@ -411,6 +400,11 @@ export default function App() {
 
   const totalEpisodes = project?.bible?.totalEpisodes ?? 0
 
+  const ongoingEpisodeNumber = useMemo(
+    () => resolveOngoingEpisodeNumber(project),
+    [project]
+  )
+
   const storyMetaLocked = Boolean(project?.bible)
   const allEpisodesWritten = projectEveryEpisodeDrafted(project)
   const wantsContinueEpisode = Boolean(
@@ -431,7 +425,25 @@ export default function App() {
     return project.episodes.find((e) => e.number === selectedEpisode) ?? null
   }, [project, selectedEpisode])
 
-  const renderSourceUrls = useMemo(() => collectRenderImageUrls(project), [project])
+  /** Scene | Script | Voice: pending scenes during live reveal, then active episode. */
+  const scriptPanelScenes = useMemo(() => {
+    const pending = streamReveal?.pendingProject
+    if (pending?.episodes?.length) {
+      const epn = ongoingEpisodeNumber
+      const ep = pending.episodes.find((e) => e.number === epn) ?? pending.episodes[0]
+      const pendingScenes = ep?.scenes ?? []
+      if (pendingScenes.length) return pendingScenes
+    }
+    return activeEpisode?.scenes ?? []
+  }, [activeEpisode?.scenes, streamReveal?.pendingProject, ongoingEpisodeNumber])
+
+  const renderSourceUrls = useMemo(
+    () => orderedSceneImageUrls(project, activeEpisode?.scenes) || collectRenderImageUrls(project),
+    [project, activeEpisode?.scenes]
+  )
+
+  const [embeddedPreviewIndex, setEmbeddedPreviewIndex] = useState(0)
+  const [embeddedHeroOverride, setEmbeddedHeroOverride] = useState<string | null>(null)
 
   const pipelineSceneTotalEstimate = useMemo(() => {
     const fromEpisode = activeEpisode?.scenes?.length ?? 0
@@ -440,24 +452,95 @@ export default function App() {
   }, [activeEpisode?.scenes?.length, renderSourceUrls.length])
 
   useEffect(() => {
-    if (busy === 'generating') setCelebratePipelineComplete(false)
+    if (busy === 'generating' || busy === 'rendering') setCelebratePipelineComplete(false)
   }, [busy])
+
+  /** Strip legacy seed counter / limit hints (stale dist bundles or extensions). */
+  useEffect(() => {
+    const wrap = storyIdeaWrapRef.current
+    const panel = wrap?.closest('.studio-mock-panel')
+    const purge = () => {
+      const ta = ideaRef.current
+      if (ta) {
+        ta.removeAttribute('placeholder')
+        ta.placeholder = ''
+        ta.removeAttribute('aria-describedby')
+      }
+      panel
+        ?.querySelectorAll(
+          '#studio-story-seed-count, #studio-story-seed-soft-warn, .studio-mock-char-count, .studio-mock-char-soft-warn'
+        )
+        .forEach((el) => el.remove())
+    }
+    purge()
+    if (!panel) return
+    const obs = new MutationObserver(purge)
+    obs.observe(panel, { childList: true, subtree: true })
+    return () => obs.disconnect()
+  }, [idea, project?.bible])
+
+  const showStoryboardPreview = useMemo(
+    () =>
+      Boolean(
+        project?.bible &&
+          !project.lastRenderVideoUrl &&
+          !streamReveal &&
+          (canShowStoryboardWorkspace(project) || project.storyboardReady)
+      ),
+    [project, streamReveal]
+  )
+
+  const onRegenerateMissingSceneImages = useCallback(async () => {
+    const p = useStudioStore.getState().project
+    if (!p?.bible) return
+    const epn = resolveOngoingEpisodeNumber(p)
+    setBusy('leonardo')
+    setError(null)
+    try {
+      const next = await regenerateMissingSceneImages(p, epn)
+      patchProject(() => next)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(null)
+    }
+  }, [patchProject, setBusy, setError])
+
+  const onGenerateFinalVideo = useCallback(() => {
+    const p = useStudioStore.getState().project
+    if (!p?.bible) return
+    const epn = resolveOngoingEpisodeNumber(p)
+    console.info('[katha:render]', 'user_triggered_final_render', { projectId: p.id, episodeNumber: epn })
+    void queueEpisodeVideoRender({ project: p, episodeNumber: epn, force: true })
+  }, [selectedEpisode])
 
   useEffect(() => {
     const prev = prevBusyCelebrateRef.current
     prevBusyCelebrateRef.current = busy
-    if (prev !== 'generating' || busy) return
-    if (lastError) return
-    const j = useStudioStore.getState().job
-    if (!j || typeof j.progress !== 'number' || j.progress < 88) return
-    setCelebratePipelineComplete(true)
-  }, [busy, lastError])
+    if (busy || lastError) return
+    if (prev === 'generating' && showStoryboardPreview) {
+      console.info('[katha:storyboard]', 'celebrate_storyboard_ready')
+      setCelebratePipelineComplete(true)
+      return
+    }
+    if (prev === 'rendering' && project?.lastRenderVideoUrl) {
+      console.info('[katha:render] celebrate_on_render_complete', {
+        videoUrl: project.lastRenderVideoUrl
+      })
+      setCelebratePipelineComplete(true)
+    }
+  }, [busy, lastError, project?.lastRenderVideoUrl, showStoryboardPreview])
 
   useEffect(() => {
     if (!celebratePipelineComplete) return
-    const id = window.setTimeout(() => setCelebratePipelineComplete(false), 3200)
+    const ms = project?.lastRenderVideoUrl ? 4800 : 3600
+    const id = window.setTimeout(() => setCelebratePipelineComplete(false), ms)
     return () => window.clearTimeout(id)
-  }, [celebratePipelineComplete])
+  }, [celebratePipelineComplete, project?.lastRenderVideoUrl])
+
+  useEffect(() => {
+    resumeEpisodeVideoRenderIfNeeded(project)
+  }, [project?.id, project?.renderJobId, project?.lastRenderVideoUrl])
 
   const abortPipelineGenerate = useCallback(() => {
     useStudioStore.getState().abortGenerationInFlight()
@@ -495,6 +578,12 @@ export default function App() {
       return () => window.clearTimeout(id)
     }
   }, [exportCompleteSig, project?.bible?.totalEpisodes])
+
+  /** Story Monitor tracks one ongoing episode; auto-advance when export completes. */
+  useEffect(() => {
+    if (!project?.bible) return
+    setSelectedEpisode(ongoingEpisodeNumber)
+  }, [project?.id, ongoingEpisodeNumber, exportCompleteSig, setSelectedEpisode])
 
   useEffect(() => {
     if (!project?.id || !seriesFullyExported(project)) return
@@ -557,49 +646,12 @@ export default function App() {
     void generateEpisode(p.bible.totalEpisodes)
   }, [generateEpisode])
 
-  const sceneFrameAssets = useMemo(() => {
-    const assets = project?.assets ?? []
-    return assets.filter((a) => a.kind === 'scene' && a.url)
-  }, [project])
-
-  type VisualGalleryItem = { id: string; url: string; caption: string }
-
-  const visualGalleryItems = useMemo((): VisualGalleryItem[] => {
-    if (!project?.bible) return []
-    const items: VisualGalleryItem[] = []
-    for (const c of project.bible.characters) {
-      if (c.baseImageUrl) {
-        items.push({
-          id: `char:${c.id}`,
-          url: c.baseImageUrl,
-          caption: uiText('galleryCaptionCharacter', { name: c.name })
-        })
-      }
-    }
-    for (const a of sceneFrameAssets) {
-      if (!a.url) continue
-      const match = /^scene:(\d+)$/.exec(String(a.key).trim())
-      const sceneIdx = match ? Number(match[1]) : 0
-      const row = sceneIdx ? activeEpisode?.scenes.find((sc) => sc.index === sceneIdx) : undefined
-      const parts: string[] = [uiText('galleryCaptionScene', { index: String(sceneIdx || '?') })]
-      if (row?.visualDescription) parts.push(row.visualDescription)
-      if (row?.text) parts.push(row.text)
-      items.push({
-        id: `scene:${a.id}`,
-        url: a.url,
-        caption: parts.join(' — ').slice(0, 500)
-      })
-    }
-    return items
-  }, [project, sceneFrameAssets, activeEpisode, uiText])
-
-  const [visualViewerOpen, setVisualViewerOpen] = useState(false)
-  const [visualViewerIndex, setVisualViewerIndex] = useState(0)
   /** Sidebar + script monitor: which scene speaker row is “in focus”. */
   const [focusedSceneSpeaker, setFocusedSceneSpeaker] = useState<string | null>(null)
   const [monitorSearchOpen, setMonitorSearchOpen] = useState(false)
   const [monitorSearchQuery, setMonitorSearchQuery] = useState('')
-  const [creatorStudioOpen, setCreatorStudioOpen] = useState(true)
+  const [creatorStudioOpen, setCreatorStudioOpen] = useState(false)
+  const [charactersMonitorOpen, setCharactersMonitorOpen] = useState(false)
   const [savedLibraryOpen, setSavedLibraryOpen] = useState(false)
   const [helpCenterOpen, setHelpCenterOpen] = useState(false)
   /** Script column body: preview + optional story-defaults overlay (overlay does not replace preview in layout). */
@@ -635,7 +687,29 @@ export default function App() {
 
   useEffect(() => {
     setFocusedSceneSpeaker(null)
+    setEmbeddedPreviewIndex(0)
+    setEmbeddedHeroOverride(null)
   }, [selectedEpisode, activeEpisode?.number, project?.id])
+
+  useEffect(() => {
+    if (activeEpisode?.scenes?.length) setCharactersMonitorOpen(false)
+  }, [activeEpisode?.scenes?.length, project?.id])
+
+  const onMonitorSceneSelect = useCallback(
+    (rowIndex: number) => {
+      setEmbeddedHeroOverride(null)
+      setEmbeddedPreviewIndex(rowIndex)
+      const sc = activeEpisode?.scenes[rowIndex]
+      if (sc) setFocusedSceneSpeaker(sc.character.trim())
+    },
+    [activeEpisode?.scenes]
+  )
+
+  useEffect(() => {
+    if (embeddedPreviewIndex >= renderSourceUrls.length) {
+      setEmbeddedPreviewIndex(0)
+    }
+  }, [renderSourceUrls.length, embeddedPreviewIndex])
 
   const loadStoryFromHistory = async (id: string) => {
     const k = window.katha
@@ -938,14 +1012,45 @@ export default function App() {
                     episodeNumber={selectedEpisode ?? project.episodes[0]?.number ?? 1}
                   />
                 </Suspense>
+              ) : showStoryboardPreview && activeEpisode ? (
+                <StoryboardPreviewWorkspace
+                  project={project}
+                  episode={activeEpisode}
+                  seasonId={studioSeasonId}
+                  sceneUrls={renderSourceUrls}
+                  heroUrl={embeddedHeroOverride}
+                  carouselIndex={embeddedPreviewIndex}
+                  onCarouselIndexChange={(i) => {
+                    setEmbeddedHeroOverride(null)
+                    setEmbeddedPreviewIndex(i)
+                  }}
+                  busyLabel={busy}
+                  jobProgress={job?.progress}
+                  celebrateComplete={celebratePipelineComplete}
+                  celebrateTitleKey="previewCelebrateStoryboard"
+                  onGenerateFinalVideo={onGenerateFinalVideo}
+                  onRegenerateMissingSceneImages={onRegenerateMissingSceneImages}
+                  patchProject={patchProject}
+                />
               ) : (
                 <PreviewStage
                   sectionClassName="studio-mock-preview-wrap workspace-premium__stage"
                   seasonId={studioSeasonId}
                   sceneUrls={renderSourceUrls}
+                  heroUrl={embeddedHeroOverride}
+                  carouselIndex={embeddedPreviewIndex}
+                  onCarouselIndexChange={(i) => {
+                    setEmbeddedHeroOverride(null)
+                    setEmbeddedPreviewIndex(i)
+                  }}
                   busy={Boolean(busy)}
                   jobProgress={job?.progress}
                   celebrateComplete={celebratePipelineComplete}
+                  celebrateTitleKey={
+                    celebratePipelineComplete && showStoryboardPreview
+                      ? 'previewCelebrateStoryboard'
+                      : 'previewCelebrateReady'
+                  }
                   pipelineThumbUrls={renderSourceUrls}
                   hideHeading
                   idleBlank
@@ -965,7 +1070,7 @@ export default function App() {
                   </span>
                   <span className="studio-mock-section-title__seed-cluster">
                     <span className="studio-mock-section-title__seed-headline">{uiText('ideaSeedTitleWireframe')}</span>
-                    {project?.lastRenderVideoUrl ? (
+                    {project?.lastRenderVideoUrl || showStoryboardPreview ? (
                       <StorySubtitleStylePicker menuPortalContainerRef={storyIdeaWrapRef} />
                     ) : null}
                   </span>
@@ -982,8 +1087,8 @@ export default function App() {
                   maxLength={STORY_IDEA_MAX_CHARS}
                   value={idea}
                   onChange={(e) => setIdea(e.target.value)}
-                  placeholder={uiText('ideaFieldWireframe', { max: STORY_IDEA_MAX_CHARS })}
-                  aria-describedby="studio-story-seed-count"
+                  placeholder=""
+                  aria-label={uiText('ideaSeedTitleWireframe')}
                 />
                 {project?.bible ? (
                   <button
@@ -998,23 +1103,6 @@ export default function App() {
                   </button>
                 ) : null}
               </div>
-              <p
-                id="studio-story-seed-count"
-                className={`studio-mock-char-count${ideaSoftWarn ? ' studio-mock-char-count--soft-warn' : ''}`}
-                data-idea-max={STORY_IDEA_MAX_CHARS}
-                data-idea-soft-warn={STORY_IDEA_SOFT_WARN_CHARS}
-                title={uiText('ideaCharLimitHint', { max: STORY_IDEA_MAX_CHARS })}
-              >
-                {ideaCountDisplay} / {STORY_IDEA_MAX_CHARS}
-              </p>
-              {ideaSoftWarn ? (
-                <p className="studio-mock-char-soft-warn" role="status">
-                  {uiText('ideaCharSoftWarn', {
-                    soft: STORY_IDEA_SOFT_WARN_CHARS,
-                    max: STORY_IDEA_MAX_CHARS
-                  })}
-                </p>
-              ) : null}
               {!project?.bible ? (
                 <div className="studio-mock-generate-strip">
                   <button
@@ -1179,13 +1267,30 @@ export default function App() {
               </h3>
               <div ref={scriptGenDefaultsPortalRef} className="studio-mock-script-panel__portal-host">
                 <LiveScriptPreview
-                  scenes={activeEpisode?.scenes ?? []}
+                  scriptVoicePanel
+                  scenes={scriptPanelScenes}
                   rawStructured={activeEpisode?.rawStructured}
                   busy={Boolean(busy)}
                   streamLines={job?.log?.slice(-20) ?? []}
                   streamReveal={streamReveal}
                   focusedSpeaker={focusedSceneSpeaker}
-                  onSceneFocus={(speaker) => setFocusedSceneSpeaker(speaker.trim())}
+                  onSceneFocus={(speaker, sceneIndex) => {
+                    setFocusedSceneSpeaker(speaker.trim())
+                    const url = sceneUrlForIndex(project, sceneIndex)
+                    const ix =
+                      activeEpisode?.scenes.findIndex((s) => s.index === sceneIndex) ??
+                      renderSourceUrls.indexOf(url ?? '')
+                    if (ix >= 0) {
+                      setEmbeddedHeroOverride(null)
+                      setEmbeddedPreviewIndex(ix)
+                      onMonitorSceneSelect(ix)
+                    } else if (url) {
+                      const uix = renderSourceUrls.indexOf(url)
+                      setEmbeddedHeroOverride(null)
+                      setEmbeddedPreviewIndex(uix >= 0 ? uix : 0)
+                    }
+                    console.info('[katha:preview]', 'script_scene_focus', { sceneIndex, ix })
+                  }}
                   emptyHint={storyDefaultsDialogOpen ? '' : uiText('studioScriptPlaceholder')}
                 />
                 {storyDefaultsDialogOpen ? (
@@ -1435,73 +1540,36 @@ export default function App() {
               onSignOut={() => void signOut()}
             />
           ) : !project ? (
-            streamReveal ? (
-              <div className="panel studio-mock-panel studio-mock-monitor-live-gen" aria-live="polite">
-                <h3 className="studio-mock-wireframe-monitor-h">{uiText('liveGenMonitorMirrorTitle')}</h3>
-                <pre className="studio-mock-monitor-live-gen__pre">{streamReveal.fullDoc.slice(0, streamReveal.visibleLen)}</pre>
-              </div>
-            ) : (
-              <p className="studio-mock-monitor-placeholder">{uiText('noProject')}</p>
-            )
+            <p className="studio-mock-monitor-placeholder">
+              {streamReveal || busy === 'generating'
+                ? uiText('studioMonitorLiveInScriptPanel')
+                : uiText('noProject')}
+            </p>
           ) : (
             <>
-              <section className="studio-mock-monitor-section" aria-labelledby="studio-wireframe-episodes">
+              {activeEpisode?.scenes?.length ? (
+                <section
+                  className="studio-mock-monitor-section studio-mock-monitor-section--storyboard"
+                  aria-labelledby="cine-sb-monitor-title"
+                >
+                  <CinematicStoryboardMonitor
+                    project={project}
+                    episode={activeEpisode}
+                    activeTileIndex={embeddedPreviewIndex}
+                    onActiveTileIndexChange={onMonitorSceneSelect}
+                    busyLabel={busy}
+                  />
+                </section>
+              ) : null}
+
+              <section
+                className="studio-mock-monitor-section studio-mock-monitor-section--episodes"
+                aria-labelledby="studio-wireframe-episodes"
+              >
                 <h3 id="studio-wireframe-episodes" className="studio-mock-wireframe-monitor-h">
                   {uiText('episodes')}
                 </h3>
-                <div className="panel studio-mock-panel studio-mock-episodes-panel">
-                {project.bible
-                  ? Array.from({ length: project.bible.totalEpisodes }, (_, i) => i + 1).map((n) => {
-                      const ep = project.episodes.find((e) => e.number === n)
-                      const written = Boolean(ep)
-                      const videoDone = Boolean(ep?.videoExportComplete)
-                      const current = selectedEpisode === n
-                      const te = project.bible!.totalEpisodes
-                      const wMax = episodeWrittenMax(project)
-                      const gateLocked =
-                        !written &&
-                        n === wMax + 1 &&
-                        wMax >= 1 &&
-                        !project.episodes.find((e) => e.number === wMax)?.videoExportComplete
-                      const arcTitle = uiText(episodeArcLabelKey(n, te))
-                      return (
-                        <div
-                          key={n}
-                          className={`episode-row ${written ? 'done' : ''} ${current ? 'current' : ''}${gateLocked ? ' episode-row--gate-locked' : ''}${written && !videoDone ? ' episode-row--export-pending' : ''}${written && videoDone ? ' episode-row--exported' : ''}`}
-                          onClick={() => setSelectedEpisode(n)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault()
-                              setSelectedEpisode(n)
-                            }
-                          }}
-                          role="button"
-                          tabIndex={0}
-                          title={arcTitle}
-                        >
-                          <span>
-                            {uiText('episodeMonitorRowLabel', {
-                              n,
-                              arc: arcTitle,
-                              pacing: ep ? tEpisodePacing(uiText, ep.pacing) : uiText('uiEllipsis')
-                            })}
-                          </span>
-                          <span className="badge">
-                            {!written
-                              ? gateLocked
-                                ? uiText('episodeBadgeLockedNext')
-                                : uiText('episodeBadgeUpcoming')
-                              : !videoDone
-                                ? uiText('episodeBadgeExportPending')
-                                : uiText('episodeBadgeExported')}
-                          </span>
-                        </div>
-                      )
-                    })
-                  : (
-                    <span className="badge">{uiText('statusNew')}</span>
-                  )}
-                </div>
+                <MonitorEpisodeAccordion project={project} />
               </section>
 
               {activeEpisode?.scenes?.length ? (
@@ -1533,10 +1601,25 @@ export default function App() {
                 </section>
               ) : null}
 
-              <section className="studio-mock-monitor-section" aria-labelledby="studio-wireframe-characters">
-                <h3 id="studio-wireframe-characters" className="studio-mock-wireframe-monitor-h">
-                  {uiText('characters')}
-                </h3>
+              <section
+                className={`studio-mock-monitor-section${!charactersMonitorOpen && activeEpisode?.scenes?.length ? ' studio-mock-monitor-section--characters-collapsed' : ''}`}
+                aria-labelledby="studio-wireframe-characters"
+              >
+                <div className="studio-mock-monitor-section__head-row">
+                  <h3 id="studio-wireframe-characters" className="studio-mock-wireframe-monitor-h">
+                    {uiText('characters')}
+                  </h3>
+                  {activeEpisode?.scenes?.length ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      aria-expanded={charactersMonitorOpen}
+                      onClick={() => setCharactersMonitorOpen((o) => !o)}
+                    >
+                      {charactersMonitorOpen ? '−' : '+'}
+                    </button>
+                  ) : null}
+                </div>
                 <div className="panel studio-mock-panel studio-mock-characters-wireframe-panel">
                 {project.bible?.characters.map((c) => (
                   <MonitorCharacterCard
@@ -1548,12 +1631,22 @@ export default function App() {
                     editMode={editMode}
                     storyMetaLocked={storyMetaLocked}
                     busy={Boolean(busy)}
-                    showReferenceControls={Boolean(editMode && project?.bible?.characters?.[0]?.id === c.id)}
+                    showReferenceControls={Boolean(editMode)}
+                    characterId={c.id}
                     onOpenPortrait={() => {
-                      const idx = visualGalleryItems.findIndex((x) => x.id === `char:${c.id}`)
-                      if (idx < 0) return
-                      setVisualViewerIndex(idx)
-                      setVisualViewerOpen(true)
+                      if (c.baseImageUrl) {
+                        const ix = renderSourceUrls.indexOf(c.baseImageUrl)
+                        if (ix >= 0) {
+                          setEmbeddedHeroOverride(null)
+                          setEmbeddedPreviewIndex(ix)
+                        } else {
+                          setEmbeddedHeroOverride(c.baseImageUrl)
+                        }
+                        console.info('[katha:preview]', 'character_portrait_embedded', {
+                          name: c.name,
+                          inCarousel: ix >= 0
+                        })
+                      }
                     }}
                     onGeneratePortrait={() => void generateCharacterBase(c.id)}
                     onNameChange={(name) =>
@@ -1597,14 +1690,6 @@ export default function App() {
       </main>
 
       </div>
-
-      <ImageFullscreenViewer
-        items={visualGalleryItems}
-        index={visualViewerIndex}
-        open={visualViewerOpen}
-        onClose={() => setVisualViewerOpen(false)}
-        setIndex={setVisualViewerIndex}
-      />
 
       <SeriesCompleteRewardModal
         open={seriesRewardOpen}
@@ -1650,117 +1735,5 @@ export default function App() {
 
     </div>
     </>
-  )
-}
-
-function ImageFullscreenViewer({
-  items,
-  index,
-  open,
-  onClose,
-  setIndex
-}: {
-  items: Array<{ id: string; url: string; caption: string }>
-  index: number
-  open: boolean
-  onClose: () => void
-  setIndex: Dispatch<SetStateAction<number>>
-}) {
-  const uiText = useUiText()
-  const touchStartX = useRef<number | null>(null)
-  const current = items[index]
-
-  useEffect(() => {
-    if (!open) return
-    document.body.style.overflow = 'hidden'
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-      if (e.key === 'ArrowLeft') setIndex((i) => Math.max(0, i - 1))
-      if (e.key === 'ArrowRight') setIndex((i) => Math.min(items.length - 1, i + 1))
-    }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      document.body.style.overflow = ''
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [open, items.length, onClose, setIndex])
-
-  if (!open || items.length === 0 || !current?.url) return null
-
-  const goPrev = () => setIndex((i) => Math.max(0, i - 1))
-  const goNext = () => setIndex((i) => Math.min(items.length - 1, i + 1))
-
-  return (
-    <div
-      className="image-fs"
-      role="dialog"
-      aria-modal="true"
-      aria-label={uiText('imagePreviewAria')}
-      onClick={onClose}
-    >
-      <div className="image-fs__toolbar" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="btn btn-ghost image-fs__close" onClick={onClose}>
-          {uiText('imageViewerClose')}
-        </button>
-        <span className="image-fs__counter">
-          {index + 1}
-          {Glyphs.slash}
-          {Glyphs.space}
-          {items.length}
-        </span>
-      </div>
-
-      <div
-        className="image-fs__stage"
-        onClick={onClose}
-        onTouchStart={(e) => {
-          touchStartX.current = e.changedTouches[0]?.clientX ?? null
-        }}
-        onTouchEnd={(e) => {
-          if (touchStartX.current == null) return
-          const endX = e.changedTouches[0]?.clientX ?? touchStartX.current
-          const dx = endX - touchStartX.current
-          touchStartX.current = null
-          if (dx > 56) goPrev()
-          else if (dx < -56) goNext()
-        }}
-      >
-        <button
-          type="button"
-          className="image-fs__chev image-fs__chev--prev"
-          disabled={index <= 0}
-          aria-label={uiText('imageViewerPrev')}
-          onClick={(e) => {
-            e.stopPropagation()
-            goPrev()
-          }}
-        >
-          {Glyphs.chevronLeft}
-        </button>
-        <img
-          className="image-fs__img"
-          src={current.url}
-          alt={current.caption}
-          onClick={(e) => e.stopPropagation()}
-        />
-        <button
-          type="button"
-          className="image-fs__chev image-fs__chev--next"
-          disabled={index >= items.length - 1}
-          aria-label={uiText('imageViewerNext')}
-          onClick={(e) => {
-            e.stopPropagation()
-            goNext()
-          }}
-        >
-          {Glyphs.chevronRight}
-        </button>
-      </div>
-
-      <div className="image-fs__footer" onClick={(e) => e.stopPropagation()}>
-        <div className="image-fs__caption">{current.caption}</div>
-        <div className="image-fs__subhint">{uiText('imageViewerHint')}</div>
-      </div>
-    </div>
   )
 }

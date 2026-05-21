@@ -55,6 +55,10 @@
   color: rgba(255, 236, 188, 0.98);
 }
 
+.episode-seq-banner--single .episode-seq-banner__next--only {
+  margin-top: 0;
+}
+
 .episode-seq-banner__tick {
   color: rgba(144, 238, 144, 0.95);
   filter: drop-shadow(0 0 10px rgba(100, 220, 140, 0.55));

@@ -75,6 +75,28 @@ export function detectStyleHybridRequested(input = {}) {
   return HYBRID_HINT.test(blob)
 }
 
+/** Mood keywords → secondary style dialect for hybrid blending. */
+function inferSecondaryStyleKey(blob) {
+  if (/\b(horror|dark|noir|dread)\b/i.test(blob)) return 'dark_anime'
+  if (/\b(storybook|watercolor|cozy|folk)\b/i.test(blob)) return 'cozy_storybook'
+  if (/\b(comic|panel|ink)\b/i.test(blob)) return 'comic_panel'
+  if (/\b(cinematic anime|anime film)\b/i.test(blob)) return 'cinematic_anime'
+  return 'soft_anime_fantasy'
+}
+
+/**
+ * @param {object} input
+ * @returns {{ primary: string, secondary: string | null, weights: { primary: number, secondary: number } | null }}
+ */
+export function resolveStyleBlendWeights(input = {}) {
+  const hybrid = detectStyleHybridRequested(input)
+  const primary = input.styleId && input.styleId !== 'custom' ? input.styleId : 'soft_anime_fantasy'
+  if (!hybrid) return { primary, secondary: null, weights: null }
+  const blob = [input.customVisualPrompt, input.theme, input.seedLine].filter(Boolean).join(' ')
+  const secondary = inferSecondaryStyleKey(blob)
+  return { primary, secondary, weights: { primary: 0.62, secondary: 0.38 } }
+}
+
 /**
  * @returns {{ key: string, shortLabel: string, storyHint: string, leonardoCore: string, leonardoForbidden: string, scriptGuidance: string }}
  */
@@ -117,6 +139,16 @@ export function resolveStyleProfile(input = {}) {
     return { key: 'unknown_default_soft', ...fb }
   }
 
+  const blend = resolveStyleBlendWeights(input)
+  if (blend.weights) {
+    const sec = STYLE_DNA[blend.secondary]
+    return {
+      key: `${styleId}+${blend.secondary}`,
+      ...preset,
+      storyHint: `${preset.storyHint} — intelligent blend (${Math.round(blend.weights.primary * 100)}% ${preset.shortLabel} / ${Math.round(blend.weights.secondary * 100)}% ${sec?.shortLabel || blend.secondary}).`,
+      scriptGuidance: `${preset.scriptGuidance} Secondary mood layer (${blend.secondary}): ${sec?.scriptGuidance?.slice(0, 200) || 'cohesive fusion only.'}`
+    }
+  }
   return { key: styleId, ...preset }
 }
 
@@ -150,7 +182,36 @@ VISUAL STYLE — STRICT LOCK (NON-NEGOTIABLE):
 /**
  * Leonardo scene prompt — style-first to reduce cross-contamination from genre/theme tokens.
  */
-export function buildLeonardoScenePrompt(scene, input = {}) {
+function sceneVisualCues(scene = {}) {
+  const visual = String(scene.visual_description || '').trim()
+  const narration = String(scene.narration || '').trim().slice(0, 280)
+  const mood = String(scene.mood || scene.emotional_tone || '').trim()
+  const chars = Array.isArray(scene.characters_in_shot)
+    ? scene.characters_in_shot.map((c) => String(c).trim()).filter(Boolean).join(', ')
+    : ''
+  const action = String(scene.action || '').trim()
+  const env = String(scene.environment || scene.location || '').trim()
+  const time = String(scene.time_of_day || '').trim()
+  const weather = String(scene.weather || '').trim()
+  const camera = String(scene.camera || scene.camera_angle || '').trim()
+  const lighting = String(scene.lighting || '').trim()
+  return [
+    visual ? `Staging: ${visual}` : '',
+    chars ? `Characters in frame: ${chars}` : '',
+    action ? `Action: ${action}` : '',
+    env ? `Environment: ${env}` : '',
+    time ? `Time: ${time}` : '',
+    weather ? `Weather: ${weather}` : '',
+    lighting ? `Lighting: ${lighting}` : '',
+    camera ? `Camera: ${camera}` : '',
+    mood ? `Emotion/mood: ${mood}` : '',
+    narration ? `Narration beat (match tone): ${narration}` : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+export function buildLeonardoScenePrompt(scene, input = {}, identityBlock = '') {
   const vertical = input.aspectMode !== 'horizontal_16_9'
   const framing = vertical
     ? 'vertical 9:16 portrait composition, tall readable framing, hero readability'
@@ -173,12 +234,18 @@ export function buildLeonardoScenePrompt(scene, input = {}) {
 
   const genre = String(input.genre || '').slice(0, 120)
   const themeCue = String(input.theme || '').slice(0, 240)
+  const sceneNum = Number(scene.scene)
+  const sceneCue = sceneVisualCues(scene)
+  const crefBlock = String(input.__characterReferencePrompt || '').trim()
 
   return [
     core,
+    identityBlock ? String(identityBlock).trim() : '',
+    crefBlock,
     `Story genre mood (do not override medium): ${genre}. Context cues: ${themeCue}`,
+    Number.isFinite(sceneNum) ? `Scene ${sceneNum} — illustrate ONLY this beat; no unrelated locations or cast swaps.` : '',
     framing,
-    `Scene action & staging: ${scene.visual_description}`,
+    sceneCue || `Scene action & staging: ${scene.visual_description || 'cinematic story beat'}`,
     'Series continuity: identical illustrated universe, persistent costume colors, consistent facial likeness hooks, unified shadow softness.',
     'No readable text, captions, logos, or watermarks.',
     accentLine

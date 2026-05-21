@@ -16,13 +16,14 @@ export function EpisodeSequentialBanner({ flashEpisodeDone, totalEpisodes }: Pro
   if (flashEpisodeDone == null || totalEpisodes <= 1) return null
 
   const nextN = flashEpisodeDone + 1
-  const arcKey = episodeArcLabelKey(Math.min(nextN, totalEpisodes), totalEpisodes)
+  if (nextN > totalEpisodes) return null
+  const arcKey = episodeArcLabelKey(nextN, totalEpisodes)
 
   return (
     <AnimatePresence mode="wait">
       <motion.div
         key={flashEpisodeDone}
-        className="episode-seq-banner"
+        className="episode-seq-banner episode-seq-banner--single"
         role="status"
         aria-live="polite"
         initial={reduced ? false : { opacity: 0, y: 10 }}
@@ -31,26 +32,16 @@ export function EpisodeSequentialBanner({ flashEpisodeDone, totalEpisodes }: Pro
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="episode-seq-banner__glow" aria-hidden />
-        <p className="episode-seq-banner__done">
-          <span className="episode-seq-banner__tick" aria-hidden>
-            ✓
+        <p className="episode-seq-banner__next episode-seq-banner__next--only">
+          <span className="episode-seq-banner__arrow" aria-hidden>
+            {Glyphs.arrowRight}
           </span>{' '}
-          {uiText('episodeFlowEpisodeExported', { n: flashEpisodeDone, m: totalEpisodes })}
+          {uiText('episodeFlowNowActive', {
+            n: nextN,
+            m: totalEpisodes,
+            arc: uiText(arcKey)
+          })}
         </p>
-        {nextN <= totalEpisodes ? (
-          <p className="episode-seq-banner__next">
-            <span className="episode-seq-banner__arrow" aria-hidden>
-              {Glyphs.arrowRight}
-            </span>{' '}
-            {uiText('episodeFlowGenerateNext', {
-              n: nextN,
-              m: totalEpisodes,
-              arc: uiText(arcKey)
-            })}
-          </p>
-        ) : (
-          <p className="episode-seq-banner__next">{uiText('episodeFlowFinalExportedHint')}</p>
-        )}
       </motion.div>
     </AnimatePresence>
   )

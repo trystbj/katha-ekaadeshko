@@ -74,6 +74,15 @@ export function splitSubtitleLines(body: string, maxChars: number): string[] {
 
 function scenePrimaryBody(s: StoryScene): string {
   let b = (s.text ?? '').trim()
+  if (!b && s.narrationText?.trim()) {
+    const parts = [s.narrationText.trim()]
+    for (const d of s.dialogueLines ?? []) {
+      if (!d.line.trim()) continue
+      const who = d.character.trim()
+      parts.push(who ? `${who} said, "${d.line.trim()}"` : `"${d.line.trim()}"`)
+    }
+    b = parts.join('\n\n').trim()
+  }
   if (s.emoji?.trim()) b = `${b} ${s.emoji.trim()}`.trim()
   return b
 }

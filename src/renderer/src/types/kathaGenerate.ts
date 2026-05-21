@@ -5,12 +5,22 @@ export interface JobsStreamGenerateResult {
     setting: string
     characters: Array<{ name: string; role: string; traits: string }>
   }
-  script: Array<{ narration: string; scene?: number; visual_description?: string }>
+  script: Array<{
+    narration: string
+    scene?: number
+    visual_description?: string
+    composed_narration?: string
+    dialogue?: Array<{ character?: string; line?: string }>
+  }>
   images?: Array<{
     image_url?: string
     imageUrl?: string
     scene?: string | number
     prompt?: string
+  }>
+  audio?: Array<{
+    scene?: string | number
+    audio_url?: string
   }>
   metadata?: {
     country?: string
@@ -47,5 +57,9 @@ export interface JobsStreamGenerateResult {
     }
     serverlessFastPath?: boolean
     cinematicDirectorDegraded?: boolean
+    renderAssemblyPlan?: Record<string, unknown>
+    sceneOrchestration?: Record<string, unknown>
+    qualityReport?: Record<string, unknown>
+    cinematicBookends?: Record<string, unknown>
   }
 }

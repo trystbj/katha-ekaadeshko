@@ -16,6 +16,8 @@ import {
   buildSynchronizedMasterTimeline
 } from './synchronizedMasterTimeline.js'
 import { buildRenderAssemblyPlan } from './renderAssemblyEngine.js'
+import { applyAiDirectorBrain, buildStoryArcPlan } from '../aiDirectorBrain.js'
+import { applyPremiumStudioLayer } from '../premium/applyPremiumStudioLayer.js'
 
 /** Blend pre-script scene outline hints into post-script breakdown units. */
 function mergeLongStorySceneHints(sceneUnits, longPlan) {
@@ -73,29 +75,71 @@ export function buildSceneOrchestratedPlan(params) {
   sceneUnits = mergeLongStorySceneHints(sceneUnits, input?.longStoryIntelligence)
   const emotionProfiles = buildEmotionProfiles(sceneUnits, script, input)
   const narrationPlans = buildNarrationOrchestrationPlan(sceneUnits, script, input)
+  const storyArc = buildStoryArcPlan(sceneUnits, script.length)
 
   const enrichedScenes = [...(plan.scenes || [])]
-  const transitions = buildSceneTransitions(enrichedScenes, sceneUnits, plan.directorPersonality)
+  const directorBrain = applyAiDirectorBrain({
+    enrichedScenes,
+    emotionProfiles,
+    sceneUnits,
+    script,
+    input,
+    storyArc
+  })
 
-  const secondsPerScene = evolution.storyAudioPlan?.secondsPerScene ?? storyAudioPlan?.secondsPerScene ?? 4
-  const masterTimeline = buildSynchronizedMasterTimeline(enrichedScenes, transitions, secondsPerScene)
-  applySynchronizedTimelineToScenes(enrichedScenes, masterTimeline)
+  const premium = applyPremiumStudioLayer({
+    enrichedScenes,
+    emotionProfiles,
+    sceneUnits,
+    script,
+    input,
+    story,
+    storyArc,
+    directorBrain,
+    storyAudioPlan: evolution.storyAudioPlan ?? storyAudioPlan,
+    storyMemorySnapshot: evolution.storyMemorySnapshot,
+    relationshipSnapshot: evolution.relationshipSnapshot,
+    trailerRecap: plan.trailerRecap,
+    directorPersonality: plan.directorPersonality,
+    voiceCast: plan.multiCharacterVoices,
+    projectId: input?.projectId
+  })
+
+  const finalScenes = premium.scenes
+  const transitions = premium.transitions
+  const masterTimeline = premium.masterTimeline
 
   const renderAssembly = buildRenderAssemblyPlan({
-    cinematicDirectorPlan: { ...plan, scenes: enrichedScenes },
+    cinematicDirectorPlan: { ...plan, scenes: finalScenes },
     script,
-    storyAudioPlan: evolution.storyAudioPlan,
+    storyAudioPlan: premium.storyAudioPlan,
     sceneUnits,
     masterTimeline,
     transitions
   })
 
+  console.info('[katha:studio]', 'ai_director_brain', {
+    scenes: finalScenes.length,
+    climax: directorBrain.storyArc?.climaxIndex
+  })
+
   const sceneOrchestration = {
-    version: 1,
-    pipelineStages: PIPELINE_STAGES,
+    version: 3,
+    pipelineStages: [...PIPELINE_STAGES, 'ai_director_brain', 'premium_studio_layer'],
     sceneUnits,
     emotionProfiles,
     narrationPlans,
+    storyArc: directorBrain.storyArc,
+    aiDirector: directorBrain,
+    premiumStudio: {
+      bookends: premium.bookends,
+      attentionPlan: premium.attentionPlan,
+      subtitleCinematic: premium.subtitleCinematic,
+      shortForm: premium.shortForm,
+      animationRegistry: premium.animationRegistry,
+      performance: premium.performance,
+      qualityReport: premium.qualityReport
+    },
     transitions,
     masterTimeline,
     renderAssembly
@@ -103,7 +147,10 @@ export function buildSceneOrchestratedPlan(params) {
 
   const cinematicDirectorPlan = {
     ...plan,
-    scenes: enrichedScenes,
+    scenes: finalScenes,
+    cinematicBookends: premium.bookends,
+    shortForm: premium.shortForm,
+    subtitleCinematic: premium.subtitleCinematic,
     masterTimeline: {
       syncVersion: 2,
       secondsPerScene: masterTimeline.secondsPerScene,
@@ -116,7 +163,10 @@ export function buildSceneOrchestratedPlan(params) {
   return {
     ...evolution,
     cinematicDirectorPlan,
+    storyMemorySnapshot: premium.emotionalMemory ?? evolution.storyMemorySnapshot,
+    storyAudioPlan: premium.storyAudioPlan ?? evolution.storyAudioPlan,
     sceneOrchestration,
-    renderAssemblyPlan: renderAssembly
+    renderAssemblyPlan: renderAssembly,
+    qualityReport: premium.qualityReport
   }
 }

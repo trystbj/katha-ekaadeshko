@@ -1,0 +1,421 @@
+/**
+ * Studio theme system — light + dark tokens and contrast fixes.
+ * Loaded after studio-mock-layout / studio-cinematic so overrides win.
+ */
+
+/* ── Global theme tokens (App shell + studio) ── */
+:root,
+[data-theme='light'] {
+  --katha-text: #1c2430;
+  --katha-text-muted: #4a5568;
+  --katha-text-inverse: #f8fafc;
+  --katha-surface: #f4f6f9;
+  --katha-surface-2: #eef1f6;
+  --katha-surface-elevated: #ffffff;
+  --katha-border: #c5ced8;
+  --katha-border-strong: #9aa8b8;
+  --katha-accent: #4f5fd4;
+  --katha-accent-2: #6b4fc9;
+  --katha-gold: #9a7b1a;
+  --katha-gold-bright: #c49a1e;
+  --katha-danger: #b42318;
+  --katha-focus-ring: rgba(79, 95, 212, 0.45);
+  --katha-input-bg: #ffffff;
+  --katha-input-text: #152232;
+  --katha-placeholder: #5c6b7a;
+  --katha-shadow: 0 4px 18px rgba(28, 36, 48, 0.08);
+  --katha-shadow-strong: 0 8px 28px rgba(28, 36, 48, 0.12);
+  --katha-readable-surface: rgba(255, 255, 255, 0.92);
+  --katha-readable-block: rgba(248, 250, 252, 0.96);
+  --katha-text-shadow: none;
+  --katha-text-shadow-soft: 0 1px 0 rgba(255, 255, 255, 0.85);
+  --studio-dropdown-caret-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M2 2.25 6 5.75 10 2.25' fill='none' stroke='%234a5568' stroke-width='1.45' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+[data-theme='dark'] {
+  --katha-text: #e8ecf1;
+  --katha-text-muted: #9aa3b2;
+  --katha-text-inverse: #1a1206;
+  --katha-surface: #222831;
+  --katha-surface-2: #2a303c;
+  --katha-surface-elevated: #2e3644;
+  --katha-border: #3a4252;
+  --katha-border-strong: #4d5668;
+  --katha-accent: #8fa3ff;
+  --katha-accent-2: #c4a6ff;
+  --katha-gold: #d4af37;
+  --katha-gold-bright: #f0dc82;
+  --katha-danger: #ff7a7a;
+  --katha-focus-ring: rgba(212, 175, 55, 0.5);
+  --katha-input-bg: rgba(0, 0, 0, 0.35);
+  --katha-input-text: #f8fafc;
+  --katha-placeholder: rgba(255, 244, 232, 0.65);
+  --katha-shadow: 0 10px 36px rgba(0, 0, 0, 0.35);
+  --katha-shadow-strong: 0 14px 48px rgba(0, 0, 0, 0.45);
+  --katha-readable-surface: rgba(0, 0, 0, 0.28);
+  --katha-readable-block: rgba(0, 0, 0, 0.22);
+  --katha-text-shadow: 0 1px 2px rgba(0, 0, 0, 0.88), 0 0 4px rgba(0, 0, 0, 0.35);
+  --katha-text-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.75);
+  --studio-dropdown-caret-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M2 2.25 6 5.75 10 2.25' fill='none' stroke='%23f4da84' stroke-width='1.45' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Sync legacy App.css vars */
+:root,
+[data-theme='light'] {
+  --bg: var(--katha-surface-2);
+  --surface: var(--katha-surface);
+  --surface-2: var(--katha-surface-elevated);
+  --text: var(--katha-text);
+  --muted: var(--katha-text-muted);
+  --accent: var(--katha-accent);
+  --accent-2: var(--katha-accent-2);
+  --border: var(--katha-border);
+  --danger: var(--katha-danger);
+  --shadow: var(--katha-shadow);
+}
+
+[data-theme='dark'] {
+  --bg: #1a1e26;
+  --surface: #222831;
+  --surface-2: #2a303c;
+  --text: var(--katha-text);
+  --muted: var(--katha-text-muted);
+  --accent: var(--katha-accent);
+  --accent-2: var(--katha-accent-2);
+  --border: var(--katha-border);
+  --danger: var(--katha-danger);
+  --shadow: var(--katha-shadow);
+}
+
+/* ── Light theme: studio mock layout ── */
+[data-theme='light'] .app-shell.studio-mock-layout {
+  --mock-teal-deep: rgba(255, 255, 255, 0.94);
+  --mock-panel: rgba(255, 255, 255, 0.88);
+  --studio-readable-surface: var(--katha-readable-surface);
+  --studio-readable-block: var(--katha-readable-block);
+  --mock-border: rgba(154, 123, 26, 0.55);
+  --mock-text: var(--katha-input-text);
+  --mock-text-muted: var(--katha-text-muted);
+  --mock-text-shadow: var(--katha-text-shadow-soft);
+  --mock-text-shadow-gold: 0 1px 0 rgba(255, 255, 255, 0.9);
+  --mock-gold: var(--katha-gold-bright);
+  --studio-mock-column-label-sky: #1a5f7a;
+  --studio-glass: rgba(255, 255, 255, 0.78);
+  --studio-glass-border: rgba(154, 123, 26, 0.5);
+  color-scheme: light;
+}
+
+[data-theme='light'] .app-shell--premium {
+  color: var(--katha-text);
+}
+
+[data-theme='light'] [data-studio-season] .head,
+[data-theme='light'] [data-studio-season] .panel {
+  background: var(--studio-glass);
+  border-color: var(--studio-glass-border);
+  box-shadow: var(--katha-shadow);
+  color: var(--katha-text);
+}
+
+[data-theme='light'] [data-studio-season] .btn:not(.btn-ghost) {
+  color: var(--katha-text-inverse);
+}
+
+[data-theme='light'] [data-studio-season] .btn-ghost,
+[data-theme='light'] .app-shell.studio-mock-layout .btn-ghost {
+  background: var(--katha-surface-elevated);
+  color: var(--katha-text);
+  border-color: var(--katha-border);
+}
+
+[data-theme='light'] .app-shell.studio-mock-layout .btn-ghost:hover:not(:disabled) {
+  background: #e8eef4;
+  border-color: var(--katha-border-strong);
+}
+
+[data-theme='light'] .app-shell.studio-mock-layout .btn:focus-visible,
+[data-theme='light'] .app-shell.studio-mock-layout .select:focus-visible,
+[data-theme='light'] .app-shell.studio-mock-layout .idea-input:focus-visible {
+  outline: 2px solid var(--katha-focus-ring) !important;
+  outline-offset: 2px;
+}
+
+/* Readable blocks on light wallpaper */
+[data-theme='light'] .studio-mock-frame .panel h3,
+[data-theme='light'] .studio-mock-section-title,
+[data-theme='light'] .studio-mock-col-label,
+[data-theme='light'] .studio-mock-col-label--sky,
+[data-theme='light'] .studio-mock-monitor-section-title,
+[data-theme='light'] .studio-mock-foot,
+[data-theme='light'] .studio-mock-foot__hint,
+[data-theme='light'] .studio-mock-nav__btn,
+[data-theme='light'] .studio-mock-corner-datetime,
+[data-theme='light'] .studio-mock-banner-row,
+[data-theme='light'] .episode-row,
+[data-theme='light'] .studio-mock-monitor-live-gen__pre {
+  color: var(--mock-text) !important;
+  text-shadow: var(--mock-text-shadow) !important;
+}
+
+[data-theme='light'] .studio-mock-col-label--sky,
+[data-theme='light'] .studio-mock-section-title__sky {
+  color: var(--studio-mock-column-label-sky) !important;
+}
+
+[data-theme='light'] .studio-mock-nav__btn {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--mock-border);
+}
+
+[data-theme='light'] .studio-mock-nav__btn:hover,
+[data-theme='light'] .studio-mock-nav__btn--active {
+  background: rgba(255, 248, 230, 0.95);
+  color: #3d2e08 !important;
+}
+
+/* Inputs / selects */
+[data-theme='light'] .studio-mock-frame .idea-input--cinematic,
+[data-theme='light'] .studio-mock-frame .idea-input,
+[data-theme='light'] .studio-mock-narration-select,
+[data-theme='light'] .studio-mock-narration-select--inline,
+[data-theme='light'] .app-shell.studio-mock-layout .select,
+[data-theme='light'] .studio-mock-frame select {
+  background: var(--katha-input-bg) !important;
+  color: var(--katha-input-text) !important;
+  border-color: var(--katha-border-strong) !important;
+  text-shadow: none !important;
+  caret-color: var(--katha-accent) !important;
+  box-shadow: inset 0 1px 2px rgba(28, 36, 48, 0.06) !important;
+}
+
+[data-theme='light'] .studio-mock-frame .idea-input--cinematic::placeholder,
+[data-theme='light'] .studio-mock-frame .idea-input::placeholder {
+  color: var(--katha-placeholder) !important;
+  text-shadow: none !important;
+}
+
+[data-theme='light'] .studio-mock-col--story .studio-mock-generate-cta {
+  color: #1a2e1f !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+  border-color: rgba(120, 160, 90, 0.85) !important;
+}
+
+[data-theme='light'] .studio-mock-voice-fab.btn {
+  color: var(--katha-text) !important;
+  background: var(--katha-surface-elevated) !important;
+}
+
+/* Preview panel light */
+[data-theme='light'] .studio-mock-preview-wrap .preview-stage.preview-stage--blank-idle {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border-color: var(--mock-border) !important;
+}
+
+[data-theme='light'] .preview-stage--blank-idle .preview-stage__caption {
+  color: var(--katha-text-muted) !important;
+  text-shadow: none !important;
+}
+
+[data-theme='light'] .studio-mock-preview-wrap .preview-stage.preview-stage--has-scene {
+  background: rgba(12, 24, 32, 0.88) !important;
+}
+
+/* Live script / monitor */
+[data-theme='light'] .live-script-preview__line,
+[data-theme='light'] .live-script-preview__who,
+[data-theme='light'] .live-script-preview__empty,
+[data-theme='light'] .live-script-preview__pulse-label {
+  color: var(--katha-input-text) !important;
+  text-shadow: var(--katha-text-shadow-soft) !important;
+}
+
+[data-theme='light'] .live-script-preview__block {
+  background: var(--katha-readable-block) !important;
+  border-color: var(--katha-border) !important;
+}
+
+[data-theme='light'] .live-script-preview__details summary {
+  color: var(--katha-gold) !important;
+  text-shadow: none !important;
+}
+
+/* Storyboard monitor */
+[data-theme='light'] .cine-sb-monitor,
+[data-theme='light'] .cine-sb-tile__narration,
+[data-theme='light'] .cine-sb-tile__dialogue,
+[data-theme='light'] .cine-sb-tile__visual,
+[data-theme='light'] .cine-sb-tile__meta,
+[data-theme='light'] .cine-sb-tile__voice,
+[data-theme='light'] .cine-sb-tile__tag {
+  color: var(--katha-text) !important;
+  text-shadow: none !important;
+}
+
+[data-theme='light'] .cine-sb-tile {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--katha-border);
+}
+
+[data-theme='light'] .cine-sb-tile__dialogue-who {
+  color: var(--katha-gold) !important;
+}
+
+/* Custom style panel */
+[data-theme='light'] .custom-style-panel,
+[data-theme='light'] .custom-style-panel__label,
+[data-theme='light'] .custom-style-panel__hint,
+[data-theme='light'] .custom-style-panel textarea {
+  color: var(--katha-text) !important;
+}
+
+[data-theme='light'] .custom-style-panel textarea {
+  background: var(--katha-input-bg) !important;
+  border-color: var(--katha-border) !important;
+}
+
+/* Theme toggle / one-tap */
+[data-theme='light'] .theme-onetap,
+[data-theme='light'] .theme-onetap__label {
+  color: var(--katha-text) !important;
+}
+
+[data-theme='light'] .theme-onetap__btn {
+  background: var(--katha-surface-elevated);
+  border-color: var(--katha-border);
+  color: var(--katha-text);
+}
+
+/* Cinematic player chrome */
+[data-theme='light'] .cinematic-player__chrome,
+[data-theme='light'] .cinematic-player__meta {
+  color: var(--katha-text);
+}
+
+/* Softer glow in light mode — readability */
+[data-theme='light'] .style-card.selected {
+  box-shadow:
+    0 0 0 2px var(--katha-gold-bright),
+    0 4px 16px rgba(154, 123, 26, 0.25) !important;
+  animation: none !important;
+}
+
+[data-theme='light'] .studio-mock-col--style .style-card.style-card--portrait:hover:not(.selected) {
+  filter: none !important;
+}
+
+/* Dark theme: reinforce mock tokens */
+[data-theme='dark'] .app-shell.studio-mock-layout {
+  color-scheme: dark;
+}
+
+[data-theme='dark'] .app-shell.studio-mock-layout {
+  --mock-text: rgba(255, 252, 248, 0.98);
+  --mock-text-shadow: 0 1px 2px rgba(0, 0, 0, 0.92), 0 0 5px rgba(0, 0, 0, 0.48);
+}
+
+/* studio-cinematic.css dialog / script (shared selectors) */
+[data-theme='light'] .idea-input--cinematic,
+[data-theme='light'] .live-script-preview__typewriter,
+[data-theme='light'] .script-pre {
+  color: var(--katha-input-text) !important;
+  text-shadow: none !important;
+}
+
+[data-theme='light'] .live-script-preview__stream-label,
+[data-theme='light'] .live-script-preview__who,
+[data-theme='light'] .live-script-preview__line,
+[data-theme='light'] .live-script-preview__thought-tag,
+[data-theme='light'] .live-script-preview__empty,
+[data-theme='light'] .live-script-preview__caret {
+  color: var(--katha-text) !important;
+  text-shadow: none !important;
+}
+
+[data-theme='light'] .live-script-preview__block--narrator .live-script-preview__who {
+  color: var(--katha-accent) !important;
+}
+
+[data-theme='light'] .live-script-preview__block {
+  background: var(--katha-readable-block) !important;
+  border-color: var(--katha-border-strong) !important;
+}
+
+[data-theme='light'] .live-script-preview__block--focus {
+  box-shadow: 0 0 0 2px var(--katha-focus-ring) !important;
+}
+
+[data-theme='light'] .narrator-voice-details__hint,
+[data-theme='light'] .narrator-voice-details__meta {
+  color: var(--katha-text-muted) !important;
+}
+
+[data-theme='light'] .live-script-preview__stream,
+[data-theme='light'] .studio-mock-script-panel {
+  color: var(--katha-text);
+}
+
+[data-theme='light'] .monitor-settings-panel,
+[data-theme='light'] .monitor-user-guide,
+[data-theme='light'] .saved-projects-window {
+  color: var(--katha-text);
+  background: var(--katha-surface);
+}
+
+[data-theme='light'] .narrator-language-voice,
+[data-theme='light'] .narrator-language-voice__label {
+  color: var(--katha-text) !important;
+}
+
+[data-theme='light'] .narrator-voice-details__dropdown-zone .select,
+[data-theme='light'] button.select.narrator-voice-details__lang-trigger {
+  background-color: var(--katha-input-bg) !important;
+  color: var(--katha-input-text) !important;
+  color-scheme: light !important;
+  border-color: var(--katha-border-strong) !important;
+  text-shadow: none !important;
+}
+
+[data-theme='light'] .saved-projects-window {
+  background: linear-gradient(165deg, #e8eef4 0%, #d5dee8 100%);
+  color: var(--katha-text);
+}
+
+[data-theme='light'] .saved-projects-window__card {
+  background: var(--katha-surface-elevated);
+  border-color: var(--katha-border);
+  color: var(--katha-text);
+}
+
+/* Hero logo: disable blur animation in light mode (crisp type) */
+[data-theme='light'] .studio-mock-logo-en-hero-char {
+  color: #7a5c12 !important;
+  -webkit-text-fill-color: #7a5c12 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) !important;
+  animation: none !important;
+  filter: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+  will-change: auto;
+}
+
+[data-theme='light'] .studio-mock-datetime__digital,
+[data-theme='light'] .studio-mock-datetime__label {
+  color: var(--katha-text) !important;
+  text-shadow: var(--katha-text-shadow-soft) !important;
+}
+
+[data-theme='light'] .studio-mock-style-hint,
+[data-theme='light'] .studio-mock-episodes-hint,
+[data-theme='light'] .style-card__label {
+  color: var(--katha-text) !important;
+  text-shadow: none !important;
+}
+
+[data-theme='light'] .studio-generation-banner {
+  color: var(--katha-text);
+}
+
+[data-theme='light'] .disabled,
+[data-theme='light'] :disabled {
+  opacity: 0.55;
+}

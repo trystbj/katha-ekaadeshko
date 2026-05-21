@@ -10,6 +10,8 @@ import { worldSimulationBlueprintBlock } from '../cinematic/worldSimulation.js'
 import { relationshipBlueprintBlock } from '../cinematic/emotionalRelationshipEngine.js'
 import { creatorPreferencesBlueprintBlock } from '../cinematic/creatorPreferenceLearning.js'
 import { compactSeedLineForPipeline } from '../../shared/storyIdeaLimits.js'
+import { analyzeNamingPolicy } from '../../shared/characterNamingPolicy.js'
+import { cinematicWritingBlueprintSection } from '../cinematic/cinematicStoryWriting.js'
 
 /** Base language code → human label for prompts */
 const LANG_LABEL = {
@@ -215,6 +217,11 @@ export function buildGenerationBlueprint(input) {
     : ''
   const memoryBlock = memoryContinuityLock(normalized)
   const evolutionBlock = evolutionContinuityLock(normalized)
+  const namingPolicy = analyzeNamingPolicy(seedLine, theme)
+  const namingBlock =
+    namingPolicy.blueprintLines.length > 0
+      ? `\n\n${namingPolicy.blueprintLines.join('\n')}`
+      : ''
 
   const blueprintBlock = `GENERATION BLUEPRINT — USER LOCKS (non-negotiable)
 
@@ -232,6 +239,8 @@ ${languageLock(storyLanguage, langDisplay)}
 8) Locked MOOD / pacing tag: ${storyTone || '(neutral — follow genre default pacing)'}
 9) Locked LENGTH bucket: ${length || '(studio default)'}
 ${audienceLine}
+${namingBlock}
+${cinematicWritingBlock}
 
 GENRE INTEGRITY (auto-applied):
 ${genreIntegrity(genre) || '- Maintain strict fidelity to declared GENRE; no stealth genre-swapping.'}
@@ -246,6 +255,12 @@ CUSTOM SEED PARSING:
 - Extract extra theme, mood, palette, pacing, or locale cues ONLY when the USER SEED states them plainly.
 - Never override higher-priority locks with unrelated “creative” defaults.
 - Do not invent contradictory B-plots, gag runners, or alternate genres absent from GENRE + SEED.
+
+SCENE & SCRIPT FIDELITY (mandatory):
+- Every scene must advance the USER SEED plot — no filler vignettes unrelated to the request.
+- visual_description must depict the same location, cast, action, emotion, and time-of-day as narration for that scene.
+- characters_in_shot, mood, environment, lighting, and camera fields must align with the seed’s genre, tone, and relationships.
+- Maintain narrative continuity: costumes, relationships, and emotional arc carry forward unless the seed says otherwise.
 
 ABSOLUTE TABOOS:
 - Mixing primary prose/dialogue language away from lock ${langDisplay} without explicit bilingual permission in the SEED.

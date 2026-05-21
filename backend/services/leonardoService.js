@@ -1,5 +1,29 @@
 import { buildLeonardoScenePrompt } from '../utils/visualStyleLock.js'
+import { characterReferencePromptBlock } from '../utils/characterReferencePrompt.js'
+import {
+  buildCharacterIdentityMemory,
+  leonardoIdentityBlockForScriptRow
+} from '../character/characterIdentityMemory.js'
 import { isServerlessRuntime } from '../utils/runtime.js'
+
+const SCENE_IMAGE_MAX_ATTEMPTS = 2
+
+async function generateOneWithRetry(args) {
+  let lastErr = null
+  for (let attempt = 1; attempt <= SCENE_IMAGE_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await generateOne(args)
+    } catch (e) {
+      lastErr = e
+      console.warn('[katha:leonardo]', 'scene_retry', {
+        attempt,
+        message: e instanceof Error ? e.message : String(e)
+      })
+      if (attempt < SCENE_IMAGE_MAX_ATTEMPTS) await sleep(1200)
+    }
+  }
+  throw lastErr || new Error('Leonardo: generation failed')
+}
 
 const LEONARDO_API = 'https://cloud.leonardo.ai/api/rest/v1'
 
@@ -19,7 +43,7 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-export async function leonardoGenerateForScript({ script, input, onProgress }) {
+export async function leonardoGenerateForScript({ script, input, onProgress, characters }) {
   // Serverless-safe: Leonardo returns hosted URLs; no local storage required.
   // You can disable explicitly if desired.
   if (process.env.KATHA_DISABLE_LEONARDO === '1') return []
@@ -30,19 +54,45 @@ export async function leonardoGenerateForScript({ script, input, onProgress }) {
   const modelId = process.env.LEONARDO_MODEL_ID || '7b592283-e8a7-4c5a-9ba6-d18c31f258b9'
   const { width, height } = leonardoDimensionsForAspectMode(input.aspectMode)
 
+  const castMemory = buildCharacterIdentityMemory(Array.isArray(characters) ? characters : [])
+  const crefPrompt = characterReferencePromptBlock(input.characterReference, characters)
+  const inputWithRefs = crefPrompt
+    ? { ...input, __characterReferencePrompt: crefPrompt }
+    : input
   const out = []
+  const failures = []
   for (let i = 0; i < script.length; i++) {
     const s = script[i]
-    const prompt = buildLeonardoScenePrompt(s, input)
-    const { imageUrl } = await generateOne({ prompt, modelId, width, height })
-    out.push({ scene: s.scene, image_url: imageUrl, prompt })
+    const sceneNum = Number(s.scene)
+    const sceneKey = Number.isFinite(sceneNum) && sceneNum > 0 ? sceneNum : i + 1
+    try {
+      const identityBlock = leonardoIdentityBlockForScriptRow(s, castMemory)
+      const prompt = buildLeonardoScenePrompt(s, inputWithRefs, identityBlock)
+      const { imageUrl, seed } = await generateOneWithRetry({ prompt, modelId, width, height })
+      out.push({ scene: sceneKey, image_url: imageUrl, prompt, leonardoSeed: seed, status: 'complete' })
+      console.info('[katha:character]', 'leonardo_scene', {
+        scene: sceneKey,
+        castSlots: castMemory.map((m) => `${m.label}:${m.gender}`).join(', ')
+      })
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      failures.push({ scene: sceneKey, message })
+      console.warn('[katha:leonardo]', 'scene_failed', { scene: sceneKey, message })
+    }
     if (onProgress) {
       onProgress({
         stage: 'images',
         progress: Math.round(((i + 1) / Math.max(1, script.length)) * 100),
-        message: `Image ${i + 1}/${script.length}`
+        message: `Image ${i + 1}/${script.length}${failures.length ? ` (${failures.length} retry later)` : ''}`
       })
     }
+  }
+  if (failures.length) {
+    console.warn('[katha:leonardo]', 'batch_partial', {
+      ok: out.length,
+      failed: failures.length,
+      scenes: failures.map((f) => f.scene).join(',')
+    })
   }
   return out
 }

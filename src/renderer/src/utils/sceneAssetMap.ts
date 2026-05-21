@@ -1,0 +1,102 @@
+import type { AssetRef, ProjectState, StoryScene } from '../types/story'
+
+/** Resolve 1-based scene index from a pipeline script row or image row. */
+export function sceneIndexFromPipelineRow(
+  row: { scene?: string | number } | null | undefined,
+  fallback: number
+): number {
+  const n = Number(row?.scene)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback
+}
+
+export function buildSceneAssetsFromPipeline(
+  images: { image_url?: string; imageUrl?: string; scene?: string | number; prompt?: string }[]
+): AssetRef[] {
+  const assets: AssetRef[] = []
+  for (let i = 0; i < images.length; i++) {
+    const row = images[i]
+    const url = row?.image_url || row?.imageUrl
+    if (!url || typeof url !== 'string') continue
+    const sceneNum = sceneIndexFromPipelineRow(row, i + 1)
+    const key = `scene:${sceneNum}`
+    assets.push({
+      id: `a_scene_${sceneNum}_${i}`,
+      kind: 'scene',
+      key,
+      url,
+      prompt: String(row.prompt ?? ''),
+      createdAt: new Date().toISOString()
+    })
+    console.info('[katha:scene-map]', 'asset_from_pipeline', { key, index: i, sceneNum })
+  }
+  return assets
+}
+
+/** Merge incoming scene assets by key; preserve non-scene assets from existing. */
+export function mergeProjectAssets(existing: AssetRef[] = [], incoming: AssetRef[] = []): AssetRef[] {
+  const sceneByKey = new Map<string, AssetRef>()
+  const other: AssetRef[] = []
+  for (const a of existing) {
+    if (a.kind === 'scene') sceneByKey.set(a.key, a)
+    else other.push(a)
+  }
+  for (const a of incoming) {
+    if (a.kind === 'scene') sceneByKey.set(a.key, a)
+    else other.push(a)
+  }
+  const merged = [...other, ...sceneByKey.values()].sort((a, b) => {
+    if (a.kind !== 'scene' || b.kind !== 'scene') return 0
+    const na = Number(/^scene:(\d+)$/.exec(a.key)?.[1] ?? 0)
+    const nb = Number(/^scene:(\d+)$/.exec(b.key)?.[1] ?? 0)
+    return na - nb
+  })
+  console.info('[katha:scene-map]', 'merge_assets', {
+    existingScenes: existing.filter((x) => x.kind === 'scene').length,
+    incomingScenes: incoming.filter((x) => x.kind === 'scene').length,
+    totalScenes: sceneByKey.size
+  })
+  return merged
+}
+
+export function sceneUrlForIndex(project: ProjectState | null, sceneIndex: number): string | undefined {
+  if (!project?.assets?.length || !sceneIndex) return undefined
+  const key = `scene:${sceneIndex}`
+  const hit = project.assets.find((a) => a.kind === 'scene' && a.key === key && a.url)
+  return hit?.url
+}
+
+/** Scene still URLs ordered to match episode `scenes[]` row order (by each row's `index`). */
+export function sceneStillUrlsForEpisode(
+  project: ProjectState | null,
+  episodeScenes: StoryScene[] = []
+): string[] {
+  return episodeScenes.map((s) => sceneUrlForIndex(project, s.index) ?? '')
+}
+
+/** Ordered scene image URLs for preview carousel (falls back to any scene assets). */
+export function orderedSceneImageUrls(
+  project: ProjectState | null,
+  episodeScenes?: StoryScene[]
+): string[] {
+  if (!project?.assets?.length) return []
+  const byIndex = new Map<number, string>()
+  for (const a of project.assets) {
+    if (a.kind !== 'scene' || !a.url) continue
+    const m = /^scene:(\d+)$/.exec(String(a.key).trim())
+    if (m) byIndex.set(Number(m[1]), a.url)
+  }
+  if (episodeScenes?.length) {
+    const ordered = episodeScenes
+      .map((s) => byIndex.get(s.index))
+      .filter((u): u is string => typeof u === 'string' && u.length > 0)
+    if (ordered.length) {
+      console.info('[katha:preview]', 'ordered_scene_urls', { count: ordered.length, mode: 'episode' })
+      return ordered
+    }
+  }
+  const fallback = [...byIndex.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, u]) => u)
+  console.info('[katha:preview]', 'ordered_scene_urls', { count: fallback.length, mode: 'assets' })
+  return fallback
+}

@@ -15,14 +15,28 @@ export async function fetchCopilotPatches(
   return res.json()
 }
 
-export async function fetchRegenerationPlan(target: RegenerationTarget, sceneIndex: number, episode: StoryEpisode) {
+export async function fetchRegenerationPlan(
+  target: RegenerationTarget,
+  sceneIndex: number,
+  episode: StoryEpisode,
+  opts?: { execute?: boolean; studioInput?: Record<string, unknown> }
+) {
   const res = await fetch('/api/creator-scene-regenerate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ target, sceneIndex, episode })
+    body: JSON.stringify({
+      target,
+      sceneIndex,
+      episode,
+      execute: opts?.execute === true,
+      studioInput: opts?.studioInput
+    })
   })
   if (!res.ok) throw new Error(await res.text())
-  return res.json() as Promise<{ regenerationPlan: Record<string, unknown> }>
+  return res.json() as Promise<{
+    regenerationPlan: Record<string, unknown>
+    execution?: Record<string, unknown>
+  }>
 }
 
 export async function fetchQualityReport(episode: StoryEpisode) {

@@ -11,6 +11,7 @@ type Props = {
   storyMetaLocked: boolean
   busy: boolean
   showReferenceControls?: boolean
+  characterId?: string
   onOpenPortrait: () => void
   onGeneratePortrait: () => void
   onNameChange: (name: string) => void
@@ -24,6 +25,7 @@ export function MonitorCharacterCard({
   storyMetaLocked,
   busy,
   showReferenceControls,
+  characterId,
   onOpenPortrait,
   onGeneratePortrait,
   onNameChange,
@@ -90,7 +92,7 @@ export function MonitorCharacterCard({
               value={c.personality}
               onChange={(e) => onPersonalityChange(e.target.value)}
             />
-            {showReferenceControls ? <CharacterReferenceUpload /> : null}
+            {showReferenceControls ? <CharacterReferenceUpload characterId={characterId} /> : null}
           </>
         ) : (
           <>

@@ -20,8 +20,15 @@ type Props = {
   useWireframeExplanation?: boolean
   /** Short celebration burst after a successful pipeline-heavy generation completes. */
   celebrateComplete?: boolean
+  /** i18n key for celebration caption (default: video ready). */
+  celebrateTitleKey?: string
   /** Pipeline scene URLs — live thumbnail strip while generating. */
   pipelineThumbUrls?: string[]
+  /** Override hero still (e.g. character portrait) without leaving the preview panel. */
+  heroUrl?: string | null
+  /** Active index in `sceneUrls` carousel (embedded preview). */
+  carouselIndex?: number
+  onCarouselIndexChange?: (index: number) => void
 }
 
 /** Center cinematic viewport — idle seasonal art, scene rotator, or generating shimmer. */
@@ -35,12 +42,19 @@ export function PreviewStage({
   idleBlank = false,
   useWireframeExplanation = false,
   celebrateComplete = false,
-  pipelineThumbUrls = []
+  celebrateTitleKey = 'previewCelebrateReady',
+  pipelineThumbUrls = [],
+  heroUrl = null,
+  carouselIndex = 0,
+  onCarouselIndexChange
 }: Props) {
   const uiText = useUiText()
   const reduced = usePrefersReducedMotion()
   const preset = STUDIO_SEASON_PRESETS[normalizeStudioSeasonId(seasonId)]
-  const hero = sceneUrls[0]
+  const safeIx = sceneUrls.length
+    ? Math.min(Math.max(0, carouselIndex), sceneUrls.length - 1)
+    : 0
+  const hero = heroUrl || sceneUrls[safeIx] || sceneUrls[0]
   const pct = typeof jobProgress === 'number' ? Math.min(100, Math.max(0, jobProgress)) : undefined
   const blankIdle = Boolean(idleBlank && !hero)
 
@@ -108,12 +122,33 @@ export function PreviewStage({
             </div>
           ) : null}
 
+          {!busy && sceneUrls.length > 1 && onCarouselIndexChange ? (
+            <div className="preview-stage__thumb-strip preview-stage__thumb-strip--idle" role="tablist" aria-label={uiText('previewStageSceneHint')}>
+              {sceneUrls.map((url, i) => (
+                <button
+                  key={`${url}-${i}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === safeIx && !heroUrl}
+                  className={`preview-stage__thumb-tile preview-stage__thumb-tile--btn${i === safeIx && !heroUrl ? ' preview-stage__thumb-tile--active' : ''}`}
+                  style={{ backgroundImage: `url(${url})` }}
+                  onClick={() => {
+                    console.info('[katha:preview]', 'carousel_select', { index: i })
+                    onCarouselIndexChange(i)
+                  }}
+                />
+              ))}
+            </div>
+          ) : null}
+
           {busy || hero || !blankIdle || useWireframeExplanation ? (
             <div className="preview-stage__caption">
               {busy
                 ? uiText('previewStageGenerating')
                 : hero
-                  ? uiText('previewStageSceneHint')
+                  ? sceneUrls.length > 1
+                    ? `${uiText('previewStageSceneHint')} (${safeIx + 1}/${sceneUrls.length})`
+                    : uiText('previewStageSceneHint')
                   : blankIdle && useWireframeExplanation
                     ? uiText('previewStageWireframeExplanation')
                     : uiText('previewStageIdleHint')}
@@ -139,7 +174,7 @@ export function PreviewStage({
                 >
                   ✓
                 </motion.div>
-                <p className="preview-stage__celebrate-title">{uiText('previewCelebrateReady')}</p>
+                <p className="preview-stage__celebrate-title">{uiText(celebrateTitleKey)}</p>
               </motion.div>
             ) : null}
           </AnimatePresence>

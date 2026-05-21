@@ -2,7 +2,13 @@ import { useCallback } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import { defaultProject, newProjectId } from '../types/story'
 import type { JobsStreamGenerateResult } from '../types/kathaGenerate'
-import type { AssetRef, StoryBible, StoryEpisode, StoryScene, VisualStyleId } from '../types/story'
+import type {
+  CharacterIdentitySlot,
+  StoryBible,
+  StoryEpisode,
+  StoryScene,
+  VisualStyleId
+} from '../types/story'
 import { useStudioStore } from '../store/useStudioStore'
 import { pushStoryToCloudIfSignedIn, pushStoryToHistory } from '../utils/storyHistory'
 import { inferCountryFromLanguageCode } from '../utils/inferCountryFromLanguage'
@@ -16,6 +22,26 @@ import {
 import { narratorIdentityForId } from '../constants/narratorVoiceProfiles'
 import { drainSseBuffer } from '../utils/parseSseStream'
 import { clampStoryIdea } from '../constants/storyIdeaLimits'
+import { episodeSceneImageCoverage, withStoryboardReady } from '../utils/storyboardWorkflow'
+import {
+  attachSceneGenerationStatuses,
+  buildEpisodeScenesFromScriptRows,
+  filterAssetsToSceneIndices
+} from '../utils/scenePipelineStatus'
+import { defaultVideoStudioState } from '../types/videoStudio'
+import {
+  analyzeNamingPolicy,
+  buildCharacterIdentityMemory,
+  sanitizeStoryCharacters
+} from '@shared/characterNamingPolicy.js'
+import {
+  buildProjectMemoryPatch,
+  mergeProjectMemoryIntoPreferences
+} from '@shared/projectMemory.js'
+import {
+  buildSceneAssetsFromPipeline,
+  mergeProjectAssets
+} from '../utils/sceneAssetMap'
 
 export function useBackendGenerate() {
   const uiText = useUiText()
@@ -117,7 +143,22 @@ export function useBackendGenerate() {
           ...(priorWorldState ? { priorWorldState } : {}),
           ...(priorRelationships?.length ? { priorRelationships } : {}),
           ...(creatorPreferences ? { creatorPreferences } : {}),
-          ...(prefersReducedMotion ? { performancePreferLow: true } : {})
+          ...(wsProject?.characterReference ? { characterReference: wsProject.characterReference } : {}),
+          ...(wsProject?.bible?.characters?.length
+            ? {
+                bibleCharacters: wsProject.bible.characters.map((c) => ({
+                  name: c.name,
+                  gender: c.gender,
+                  age: c.age,
+                  appearance: c.appearance || c.visualIdentity,
+                  visualIdentity: c.visualIdentity,
+                  referenceImages: c.referenceImages
+                }))
+              }
+            : {}),
+          ...(prefersReducedMotion
+            ? { performancePreferLow: true }
+            : { studioOrchestration: true, multiCharacterVoices: true })
         })
       })
       if (!res.ok) throw new Error(await res.text())
@@ -138,7 +179,7 @@ export function useBackendGenerate() {
           }
           if (evt.type === 'job') {
             useStudioStore.getState().setWorkspaceJob(workspaceIx, {
-              id: evt.id as string | null,
+              id: evt.id != null ? String(evt.id) : 'job',
               stage: 'starting',
               progress: 0,
               log: []
@@ -191,49 +232,63 @@ export function useBackendGenerate() {
         )
       }
 
-      const pipelineImages: { image_url?: string; imageUrl?: string; scene?: string | number; prompt?: string }[] =
-        Array.isArray(out.images) ? out.images : []
+      const pipelineResult: JobsStreamGenerateResult = out
 
-      const assetsFromPipeline: AssetRef[] = []
-      for (let i = 0; i < pipelineImages.length; i++) {
-        const row = pipelineImages[i]
-        const url = row?.image_url || row?.imageUrl
-        if (!url || typeof url !== 'string') continue
-        assetsFromPipeline.push({
-          id: `a_${newProjectId()}`,
-          kind: 'scene',
-          key: `scene:${String(row.scene ?? i + 1)}`,
-          url,
-          prompt: String(row.prompt ?? ''),
-          createdAt: new Date().toISOString()
-        })
-      }
+      const pipelineImages: { image_url?: string; imageUrl?: string; scene?: string | number; prompt?: string }[] =
+        Array.isArray(pipelineResult.images) ? pipelineResult.images : []
+
+      const namingPolicy = analyzeNamingPolicy(idea, themeEnriched)
+      const sanitizedCast = sanitizeStoryCharacters(
+        Array.isArray(pipelineResult.story?.characters) ? pipelineResult.story.characters : [],
+        namingPolicy
+      )
+      console.info('[katha:character]', 'client_cast_policy', {
+        mode: namingPolicy.mode,
+        count: sanitizedCast.length
+      })
+
+      const priorAssets = wsProject?.assets ?? []
+      const assetsFromPipeline = buildSceneAssetsFromPipeline(pipelineImages)
+      const mergedAssets = mergeProjectAssets(priorAssets, assetsFromPipeline)
 
       const st = useStudioStore.getState()
       const mainChar = st.mainCharacterName.trim()
       const titleFromUser = st.workingTitle.trim()
+      const allowCustomName = namingPolicy.mode === 'names'
 
-      const baseChars = out.story.characters.map(
+      const priorChars = wsProject?.bible?.characters ?? []
+      const baseChars = sanitizedCast.map(
         (c: { name: string; role: string; traits: string }, i: number) => {
-          const thumb = pipelineImages[i]?.image_url || pipelineImages[i]?.imageUrl
-          const name0 = i === 0 && mainChar ? mainChar : c.name
+          const name0 = allowCustomName && i === 0 && mainChar ? mainChar : c.name
+          const prior = priorChars.find(
+            (p) => p.name.trim().toLowerCase() === name0.trim().toLowerCase()
+          ) ?? priorChars[i]
           return {
-            id: `c${i + 1}`,
+            id: prior?.id ?? `c${i + 1}`,
             name: name0,
             personality: `${c.role}. ${c.traits}`.trim(),
-            visualIdentity: `${c.traits}`.trim() || c.role,
-            baseImagePrompt: `${name0}, ${c.role}, ${c.traits}`,
-            ...(thumb ? { baseImageUrl: String(thumb) } : {})
+            visualIdentity: prior?.visualIdentity || `${c.traits}`.trim() || c.role,
+            baseImagePrompt: prior?.baseImagePrompt || `${name0}, ${c.role}, ${c.traits}`,
+            ...(prior?.referenceImages?.length ? { referenceImages: prior.referenceImages } : {}),
+            ...(prior?.gender ? { gender: prior.gender } : {}),
+            ...(prior?.age ? { age: prior.age } : {}),
+            ...(prior?.role || c.role ? { role: prior?.role || c.role } : {}),
+            ...(prior?.appearance ? { appearance: prior.appearance } : {}),
+            ...(prior?.baseImageUrl ? { baseImageUrl: prior.baseImageUrl } : {}),
+            ...(prior?.leonardoSeed != null ? { leonardoSeed: prior.leonardoSeed } : {})
           }
         }
       )
+      const characterIdentityMemory = buildCharacterIdentityMemory(
+        baseChars
+      ) as CharacterIdentitySlot[]
 
-      const resolvedTitle = titleFromUser || out.story.title
+      const resolvedTitle = titleFromUser || pipelineResult.story.title
       const stChain = useStudioStore.getState().episodeChainPreferred
       const seriesEpisodes = plannedTotalEpisodesFromStreamSetup(backendLength, stChain)
       const bible: StoryBible = {
         title: resolvedTitle,
-        concept: out.story.setting,
+        concept: pipelineResult.story.setting,
         characters: baseChars,
         totalEpisodes: seriesEpisodes,
         outline: buildStreamSeriesOutline(seriesEpisodes, country, backendTheme, backendGenre, resolvedTitle),
@@ -246,70 +301,79 @@ export function useBackendGenerate() {
         narration: narrationDraft
       }
 
-      const scriptRows = Array.isArray(out.script) ? out.script : []
+      const scriptRows = Array.isArray(pipelineResult.script) ? pipelineResult.script : []
       if (!scriptRows.length) {
         throw new Error(
           'Story finished but the screenplay was empty. Try again with a shorter seed or different length.'
         )
       }
 
-      const scenes: StoryScene[] = []
-      for (const s of scriptRows) {
-        const narration = typeof s.narration === 'string' ? s.narration : ''
-        const visualDescription =
-          typeof s.visual_description === 'string' ? s.visual_description : undefined
-        scenes.push({
-          index: scenes.length + 1,
-          lineType: 'Dialogue',
-          character: 'Narration',
-          text: narration,
-          visualDescription
-        })
-      }
+      const targetSceneCount = Math.min(
+        16,
+        Math.max(
+          6,
+          Number(
+            (pipelineResult.metadata?.longStoryIntelligence as { targetSceneCount?: number } | undefined)
+              ?.targetSceneCount
+          ) || Math.min(scriptRows.length, 10)
+        )
+      )
+      const { scenes, sceneIndices } = buildEpisodeScenesFromScriptRows(scriptRows, targetSceneCount)
+      const filteredAssets = filterAssetsToSceneIndices(mergedAssets, sceneIndices)
+      console.info('[katha:story-writing]', 'studio_scenes_built', {
+        scriptRows: scriptRows.length,
+        episodeScenes: scenes.length,
+        withDialogue: scenes.filter((sc) => (sc.dialogueLines?.length ?? 0) > 0).length,
+        sceneIndices: scenes.map((sc) => sc.index).join(',')
+      })
 
-      const cliffPlan = out.metadata?.cinematicDirectorPlan as
+      const cliffPlan = pipelineResult.metadata?.cinematicDirectorPlan as
         | { cliffhanger?: { suggestedLine?: string } }
         | undefined
       const cliffLine = cliffPlan?.cliffhanger?.suggestedLine?.trim() || '—'
+
+      const audioRows = Array.isArray(pipelineResult.audio)
+        ? (pipelineResult.audio as { scene?: string | number; audio_url?: string }[])
+        : []
+      const narrationAudioUrl = audioRows.map((r) => r?.audio_url).find((u) => typeof u === 'string' && u.length > 0)
 
       const episode1: StoryEpisode = {
         number: 1,
         pacing: 'Normal',
         estimatedDurationSec: 90,
-        scenes: scenes.slice(
-          0,
-          Math.min(
-            16,
-            Math.max(
-              6,
-              Number(
-                (out.metadata?.longStoryIntelligence as { targetSceneCount?: number } | undefined)
-                  ?.targetSceneCount
-              ) || 10
-            )
-          )
-        ),
+        scenes,
         cliffhanger: cliffLine.slice(0, 280) || '—',
-        rawStructured: JSON.stringify(out, null, 2),
+        rawStructured: JSON.stringify(pipelineResult, null, 2),
         status: 'done',
-        ...(out.metadata?.ambientBedUrl ? { ambientBedUrl: out.metadata.ambientBedUrl } : {}),
-        ...(out.metadata?.storyAudioPlan ? { storyAudioPlan: out.metadata.storyAudioPlan } : {}),
-        ...(out.metadata?.cinematicDirectorPlan
-          ? { cinematicDirectorPlan: out.metadata.cinematicDirectorPlan }
+        ...(pipelineResult.metadata?.ambientBedUrl
+          ? { ambientBedUrl: pipelineResult.metadata.ambientBedUrl }
           : {}),
-        ...(out.metadata?.storyMemorySnapshot
-          ? { storyMemorySnapshot: out.metadata.storyMemorySnapshot }
+        ...(narrationAudioUrl ? { narrationAudioUrl: String(narrationAudioUrl) } : {}),
+        ...(pipelineResult.metadata?.storyAudioPlan
+          ? { storyAudioPlan: pipelineResult.metadata.storyAudioPlan }
+          : {}),
+        ...(pipelineResult.metadata?.cinematicDirectorPlan
+          ? { cinematicDirectorPlan: pipelineResult.metadata.cinematicDirectorPlan }
+          : {}),
+        ...(pipelineResult.metadata?.renderAssemblyPlan
+          ? { renderAssemblyPlan: pipelineResult.metadata.renderAssemblyPlan }
+          : {}),
+        ...(pipelineResult.metadata?.storyMemorySnapshot
+          ? { storyMemorySnapshot: pipelineResult.metadata.storyMemorySnapshot }
+          : {}),
+        ...(pipelineResult.metadata?.qualityReport
+          ? { qualityReport: pipelineResult.metadata.qualityReport }
           : {})
       }
 
       const memoryPatch =
-        typeof out.metadata?.memorySummaryPatch === 'string'
-          ? out.metadata.memorySummaryPatch.trim()
+        typeof pipelineResult.metadata?.memorySummaryPatch === 'string'
+          ? pipelineResult.metadata.memorySummaryPatch.trim()
           : ''
       const memorySeed = [
         memoryPatch ||
           [
-            `- Setting: ${out.story.setting}`,
+            `- Setting: ${pipelineResult.story.setting}`,
             `- Episode 1 establishes tone; preserve bible characters, narrator (${narratorId}), and ${styleId} across the ${seriesEpisodes}-episode arc.`,
             stChain ? '- Serialized chain: honor cliffhangers and evolving costumes / relationships.' : ''
           ]
@@ -319,27 +383,72 @@ export function useBackendGenerate() {
         .filter(Boolean)
         .join('\n')
 
-      const nextProject = defaultProject({
+      const baseProject = defaultProject({
         title: resolvedTitle,
         status: 'in_progress',
         bible,
         episodes: [episode1],
         memorySummary: memorySeed.slice(0, 4000),
         id: projectId,
-        ...(out.metadata?.worldStateSnapshot
-          ? { worldStateSnapshot: out.metadata.worldStateSnapshot }
+        videoStudio: defaultVideoStudioState(resolvedTitle),
+        ...(pipelineResult.metadata?.worldStateSnapshot
+          ? { worldStateSnapshot: pipelineResult.metadata.worldStateSnapshot }
           : {}),
-        ...(out.metadata?.relationshipSnapshot?.length
-          ? { relationshipSnapshot: out.metadata.relationshipSnapshot }
+        ...(pipelineResult.metadata?.relationshipSnapshot?.length
+          ? { relationshipSnapshot: pipelineResult.metadata.relationshipSnapshot }
           : {}),
-        ...(out.metadata?.creatorPreferencesPatch
-          ? { creatorPreferences: out.metadata.creatorPreferencesPatch }
+        ...(pipelineResult.metadata?.creatorPreferencesPatch ||
+        pipelineResult.metadata?.cinematicDirectorPlan
+          ? {
+              creatorPreferences: mergeProjectMemoryIntoPreferences(
+                pipelineResult.metadata?.creatorPreferencesPatch as Record<string, unknown> | undefined,
+                buildProjectMemoryPatch(
+                  {
+                    bible,
+                    narration: narrationDraft,
+                    characterIdentityMemory,
+                    videoStudio: defaultVideoStudioState(resolvedTitle)
+                  },
+                  episode1,
+                  pipelineResult.metadata
+                )
+              )
+            }
           : {}),
         qualityMerge: true,
         fontMode: uiFontMode,
-        assets: assetsFromPipeline,
-        narration: narrationDraft
+        assets: filteredAssets,
+        ...(wsProject?.characterReference ? { characterReference: wsProject.characterReference } : {}),
+        namingPolicyMode: namingPolicy.mode,
+        characterIdentityMemory,
+        narration: narrationDraft,
+        projectMemory: buildProjectMemoryPatch(
+          { bible, narration: narrationDraft, characterIdentityMemory },
+          episode1,
+          pipelineResult.metadata
+        )
       })
+      const cov = episodeSceneImageCoverage(baseProject, 1)
+      const withStatuses = {
+        ...baseProject,
+        episodes: [
+          {
+            ...episode1,
+            scenes: attachSceneGenerationStatuses(baseProject, 1, Boolean(narrationAudioUrl))
+          }
+        ]
+      }
+      const nextProject = withStoryboardReady(withStatuses, {
+        partial: cov.missing.length > 0,
+        missingSceneIndices: cov.missing
+      })
+      console.info('[katha:storyboard]', 'storyboard_ready', {
+        projectId,
+        sceneAssets: filteredAssets.filter((a) => a.kind === 'scene').length,
+        scenes: episode1.scenes.length,
+        missingImages: cov.missing.length
+      })
+      console.info('[katha:render]', 'auto_render_skipped', { reason: 'manual_final_video_only' })
 
       const prefersReduced =
         typeof window !== 'undefined' &&
@@ -353,7 +462,7 @@ export function useBackendGenerate() {
         void pushStoryToHistory(nextProject)
         void pushStoryToCloudIfSignedIn(nextProject)
       } else {
-        const doc = buildLiveRevealDocument(out)
+        const doc = buildLiveRevealDocument(pipelineResult)
         // Stream reveal is UI-only; keep it pinned to the workspace that triggered the job.
         useStudioStore.getState().setWorkspaceStreamReveal(workspaceIx, {
           fullDoc: doc,

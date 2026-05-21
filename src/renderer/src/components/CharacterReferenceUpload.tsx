@@ -62,15 +62,25 @@ function ensureConfig(p: ProjectState): NonNullable<ProjectState['characterRefer
   )
 }
 
-export function CharacterReferenceUpload() {
+type UploadProps = {
+  /** When set, refs attach to this bible character instead of project-wide pool. */
+  characterId?: string
+}
+
+export function CharacterReferenceUpload({ characterId }: UploadProps = {}) {
   const uiText = useUiText()
   const project = useStudioStore((s) => s.project)
   const patchProject = useStudioStore((s) => s.patchProject)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
-  const cfg = useMemo(() => (project ? ensureConfig(project) : null), [project])
-  const images = cfg?.images ?? []
+  const character = useMemo(
+    () => (characterId && project?.bible ? project.bible.characters.find((c) => c.id === characterId) : null),
+    [characterId, project?.bible]
+  )
+
+  const cfg = useMemo(() => (project && !characterId ? ensureConfig(project) : null), [project, characterId])
+  const images = characterId ? (character?.referenceImages ?? []) : (cfg?.images ?? [])
 
   const addFiles = useCallback(
     async (files: FileList | File[]) => {
@@ -94,17 +104,45 @@ export function CharacterReferenceUpload() {
       )
 
       patchProject((p) => {
+        if (characterId && p.bible) {
+          return {
+            ...p,
+            bible: {
+              ...p.bible,
+              characters: p.bible.characters.map((c) =>
+                c.id === characterId
+                  ? { ...c, referenceImages: [...(c.referenceImages ?? []), ...resized].slice(0, 3) }
+                  : c
+              )
+            },
+            updatedAt: new Date().toISOString()
+          }
+        }
         const cur = ensureConfig(p)
         const merged = [...cur.images, ...resized].slice(0, 3)
         return { ...p, characterReference: { ...cur, images: merged }, updatedAt: new Date().toISOString() }
       })
     },
-    [patchProject, project]
+    [patchProject, project, characterId]
   )
 
   const removeImage = useCallback(
     (id: string) => {
       patchProject((p) => {
+        if (characterId && p.bible) {
+          return {
+            ...p,
+            bible: {
+              ...p.bible,
+              characters: p.bible.characters.map((c) =>
+                c.id === characterId
+                  ? { ...c, referenceImages: (c.referenceImages ?? []).filter((x) => x.id !== id) }
+                  : c
+              )
+            },
+            updatedAt: new Date().toISOString()
+          }
+        }
         const cur = ensureConfig(p)
         return {
           ...p,
@@ -113,31 +151,34 @@ export function CharacterReferenceUpload() {
         }
       })
     },
-    [patchProject]
+    [patchProject, characterId]
   )
 
   const setLock = useCallback(
     (lockAllEpisodes: boolean) => {
+      if (characterId) return
       patchProject((p) => {
         const cur = ensureConfig(p)
         return { ...p, characterReference: { ...cur, lockAllEpisodes }, updatedAt: new Date().toISOString() }
       })
     },
-    [patchProject]
+    [patchProject, characterId]
   )
 
   const setStrength = useCallback(
     (strength: CharacterReferenceStrength) => {
+      if (characterId) return
       patchProject((p) => {
         const cur = ensureConfig(p)
         return { ...p, characterReference: { ...cur, strength }, updatedAt: new Date().toISOString() }
       })
     },
-    [patchProject]
+    [patchProject, characterId]
   )
 
   const setTurnaround = useCallback(
     (autoTurnaroundPreview: boolean) => {
+      if (characterId) return
       patchProject((p) => {
         const cur = ensureConfig(p)
         return {
@@ -147,7 +188,7 @@ export function CharacterReferenceUpload() {
         }
       })
     },
-    [patchProject]
+    [patchProject, characterId]
   )
 
   if (!project) return null
@@ -227,6 +268,8 @@ export function CharacterReferenceUpload() {
           </div>
         )}
 
+        {!characterId ? (
+          <>
         <label className="row" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ fontSize: '0.9rem' }}>{uiText('characterRefLockConsistency')}</span>
           <input
@@ -249,15 +292,19 @@ export function CharacterReferenceUpload() {
             <option value="strong">{uiText('characterRefStrengthStrong')}</option>
           </select>
         </div>
+          </>
+        ) : null}
 
-        <label className="row" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <span style={{ fontSize: '0.9rem' }}>{uiText('characterRefAutoTurnaround')}</span>
-          <input
-            type="checkbox"
-            checked={Boolean(cfg?.autoTurnaroundPreview)}
-            onChange={(e) => setTurnaround(e.target.checked)}
-          />
-        </label>
+        {!characterId ? (
+          <label className="row" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <span style={{ fontSize: '0.9rem' }}>{uiText('characterRefAutoTurnaround')}</span>
+            <input
+              type="checkbox"
+              checked={Boolean(cfg?.autoTurnaroundPreview)}
+              onChange={(e) => setTurnaround(e.target.checked)}
+            />
+          </label>
+        ) : null}
 
         <div style={{ color: 'var(--muted)', fontSize: '0.82rem', lineHeight: 1.45 }}>
           {uiText('characterRefFooterLine', {

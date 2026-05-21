@@ -31,6 +31,21 @@
   transform-origin: center center;
 }
 
+.cinematic-player__scene-still {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+.cinematic-player__video {
+  position: relative;
+  z-index: 1;
+}
+
 .cinematic-player__atmos {
   pointer-events: none;
   position: absolute;

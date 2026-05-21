@@ -1,0 +1,424 @@
+/* Cinematic storyboard monitor — professional vertical previsualization feed */
+
+.cine-sb-monitor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.cine-sb-monitor__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cine-sb-monitor__title {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+}
+
+.cine-sb-monitor__modes {
+  display: flex;
+  gap: 4px;
+}
+
+.cine-sb-monitor__mode--on {
+  color: rgba(212, 175, 55, 0.95);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.35);
+}
+
+.cine-sb-monitor__flow {
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: min(58vh, 720px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  padding: 8px 6px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: linear-gradient(180deg, rgba(4, 8, 14, 0.55), rgba(8, 12, 20, 0.82));
+}
+
+.cine-sb-monitor__flow::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cine-sb-monitor__flow::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.25);
+  border-radius: 4px;
+}
+
+.cine-sb-monitor__empty {
+  margin: 12px 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Episode monitor — single ongoing card */
+.monitor-episode-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+}
+
+.monitor-episode-accordion--single {
+  gap: 8px;
+}
+
+.monitor-ongoing-episode__kicker {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(212, 175, 55, 0.92);
+}
+
+.monitor-ongoing-episode__hint {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--muted, rgba(220, 230, 235, 0.65));
+}
+
+.studio-mock-col--monitor .episode-row.episode-row--ongoing-only {
+  cursor: default;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.58);
+  background: linear-gradient(135deg, rgba(8, 22, 28, 0.88), rgba(18, 12, 28, 0.82));
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 22px rgba(212, 175, 55, 0.12);
+}
+
+.studio-mock-col--monitor .episode-row.episode-row--ongoing-only.current {
+  outline: 2px solid rgba(212, 175, 55, 0.45);
+  outline-offset: 1px;
+}
+
+.badge--ongoing {
+  border-color: rgba(212, 175, 55, 0.55);
+  background: rgba(212, 175, 55, 0.14);
+  color: rgba(255, 248, 220, 0.96);
+}
+
+.monitor-episode-accordion__toggle,
+.monitor-episode-accordion__list,
+.monitor-episode-accordion__more {
+  display: none !important;
+}
+
+.monitor-episode-accordion__toggle {
+  width: 100%;
+  justify-content: flex-start;
+  font-size: 0.68rem;
+  opacity: 0.9;
+}
+
+.monitor-episode-accordion__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.studio-mock-col--monitor .episode-row--compact {
+  padding: 6px 8px;
+  min-height: 0;
+}
+
+.studio-mock-col--monitor .episode-row__compact-label {
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 72%;
+}
+
+.studio-mock-monitor-section--episodes .studio-mock-wireframe-monitor-h {
+  font-size: 0.68rem;
+  margin-bottom: 4px;
+}
+
+.studio-mock-monitor-section--episodes {
+  flex: 0 0 auto;
+}
+
+.studio-mock-monitor-section--storyboard {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scene tile */
+.cine-sb-tile {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.cine-sb-tile__connector {
+  position: absolute;
+  left: 18px;
+  top: -10px;
+  width: 2px;
+  height: 10px;
+  background: linear-gradient(180deg, transparent, rgba(212, 175, 55, 0.35));
+  pointer-events: none;
+}
+
+.cine-sb-tile:first-child .cine-sb-tile__connector {
+  display: none;
+}
+
+.cine-sb-tile--active {
+  z-index: 1;
+}
+
+.cine-sb-tile--active::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 12px;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.55), 0 0 24px rgba(212, 175, 55, 0.12);
+}
+
+.cine-sb-tile__select {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.28);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cine-sb-tile__select:hover {
+  border-color: rgba(212, 175, 55, 0.35);
+}
+
+.cine-sb-tile--cinematic .cine-sb-tile__frame {
+  min-height: 140px;
+}
+
+.cine-sb-tile__frame {
+  position: relative;
+  width: 100%;
+  min-height: 96px;
+  overflow: hidden;
+  background: #0a0c10;
+}
+
+.cine-sb-tile__img-wrap {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  background-size: cover;
+  background-position: center;
+  transform-origin: center center;
+}
+
+.cine-sb-tile__img-placeholder {
+  width: 100%;
+  min-height: 96px;
+  background: linear-gradient(135deg, rgba(20, 24, 32, 0.9), rgba(8, 10, 16, 0.95));
+}
+
+.cine-sb-tile__scene-num {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 232, 0.95);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  z-index: 2;
+}
+
+.cine-sb-tile__sub-overlay {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 8%;
+  z-index: 3;
+  max-width: 94%;
+  font-size: 0.62rem;
+  line-height: 1.25;
+  pointer-events: none;
+}
+
+.cine-sb-tile__sub-overlay.storyboard-subtitle-overlay--middle {
+  bottom: auto;
+  top: 42%;
+}
+
+.cine-sb-tile__sub-overlay.storyboard-subtitle-overlay--top {
+  bottom: auto;
+  top: 10%;
+}
+
+.cine-sb-tile__body {
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cine-sb-tile__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cine-sb-tile__tag {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(212, 175, 55, 0.14);
+  color: rgba(255, 236, 200, 0.92);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+}
+
+.cine-sb-tile__narration {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: rgba(255, 252, 246, 0.94);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cine-sb-tile__dialogue {
+  margin: 4px 0 0;
+  padding-left: 8px;
+  border-left: 2px solid rgba(212, 175, 55, 0.35);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: rgba(255, 244, 220, 0.9);
+}
+
+.cine-sb-tile__dialogue-who {
+  font-weight: 600;
+  color: rgba(255, 220, 140, 0.95);
+}
+
+.cine-sb-tile--compact .cine-sb-tile__narration {
+  -webkit-line-clamp: 2;
+}
+
+.cine-sb-tile__visual {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.cine-sb-tile__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cine-sb-tile__meta {
+  font-size: 0.6rem;
+  color: rgba(180, 195, 210, 0.88);
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.cine-sb-tile__voice {
+  font-size: 0.62rem;
+  color: rgba(160, 200, 255, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.cine-sb-tile__timing {
+  color: var(--muted);
+}
+
+.cine-sb-tile__cast {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cine-sb-tile__cast-chip {
+  font-size: 0.58rem;
+  padding: 2px 6px;
+  border-radius: 99px;
+  background: rgba(80, 120, 180, 0.18);
+  border: 1px solid rgba(120, 160, 220, 0.25);
+  color: rgba(220, 235, 255, 0.9);
+}
+
+.cine-sb-tile__statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cine-sb-tile__status {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(200, 210, 220, 0.8);
+}
+
+.cine-sb-tile__status--generated {
+  color: rgba(144, 220, 160, 0.95);
+}
+
+.cine-sb-tile__status--rendering {
+  color: rgba(255, 200, 120, 0.95);
+}
+
+.cine-sb-tile__status--rendered {
+  color: rgba(212, 175, 55, 0.95);
+}
+
+.cine-sb-tile__expand {
+  margin: 4px 8px 0;
+  font-size: 0.62rem;
+  opacity: 0.75;
+}
+
+.studio-mock-monitor-section--characters-collapsed .studio-mock-characters-wireframe-panel {
+  display: none;
+}
+
+.studio-mock-monitor-body--storyboard {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}

@@ -17,6 +17,7 @@ const PROFILES = {
       'Nepali language lock: native Kathmandu-standard Nepali — NOT Hindi, NOT English syllable stress.',
       'Devanagari: crisp retroflex ट ठ ड ढ ण; correct छौँ, जाँदै, गर्छु; pure vowels on तपाईँ, कथा, मिठो.',
       'Rhythm: natural Nepali melody, smooth clause linking, light breath between phrases.',
+      'Dialogue: spoken Nepali lines must sound like real conversation — idiomatic, emotionally colored, not literal translation or textbook grammar.',
       opts.extendedPreview
         ? 'Extended preview: unhurried cinematic pace; full vowels; showcase calm, suspense, and warmth in one take.'
         : 'Every line: authentic Nepali storytelling cadence — oral-tradition warmth without dragging.'

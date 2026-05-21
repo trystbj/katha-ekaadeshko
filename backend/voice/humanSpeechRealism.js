@@ -12,13 +12,24 @@ export function humanSpeechRealismBlock(ctx, emotion = {}) {
   const warmth = emotion.warmth ?? 0.5
   const intensity = emotion.cinematicIntensity ?? 0.5
 
+  const genre = String(ctx?.genre || '').toLowerCase()
   const lines = [
     'Human realism: sound like a living storyteller — natural inhale between clauses, never mechanical cadence.',
     'Flow: connect sentences with cinematic transitions; soften phrase endings; avoid clipped or abrupt stops.',
     'Anti-robot: no metallic resonance, no flat intonation, no announcer stiffness, no synthetic equal pacing.',
     'Breathing: subtle audible breath before emotional turns; never exaggerated gasping.',
-    'Paragraph rhythm: longer passages breathe at commas; climax lines earn a micro-pause before the key word.'
+    'Paragraph rhythm: longer passages breathe at commas; climax lines earn a micro-pause before the key word.',
+    'Dialogue in text: quoted lines feel improvised — micro-pause before/after quotes, then seamless return to narrator color.',
+    'Performance acting: crying tension = soft crack on vowels not wailing; laughter = brief authentic chuckle not cartoon; romantic softness = intimate proximity not announcer warmth.'
   ]
+
+  if (genre.includes('romance')) {
+    lines.push('Romance delivery: softer landing, intimate proximity, tender vowel warmth on confessions.')
+  } else if (genre.includes('horror') || genre.includes('thriller')) {
+    lines.push('Suspense delivery: measured dread, meaningful silence, never rush the reveal.')
+  } else if (genre.includes('comedy')) {
+    lines.push('Comedy delivery: playful timing and reaction beats — humor from rhythm, not shouting.')
+  }
 
   if (whisper > 0.15) {
     lines.push('Near-whisper mode: intimate proximity with full consonant clarity — not mumbling.')

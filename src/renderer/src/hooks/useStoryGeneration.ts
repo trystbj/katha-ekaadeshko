@@ -16,6 +16,7 @@ import { NARRATION_LANGUAGE_LABEL_EN } from '../constants/narrationLanguages'
 import { useStudioStore } from '../store/useStudioStore'
 import { pushStoryToHistory } from '../utils/storyHistory'
 import { getVisualPackExtraPrompt } from '../utils/visualThemePackExtras'
+import { analyzeNamingPolicy, sanitizeStoryCharacters } from '@shared/characterNamingPolicy.js'
 
 function langName(code: string): string {
   return NARRATION_LANGUAGE_LABEL_EN[code] ?? code
@@ -87,6 +88,7 @@ export function useStoryGeneration() {
       const hintTitle = useStudioStore.getState().workingTitle.trim()
       const mainChar = useStudioStore.getState().mainCharacterName.trim()
       const resolvedTitle = (hintTitle || partial.title || 'Untitled').trim() || 'Untitled'
+      const namingPolicy = analyzeNamingPolicy(idea, ideaUse)
       const bible: StoryBible = {
         ...partial,
         title: resolvedTitle,
@@ -96,9 +98,21 @@ export function useStoryGeneration() {
         language: storyLanguage,
         aspectMode: 'vertical_9_16',
         narratorId,
-        narration: narrationDraft
+        narration: narrationDraft,
+        characters: sanitizeStoryCharacters(
+          partial.characters.map((c) => ({
+            name: c.name,
+            role: c.personality,
+            traits: c.visualIdentity
+          })),
+          namingPolicy
+        ).map((c, i) => ({
+          ...partial.characters[i]!,
+          name: c.name,
+          personality: `${c.role}. ${c.traits}`.trim() || partial.characters[i]!.personality
+        }))
       }
-      if (mainChar && bible.characters[0]) {
+      if (namingPolicy.mode === 'names' && mainChar && bible.characters[0]) {
         bible.characters[0] = { ...bible.characters[0], name: mainChar }
       }
       useStudioStore.getState().patchWorkspaceProject(workspaceIx, (p) => ({
