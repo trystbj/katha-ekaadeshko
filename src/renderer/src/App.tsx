@@ -1312,12 +1312,10 @@ export default function App() {
                 </span>
               </h3>
               <div ref={scriptGenDefaultsPortalRef} className="studio-mock-script-panel__portal-host">
-                <LiveScriptPreview
-                  scriptVoicePanel
+                <LiveGenerationScriptPanel
                   scenes={scriptPanelScenes}
-                  rawStructured={activeEpisode?.rawStructured}
                   busy={Boolean(busy)}
-                  streamLines={job?.log?.slice(-20) ?? []}
+                  job={job ? { stage: job.stage, progress: job.progress } : null}
                   streamReveal={streamReveal}
                   focusedSpeaker={focusedSceneSpeaker}
                   onSceneFocus={(speaker, sceneIndex) => {
