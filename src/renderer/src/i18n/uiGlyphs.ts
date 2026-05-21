@@ -33,6 +33,7 @@ export const Glyphs = {
   rdquo: '\u201D',
   arrowLeft: '←',
   download: '⤓',
+  duplicate: '⎘',
   asterisk: '*',
   middot: '·',
   cc: 'CC',

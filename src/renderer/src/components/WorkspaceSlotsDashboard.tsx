@@ -158,21 +158,25 @@ export function WorkspaceSlotsDashboard() {
                   )}
                   <button
                     type="button"
-                    className="btn btn-ghost btn-small"
+                    className="btn btn-ghost btn-small workspace-slots-card__icon-btn"
                     disabled={Boolean(busy)}
+                    title={uiText('workspaceDuplicate')}
+                    aria-label={uiText('workspaceDuplicate')}
                     onClick={() => {
                       const r = duplicateWorkspaceSlot(ix)
                       if (r === 'full') setError(uiText('workspaceDuplicateFull'))
                     }}
                   >
-                    {uiText('workspaceDuplicate')}
+                    <span aria-hidden>{Glyphs.duplicate}</span>
                   </button>
                   <button
                     type="button"
-                    className="btn btn-ghost btn-small"
+                    className="btn btn-ghost btn-small workspace-slots-card__icon-btn"
+                    title={uiText('workspaceExportJsonTooltip')}
+                    aria-label={uiText('workspaceExportJsonTooltip')}
                     onClick={() => exportJson(ix)}
                   >
-                    {uiText('workspaceExport')}
+                    <span aria-hidden>{Glyphs.download}</span>
                   </button>
                   <button
                     type="button"
