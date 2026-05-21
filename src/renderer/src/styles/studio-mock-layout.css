@@ -3976,17 +3976,24 @@
 }
 
 .studio-mock-idea-panel--with-generate .studio-mock-idea-textarea.idea-input--cinematic {
-  height: calc(88px + 4mm) !important;
-  min-height: calc(88px + 4mm) !important;
-  max-height: calc(88px + 4mm) !important;
   padding-bottom: 10px !important;
   padding-right: 11px !important;
 }
 
 .studio-mock-idea-panel--with-generate > .studio-mock-idea-wrap {
   flex: 0 0 auto;
-  margin-bottom: 0;
   overflow: visible;
+}
+
+/* Story seed: +4mm taller box; wrap eats extra height so nothing below shifts. */
+.studio-mock-col--story > .studio-mock-panel:first-child > .studio-mock-idea-wrap {
+  margin-bottom: -4mm;
+}
+
+.studio-mock-col--story > .studio-mock-panel:first-child .studio-mock-idea-textarea.idea-input--cinematic {
+  height: calc(88px + 4mm) !important;
+  min-height: calc(88px + 4mm) !important;
+  max-height: calc(88px + 4mm) !important;
 }
 
 .studio-mock-idea-panel--with-generate > .studio-mock-generate-strip {
@@ -4198,9 +4205,6 @@
 }
 
 .studio-mock-frame .idea-input--cinematic.studio-mock-idea-textarea {
-  height: calc(88px + 4mm) !important;
-  min-height: calc(88px + 4mm) !important;
-  max-height: calc(88px + 4mm) !important;
   padding-bottom: 40px !important;
   padding-right: 48px !important;
 }
