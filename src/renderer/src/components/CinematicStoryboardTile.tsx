@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import { Glyphs } from '../i18n/uiGlyphs'
 import type { CinematicStoryboardTileModel } from '../utils/cinematicStoryboardSceneModel'
@@ -14,8 +14,10 @@ type Props = {
   viewMode: ViewMode
   subtitleStudio: SubtitleStudioState
   narratorLabel: string
+  narrationAudioUrl?: string
   onSelect: () => void
   onToggleExpand: () => void
+  onRegenerateScene?: (sceneIndex: number) => void
 }
 
 const STATUS_I18N: Record<string, string> = {
@@ -48,17 +50,34 @@ export function CinematicStoryboardTile({
   viewMode,
   subtitleStudio,
   narratorLabel,
+  narrationAudioUrl,
   onSelect,
-  onToggleExpand
+  onToggleExpand,
+  onRegenerateScene
 }: Props) {
   const uiText = useUiText()
   const reduced = usePrefersReducedMotion()
   const [hover, setHover] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const { scene, imageUrl, plan } = model
   const showMiniMotion = hover && !reduced && imageUrl
   const motionClass = motionPreviewClass(plan?.motion?.preset)
   const narrationBody = (scene.narrationText ?? scene.text).trim()
   const dialogueLines = scene.dialogueLines ?? []
+  const sceneTitle = (scene.sceneTitle ?? '').trim() || uiText('cineSceneNum', { n: scene.index })
+  const emotion = (scene.emotionalTone ?? '').trim()
+  const environment = (scene.environment ?? '').trim()
+  const camera = (scene.cameraDirection ?? '').trim()
+  const actions = (scene.characterActions ?? '').trim()
+
+  const playNarration = useCallback(() => {
+    const url = narrationAudioUrl?.trim()
+    if (!url) return
+    if (!audioRef.current) audioRef.current = new Audio(url)
+    const a = audioRef.current
+    a.currentTime = 0
+    void a.play().catch(() => {})
+  }, [narrationAudioUrl])
 
   const subtitleLine =
     subtitleStudio.subtitlesOn && scene.text.trim()
@@ -79,6 +98,8 @@ export function CinematicStoryboardTile({
             <div
               className={`cine-sb-tile__img-wrap${showMiniMotion && motionClass ? ` ${motionClass}` : ''}`}
               style={{ backgroundImage: `url(${imageUrl})` }}
+              role="img"
+              aria-label={sceneTitle}
             />
           ) : (
             <div className="cine-sb-tile__img-placeholder" />
@@ -167,6 +188,33 @@ export function CinematicStoryboardTile({
                 {uiText(STATUS_I18N[s] ?? s)}
               </span>
             ))}
+          </div>
+
+          <div className="cine-sb-tile__actions">
+            <button
+              type="button"
+              className="btn btn-ghost btn-small"
+              disabled={!narrationAudioUrl?.trim()}
+              title={uiText('cinePlayNarration')}
+              onClick={(e) => {
+                e.stopPropagation()
+                playNarration()
+              }}
+            >
+              {uiText('cinePlayNarration')}
+            </button>
+            {onRegenerateScene ? (
+              <button
+                type="button"
+                className="btn btn-ghost btn-small"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRegenerateScene(scene.index)
+                }}
+              >
+                {uiText('cineRegenerateScene')}
+              </button>
+            ) : null}
           </div>
         </div>
       </button>

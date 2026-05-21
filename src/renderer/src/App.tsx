@@ -52,7 +52,12 @@ import {
   STYLE_WIREFRAME_TILE_SCRIM
 } from './constants/styleWireframeOrder'
 import { normalizeStudioSeasonId } from './constants/studioSeasonThemes'
-import { LiveScriptPreview } from './components/LiveScriptPreview'
+import { LiveGenerationScriptPanel } from './components/LiveGenerationScriptPanel'
+import { StoryMonitorProgressPanel } from './components/StoryMonitorProgressPanel'
+import {
+  isMonitorCinematicStoryReady,
+  isMonitorScriptGenerationPhase
+} from './utils/liveGenerationPresentation'
 import { StoryLocalePicker } from './components/StoryLocalePicker'
 import { MonitorCharacterCard } from './components/MonitorCharacterCard'
 import { VoiceMicGlyph } from './components/VoiceMicGlyph'
@@ -498,6 +503,13 @@ export default function App() {
           (canShowStoryboardWorkspace(project) || project.storyboardReady)
       ),
     [project, streamReveal, showScriptReview]
+  )
+
+  const monitorScriptGenerating = isMonitorScriptGenerationPhase(busy, streamReveal)
+  const monitorCinematicReady = isMonitorCinematicStoryReady(
+    activeEpisode?.scenes?.length ?? 0,
+    busy,
+    streamReveal
   )
 
   const onRegenerateMissingSceneImages = useCallback(async () => {
@@ -1575,13 +1587,18 @@ export default function App() {
             />
           ) : !project ? (
             <p className="studio-mock-monitor-placeholder">
-              {streamReveal || busy === 'generating'
-                ? uiText('studioMonitorLiveInScriptPanel')
-                : uiText('noProject')}
+              {monitorScriptGenerating ? uiText('studioMonitorLiveInScriptPanel') : uiText('noProject')}
             </p>
+          ) : monitorScriptGenerating ? (
+            <StoryMonitorProgressPanel
+              busyLabel={busy}
+              job={job ? { stage: job.stage, progress: job.progress } : null}
+              streamReveal={streamReveal}
+              sceneCountEstimate={pipelineSceneTotalEstimate}
+            />
           ) : (
             <>
-              {activeEpisode?.scenes?.length ? (
+              {monitorCinematicReady && activeEpisode ? (
                 <section
                   className="studio-mock-monitor-section studio-mock-monitor-section--storyboard"
                   aria-labelledby="cine-sb-monitor-title"
@@ -1592,6 +1609,8 @@ export default function App() {
                     activeTileIndex={embeddedPreviewIndex}
                     onActiveTileIndexChange={onMonitorSceneSelect}
                     busyLabel={busy}
+                    showCompleteBanner={Boolean(project.scriptReviewReady || project.storyboardReady)}
+                    onRegenerateScene={() => void onRegenerateMissingSceneImages()}
                   />
                 </section>
               ) : null}

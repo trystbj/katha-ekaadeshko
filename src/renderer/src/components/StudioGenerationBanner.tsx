@@ -394,9 +394,6 @@ export function StudioGenerationBanner({
               <span>{uiText(priorityHintKey)}</span>
             </p>
 
-            {job?.log?.length ? (
-              <p className="studio-generation-banner__log">{job.log[job.log.length - 1]}</p>
-            ) : null}
           </div>
         </motion.div>
       ) : null}
