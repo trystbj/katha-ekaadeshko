@@ -3808,7 +3808,7 @@
 
 /* Under seed box: Generate + mic icon only (no extra label on mic) */
 .studio-mock-generate-strip {
-  margin: calc(10px + 4mm) 0 0 0;
+  margin: 10px 0 0 0;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
@@ -3816,7 +3816,6 @@
   gap: 8px;
   position: static;
   z-index: 1;
-  transform: none !important;
 }
 
 .studio-mock-voice-defaults-cluster {
@@ -3992,14 +3991,15 @@
 
 .studio-mock-idea-panel--with-generate > .studio-mock-generate-strip {
   flex: 0 0 auto;
-  margin: calc(10px + 4mm) 0 0 0 !important;
-  transform: none !important;
+  margin: 10px 0 0 0 !important;
+  /* Visual-only nudge — does not shift Scene | Script | Voice or stretch the column. */
+  transform: translateY(4mm) !important;
   position: static !important;
   top: auto !important;
 }
 
 .studio-mock-col--story > .studio-mock-idea-panel--with-generate + .studio-mock-script-panel {
-  margin-top: 8px !important;
+  margin-top: 3px;
 }
 
 .studio-mock-col--story .studio-mock-generate-cta {
