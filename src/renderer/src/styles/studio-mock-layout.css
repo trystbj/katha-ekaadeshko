@@ -3808,7 +3808,7 @@
 
 /* Under seed box: Generate + mic icon only (no extra label on mic) */
 .studio-mock-generate-strip {
-  margin: 10px 0 0 0;
+  margin: calc(10px + 4mm) 0 0 0;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
@@ -3992,7 +3992,7 @@
 
 .studio-mock-idea-panel--with-generate > .studio-mock-generate-strip {
   flex: 0 0 auto;
-  margin: 10px 0 0 0 !important;
+  margin: calc(10px + 4mm) 0 0 0 !important;
   transform: none !important;
   position: static !important;
   top: auto !important;
