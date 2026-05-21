@@ -3808,14 +3808,15 @@
 
 /* Under seed box: Generate + mic icon only (no extra label on mic) */
 .studio-mock-generate-strip {
-  margin: 4px 0 0 0;
+  margin: 10px 0 0 0;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
   align-items: center;
   gap: 8px;
-  /* Pull row closer to char count / textarea — layout box unchanged (no stretch). */
-  transform: translateY(calc(-4mm - 1.5mm));
+  position: static;
+  z-index: 1;
+  transform: none !important;
 }
 
 .studio-mock-voice-defaults-cluster {
@@ -3963,21 +3964,42 @@
   }
 }
 
-/* Pre-bible: taller seed field (fixed height — long seeds scroll inside) */
+/* Pre-bible: flex stack — title, textarea, then generate row (no char-counter overlap). */
+.studio-mock-idea-panel--with-generate {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.studio-mock-idea-panel--with-generate > .studio-mock-section-title {
+  flex: 0 0 auto;
+}
+
 .studio-mock-idea-panel--with-generate .studio-mock-idea-textarea.idea-input--cinematic {
-  height: calc(88px + 12mm) !important;
-  min-height: calc(88px + 12mm) !important;
-  max-height: calc(88px + 12mm) !important;
+  height: 88px !important;
+  min-height: 88px !important;
+  max-height: 88px !important;
   padding-bottom: 10px !important;
   padding-right: 11px !important;
 }
 
-.studio-mock-idea-panel--with-generate .studio-mock-generate-strip {
-  margin-top: 0;
+.studio-mock-idea-panel--with-generate > .studio-mock-idea-wrap {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  overflow: visible;
+}
+
+.studio-mock-idea-panel--with-generate > .studio-mock-generate-strip {
+  flex: 0 0 auto;
+  margin: 10px 0 0 0 !important;
+  transform: none !important;
+  position: static !important;
+  top: auto !important;
 }
 
 .studio-mock-col--story > .studio-mock-idea-panel--with-generate + .studio-mock-script-panel {
-  margin-top: calc(3px - 10mm);
+  margin-top: 8px !important;
 }
 
 .studio-mock-col--story .studio-mock-generate-cta {
