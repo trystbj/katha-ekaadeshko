@@ -17,6 +17,9 @@
   --studio-mock-column-label-sky: rgba(158, 218, 242, 0.98);
   /* Reserve vertical band for absolute `.studio-mock-brand-corner` — column 1 only */
   --studio-mock-style-col-offset-top: clamp(4.45rem, 2.8vw + 3.25rem, 6.6rem);
+  /* Grid col 1 width — aligns overlays with column 2 (preview) start */
+  --studio-mock-col1-width: max(168px, 15vw);
+  --studio-mock-brand-band-max: min(760px, calc(100vw - 14px));
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -4181,13 +4184,18 @@
 
 .app-shell.studio-mock-layout .studio-mock-main > .studio-mock-banner-row .error-banner {
   position: fixed;
-  top: calc(var(--studio-mock-style-col-offset-top, 4.45rem) + 2px);
-  left: 50%;
+  /* Right of app title, anchored above column 2 (preview) — no layout shift */
+  left: max(
+    calc(var(--studio-mock-brand-band-max) + 10px),
+    calc(var(--studio-mock-col1-width) + 6px)
+  );
   right: auto;
-  transform: translateX(-50%);
+  top: calc(var(--studio-mock-style-col-offset-top) - 1.5mm);
+  transform: translateY(calc(-100% - 4px));
   margin: 0 !important;
-  max-width: min(520px, calc(100vw - 24px));
+  max-width: min(420px, calc(100vw - var(--studio-mock-col1-width) - 28px));
   width: max-content;
+  text-align: left;
   pointer-events: auto;
   z-index: 221;
   box-shadow:
