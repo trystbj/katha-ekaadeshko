@@ -33,6 +33,8 @@ import { StoryboardPreviewWorkspace } from './components/StoryboardPreviewWorksp
 import { ScriptReviewWorkspace } from './components/ScriptReviewWorkspace'
 import { showScriptReviewWorkspace } from './utils/productionWorkflow'
 import { useVisualGeneration } from './hooks/useVisualGeneration'
+import { useVideoGeneration } from './hooks/useVideoGeneration'
+import { episodeNeedsMotionGeneration } from './utils/sceneAssetMap'
 import { CinematicStoryboardMonitor } from './components/CinematicStoryboardMonitor'
 import { MonitorEpisodeAccordion } from './components/MonitorEpisodeAccordion'
 import { canShowStoryboardWorkspace } from './utils/storyboardWorkflow'
@@ -52,12 +54,7 @@ import {
   STYLE_WIREFRAME_TILE_SCRIM
 } from './constants/styleWireframeOrder'
 import { normalizeStudioSeasonId } from './constants/studioSeasonThemes'
-import { LiveGenerationScriptPanel } from './components/LiveGenerationScriptPanel'
-import { StoryMonitorProgressPanel } from './components/StoryMonitorProgressPanel'
-import {
-  isMonitorCinematicStoryReady,
-  isMonitorScriptGenerationPhase
-} from './utils/liveGenerationPresentation'
+import { LiveScriptPreview } from './components/LiveScriptPreview'
 import { StoryLocalePicker } from './components/StoryLocalePicker'
 import { MonitorCharacterCard } from './components/MonitorCharacterCard'
 import { VoiceMicGlyph } from './components/VoiceMicGlyph'
@@ -158,6 +155,7 @@ export default function App() {
   const { generateCharacterBase } = useLeonardo()
   const { generate: backendGenerate } = useBackendGenerate()
   const { generateVisuals } = useVisualGeneration()
+  const { generateSceneVideos } = useVideoGeneration()
 
   const [projectsMeta, setProjectsMeta] = useState<
     { id: string; title: string; status: string; updatedAt: string }[]
@@ -505,13 +503,6 @@ export default function App() {
     [project, streamReveal, showScriptReview]
   )
 
-  const monitorScriptGenerating = isMonitorScriptGenerationPhase(busy, streamReveal)
-  const monitorCinematicReady = isMonitorCinematicStoryReady(
-    activeEpisode?.scenes?.length ?? 0,
-    busy,
-    streamReveal
-  )
-
   const onRegenerateMissingSceneImages = useCallback(async () => {
     const p = useStudioStore.getState().project
     if (!p?.bible) return
@@ -532,9 +523,17 @@ export default function App() {
     const p = useStudioStore.getState().project
     if (!p?.bible) return
     const epn = resolveOngoingEpisodeNumber(p)
+    const ep = p.episodes.find((e) => e.number === epn) ?? p.episodes[0]
     console.info('[katha:render]', 'user_triggered_final_render', { projectId: p.id, episodeNumber: epn })
-    void queueEpisodeVideoRender({ project: p, episodeNumber: epn, force: true })
-  }, [selectedEpisode])
+    void (async () => {
+      if (ep?.scenes?.length && episodeNeedsMotionGeneration(p, ep.scenes)) {
+        console.info('[katha:video]', 'pre_render_motion_pass', { projectId: p.id })
+        await generateSceneVideos({ episodeNumber: epn })
+      }
+      const latest = useStudioStore.getState().project ?? p
+      void queueEpisodeVideoRender({ project: latest, episodeNumber: epn, force: true })
+    })()
+  }, [generateSceneVideos, selectedEpisode])
 
   useEffect(() => {
     const prev = prevBusyCelebrateRef.current
@@ -1312,10 +1311,12 @@ export default function App() {
                 </span>
               </h3>
               <div ref={scriptGenDefaultsPortalRef} className="studio-mock-script-panel__portal-host">
-                <LiveGenerationScriptPanel
+                <LiveScriptPreview
+                  scriptVoicePanel
                   scenes={scriptPanelScenes}
+                  rawStructured={activeEpisode?.rawStructured}
                   busy={Boolean(busy)}
-                  job={job ? { stage: job.stage, progress: job.progress } : null}
+                  streamLines={job?.log?.slice(-20) ?? []}
                   streamReveal={streamReveal}
                   focusedSpeaker={focusedSceneSpeaker}
                   onSceneFocus={(speaker, sceneIndex) => {
@@ -1585,18 +1586,13 @@ export default function App() {
             />
           ) : !project ? (
             <p className="studio-mock-monitor-placeholder">
-              {monitorScriptGenerating ? uiText('studioMonitorLiveInScriptPanel') : uiText('noProject')}
+              {streamReveal || busy === 'generating'
+                ? uiText('studioMonitorLiveInScriptPanel')
+                : uiText('noProject')}
             </p>
-          ) : monitorScriptGenerating ? (
-            <StoryMonitorProgressPanel
-              busyLabel={busy}
-              job={job ? { stage: job.stage, progress: job.progress } : null}
-              streamReveal={streamReveal}
-              sceneCountEstimate={pipelineSceneTotalEstimate}
-            />
           ) : (
             <>
-              {monitorCinematicReady && activeEpisode ? (
+              {activeEpisode?.scenes?.length ? (
                 <section
                   className="studio-mock-monitor-section studio-mock-monitor-section--storyboard"
                   aria-labelledby="cine-sb-monitor-title"
@@ -1607,8 +1603,6 @@ export default function App() {
                     activeTileIndex={embeddedPreviewIndex}
                     onActiveTileIndexChange={onMonitorSceneSelect}
                     busyLabel={busy}
-                    showCompleteBanner={Boolean(project.scriptReviewReady || project.storyboardReady)}
-                    onRegenerateScene={() => void onRegenerateMissingSceneImages()}
                   />
                 </section>
               ) : null}

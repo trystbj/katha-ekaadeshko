@@ -223,6 +223,12 @@ export function buildGenerationBlueprint(input) {
       ? `\n\n${namingPolicy.blueprintLines.join('\n')}`
       : ''
 
+  const cinematicWritingLine = cinematicWritingBlueprintSection({
+    ...normalized,
+    __storyLanguageDisplay: langDisplay
+  })
+  const cinematicWritingBlock = cinematicWritingLine ? `\n\n${cinematicWritingLine}` : ''
+
   const blueprintBlock = `GENERATION BLUEPRINT — USER LOCKS (non-negotiable)
 
 INTERNAL CONFIRMATION STEP (silent): Before returning JSON, verify every section below is honored. If anything fights the USER SEED, obey the priority order.

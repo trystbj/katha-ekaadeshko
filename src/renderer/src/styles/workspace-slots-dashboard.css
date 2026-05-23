@@ -1,35 +1,40 @@
 .workspace-slots-dash__intro,
 .workspace-slots-dash__foot {
-  margin: 0 0 8px;
-  font-size: 0.78rem;
-  line-height: 1.45;
+  margin: 0 0 5px;
+  font-size: 0.72rem;
+  line-height: 1.35;
   color: var(--muted);
 }
 
 .workspace-slots-dash__foot {
-  margin-top: 12px;
+  margin-top: 6px;
   margin-bottom: 0;
+}
+
+.workspace-slots-dash__new {
+  margin-top: 6px;
 }
 
 .workspace-slots-dash__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 4px;
 }
 
 .workspace-slots-card {
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(212, 175, 55, 0.42);
   background: var(--studio-readable-block, rgba(6, 14, 18, 0.72));
   overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-width: 100%;
 }
 
 .workspace-slots-card--active {
   border-color: rgba(212, 175, 55, 0.82);
-  box-shadow: 0 0 14px rgba(212, 175, 55, 0.22);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
 }
 
 .workspace-slots-card--archived {
@@ -37,7 +42,8 @@
 }
 
 .workspace-slots-card__poster {
-  height: 43px;
+  height: 26px;
+  min-height: 26px;
   background: linear-gradient(145deg, rgba(18, 28, 36, 0.95), rgba(8, 12, 18, 0.92));
   background-size: cover;
   background-position: center;
@@ -46,46 +52,51 @@
 
 .workspace-slots-card__slot-label {
   position: absolute;
-  top: 4px;
-  left: 6px;
-  font-size: 0.56rem;
+  top: 2px;
+  left: 4px;
+  font-size: 0.5rem;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255, 248, 232, 0.92);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
 }
 
 .workspace-slots-card__body {
-  padding: 5px 6px 6px;
+  padding: 3px 4px 4px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
+  min-width: 0;
 }
 
 .workspace-slots-card__title {
   margin: 0;
-  font-size: 0.72rem;
-  line-height: 1.2;
+  font-size: 0.62rem;
+  line-height: 1.15;
   color: rgba(255, 236, 195, 0.96);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-slots-card__badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 2px;
 }
 
 .workspace-slots-badge {
-  font-size: 0.52rem;
+  font-size: 0.48rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  padding: 1px 5px;
+  padding: 0 4px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: rgba(248, 252, 255, 0.88);
+  line-height: 1.35;
 }
 
 .workspace-slots-badge--active {
@@ -121,54 +132,68 @@
 .workspace-slots-card__meta {
   margin: 0;
   display: grid;
-  gap: 4px;
-  font-size: 0.65rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 4px;
+  font-size: 0.56rem;
+  line-height: 1.2;
+}
+
+.workspace-slots-card__meta > div {
+  min-width: 0;
 }
 
 .workspace-slots-card__meta dt {
   margin: 0;
   opacity: 0.72;
   font-weight: 600;
+  font-size: 0.5rem;
 }
 
 .workspace-slots-card__meta dd {
   margin: 0;
   font-weight: 600;
   color: rgba(240, 246, 252, 0.92);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-slots-card__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
   margin-top: auto;
-  padding-top: 4px;
+  padding-top: 2px;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .workspace-slots-card__actions .btn-small {
-  font-size: 0.58rem;
-  padding: 2px 6px;
-  min-height: 22px;
-}
-
-.workspace-slots-card__icon-btn {
-  min-width: 26px;
-  width: 26px;
-  height: 22px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.78rem;
-  line-height: 1;
+  font-size: 0.52rem;
+  padding: 2px 5px;
+  min-height: 28px;
+  line-height: 1.1;
 }
 
 .workspace-slots-card__active-cap {
-  font-size: 0.58rem;
+  font-size: 0.52rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(180, 235, 190, 0.95);
   align-self: center;
+  padding: 2px 0;
+}
+
+@media (min-width: 520px) {
+  .workspace-slots-dash__grid {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .workspace-slots-dash__grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 5px;
+  }
 }

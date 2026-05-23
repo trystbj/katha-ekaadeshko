@@ -5,6 +5,7 @@
 import health from './_routes/health.js'
 import jobsStreamGenerate from './_routes/jobs-stream-generate.js'
 import jobsGenerateVisuals from './_routes/jobs-generate-visuals.js'
+import jobsGenerateVideo from './_routes/jobs-generate-video.js'
 import leonardoGenerate from './_routes/leonardo-generate.js'
 import narratorPreview from './_routes/narrator-preview.js'
 import creatorCopilot from './_routes/creator-copilot.js'
@@ -29,6 +30,7 @@ const ROUTES = {
   health,
   'jobs-stream-generate': jobsStreamGenerate,
   'jobs-generate-visuals': jobsGenerateVisuals,
+  'jobs-generate-video': jobsGenerateVideo,
   'leonardo-generate': leonardoGenerate,
   'narrator-preview': narratorPreview,
   'creator-copilot': creatorCopilot,
@@ -62,5 +64,17 @@ export default async function handler(req, res) {
     res.status(404).json({ error: 'Unknown API route', target: target || null })
     return
   }
-  return route(req, res)
+  try {
+    return await route(req, res)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[katha:gateway]', target, msg)
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: msg.slice(0, 400) || 'API handler crashed',
+        target,
+        build: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || 'local'
+      })
+    }
+  }
 }

@@ -38,6 +38,59 @@ import {
 import { mergeProjectAssets } from '../utils/sceneAssetMap'
 import { withScriptReviewReady } from '../utils/productionWorkflow'
 
+const GENERATE_FAIL_FALLBACK =
+  'Story generation failed. Open /api/health in your browser — if storyAiReady is false, add OPENAI_API_KEY (or GEMINI/DEEPSEEK) in Vercel env and redeploy. Local: npm run dev:vercel.'
+
+function humanizeGenerateError(
+  msg: string,
+  uiText: (key: string, vars?: Record<string, string | number | boolean | null>) => string
+): string {
+  const t = msg.trim()
+  if (!t || /^request failed$/i.test(t)) {
+    const localized = uiText('generateOpaqueFailure')
+    return localized === 'generateOpaqueFailure' ? GENERATE_FAIL_FALLBACK : localized
+  }
+  return t
+}
+
+function formatStreamError(
+  evt: Record<string, unknown>,
+  uiText: (key: string, vars?: Record<string, string | number | boolean | null>) => string
+): string {
+  const main = humanizeGenerateError(String(evt.error || 'Generation failed'), uiText)
+  const detail = String(evt.detail || '').trim()
+  const build = String(evt.build || '').trim()
+  const code = String(evt.code || '').trim()
+  let out = main
+  if (detail && detail !== main && !main.includes(detail)) {
+    out = `${main} — ${detail}`
+  }
+  if (build) out = `${out} (API build ${build})`
+  if (code) out = `${out} [${code}]`
+  console.error('[katha:generate] stream_error', { error: evt.error, detail, build, code })
+  return out
+}
+
+async function readGenerateHttpError(
+  res: Response,
+  uiText: (key: string, vars?: Record<string, string | number | boolean | null>) => string
+): Promise<string> {
+  if (res.status === 404) return uiText('generateApiUnavailable')
+  const text = (await res.text()).trim()
+  try {
+    const j = JSON.parse(text) as { error?: string }
+    if (typeof j?.error === 'string' && j.error.trim()) {
+      return humanizeGenerateError(j.error.trim(), uiText)
+    }
+  } catch {
+    /* plain text / SSE fragment */
+  }
+  if (text.length > 0 && text.length < 500 && !text.startsWith('<!')) {
+    return humanizeGenerateError(text, uiText)
+  }
+  return uiText('generateRequestFailed', { status: String(res.status) })
+}
+
 export function useBackendGenerate() {
   const uiText = useUiText()
   const setBusy = useStudioStore((s) => s.setBusy)
@@ -112,6 +165,36 @@ export function useBackendGenerate() {
       const ac = new AbortController()
       useStudioStore.getState().setWorkspaceGenerationAbort(workspaceIx, ac)
 
+      const healthUrl = import.meta.env.VITE_BACKEND_URL
+        ? `${String(import.meta.env.VITE_BACKEND_URL).replace(/\/+$/, '')}/api/health`
+        : '/api/health'
+      try {
+        const healthRes = await fetch(healthUrl, { method: 'GET', signal: ac.signal })
+        if (!healthRes.ok) throw new Error(uiText('generateApiUnavailable'))
+        const health = (await healthRes.json()) as {
+          ready?: boolean
+          storyAiReady?: boolean
+          build?: string
+          providers?: { openai?: boolean; gemini?: boolean; deepseek?: boolean }
+        }
+        const ready = health?.storyAiReady ?? health?.ready
+        if (!ready) {
+          const prov = health?.providers
+          const hint = prov
+            ? ` Keys on server: OpenAI=${prov.openai ? 'yes' : 'no'}, Gemini=${prov.gemini ? 'yes' : 'no'}, DeepSeek=${prov.deepseek ? 'yes' : 'no'}.`
+            : ''
+          throw new Error(`${uiText('generateNoAiKeys')}${hint}`)
+        }
+        if (health?.build) {
+          console.info('[katha:generate] api_build', health.build)
+        }
+      } catch (e) {
+        if (e instanceof Error && e.name === 'AbortError') throw e
+        if (e instanceof Error && e.message === uiText('generateNoAiKeys')) throw e
+        if (e instanceof Error && e.message === uiText('generateApiUnavailable')) throw e
+        throw new Error(uiText('generateNetworkError'))
+      }
+
       const res = await fetch('/api/jobs-stream-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,12 +235,15 @@ export function useBackendGenerate() {
               }
             : {}),
           scriptOnly: true,
-          ...(prefersReducedMotion
-            ? { performancePreferLow: true }
-            : { studioOrchestration: true, multiCharacterVoices: true })
+          generationMode: prefersReducedMotion ? 'fast' : 'cinematic',
+          performancePreferLow: true
         })
       })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) {
+        const httpErr = await readGenerateHttpError(res, uiText)
+        console.error('[katha:generate] http_error', res.status, httpErr)
+        throw new Error(httpErr)
+      }
       if (!res.body) throw new Error('No response body (browser blocked streaming?)')
 
       const reader = res.body.getReader()
@@ -194,7 +280,7 @@ export function useBackendGenerate() {
           } else if (evt.type === 'result') {
             out = evt.result as JobsStreamGenerateResult
           } else if (evt.type === 'error') {
-            const errMsg = String(evt.error || 'Generation failed')
+            const errMsg = formatStreamError(evt, uiText)
             lastError = errMsg
             throw new Error(errMsg)
           }
@@ -418,7 +504,16 @@ export function useBackendGenerate() {
           { bible, narration: narrationDraft, characterIdentityMemory },
           episode1 as unknown as Record<string, unknown>,
           pipelineResult.metadata
-        )
+        ),
+        ...(pipelineResult.metadata?.productionDirectives
+          ? { productionDirectives: pipelineResult.metadata.productionDirectives }
+          : {}),
+        ...(pipelineResult.metadata?.sceneProductionStates
+          ? { sceneProductionStates: pipelineResult.metadata.sceneProductionStates }
+          : {}),
+        ...(pipelineResult.metadata?.productionMemory
+          ? { productionMemory: pipelineResult.metadata.productionMemory }
+          : {})
       })
       const nextProject = withScriptReviewReady({
         ...baseProject,
@@ -458,7 +553,10 @@ export function useBackendGenerate() {
       }
     } catch (e) {
       useStudioStore.getState().setWorkspaceStreamReveal(workspaceIx, null)
-      const msg = e instanceof Error ? e.message : String(e)
+      let msg = humanizeGenerateError(e instanceof Error ? e.message : String(e), uiText)
+      if (e instanceof TypeError && /fetch|network|failed/i.test(msg)) {
+        msg = uiText('generateNetworkError')
+      }
       if (e instanceof Error && e.name === 'AbortError') {
         setWorkspaceError(workspaceIx, null)
         if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) setError(null)

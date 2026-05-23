@@ -6,6 +6,10 @@ import { leonardoGenerateForScript } from '../services/leonardoService.js'
 import { ttsGenerateForScript } from '../services/ttsService.js'
 import { getRegionForCountry } from '../utils/regionData.js'
 import { normalizePipelineInput } from '../utils/generationBlueprint.js'
+import { normalizeProductionDirectives } from '../services/ai-director/productionDirectives.js'
+import { buildSmartContinuityPack, continuityBlockForScene } from '../services/continuity/smartContinuityEngine.js'
+import { buildAllSceneProductionStates } from '../services/cinematic/sceneProductionState.js'
+import { buildProductionMemory } from '../services/story-memory/productionMemoryStore.js'
 
 /**
  * @param {object} opts
@@ -36,6 +40,26 @@ export async function runKathaVisualPipeline(opts = {}) {
 
   const story = opts.story && typeof opts.story === 'object' ? opts.story : {}
   const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null
+  const directives = normalizeProductionDirectives(
+    opts.productionDirectives || opts.directives || input.__productionDirectives || {}
+  )
+  const inputWithContinuity = {
+    ...input,
+    __productionDirectives: directives,
+    __sceneContinuityBlocks: script.map((row, i) => {
+      const sceneNum = Number(row?.scene) > 0 ? Number(row.scene) : i + 1
+      return continuityBlockForScene(
+        buildSmartContinuityPack({
+          story,
+          script,
+          images: [],
+          priorWorld: input.priorWorldState,
+          bibleCharacters: input.bibleCharacters
+        }),
+        sceneNum
+      )
+    })
+  }
 
   if (onProgress) {
     onProgress({ stage: 'visuals', progress: 5, message: 'Starting cinematic visuals…' })
@@ -44,14 +68,14 @@ export async function runKathaVisualPipeline(opts = {}) {
   const [images, audio] = await Promise.all([
     leonardoGenerateForScript({
       script,
-      input,
+      input: inputWithContinuity,
       region,
       onProgress,
       characters: story.characters || []
     }),
     ttsGenerateForScript({
       script,
-      input,
+      input: inputWithContinuity,
       region,
       req: opts.req,
       story
@@ -62,13 +86,42 @@ export async function runKathaVisualPipeline(opts = {}) {
     onProgress({ stage: 'done', progress: 100, message: 'Visual generation complete' })
   }
 
+  const continuityPack = buildSmartContinuityPack({
+    story,
+    script,
+    images,
+    priorWorld: input.priorWorldState,
+    characterReference: input.characterReference,
+    bibleCharacters: input.bibleCharacters
+  })
+  const sceneProductionStates = buildAllSceneProductionStates(script, {
+    directives,
+    continuityPack
+  }).map((st) => {
+    const sceneNum = Number(String(st.continuityId || '').replace('scene:', '')) || 0
+    const hasImg = images.some((im) => Number(im?.scene) === sceneNum && (im.image_url || im.imageUrl))
+    return { ...st, imageStatus: hasImg ? 'ready' : st.imageStatus, reviewed: false }
+  })
+  const productionMemory = buildProductionMemory({
+    story,
+    script,
+    directives,
+    continuityPack,
+    priorMemorySummary: input.priorMemorySummary || ''
+  })
+
   return {
     images: Array.isArray(images) ? images : [],
     audio: Array.isArray(audio) ? audio : [],
     metadata: {
       region,
       sceneCount: script.length,
-      visualGeneration: true
+      visualGeneration: true,
+      productionStage: 'narration_motion',
+      productionDirectives: directives,
+      sceneProductionStates,
+      productionMemory,
+      continuityPack
     }
   }
 }

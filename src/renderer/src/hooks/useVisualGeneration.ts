@@ -71,7 +71,9 @@ export function useVisualGeneration() {
               appearance: c.appearance || c.visualIdentity,
               visualIdentity: c.visualIdentity,
               referenceImages: c.referenceImages
-            }))
+            })),
+            ...(p.productionDirectives ? { productionDirectives: p.productionDirectives } : {}),
+            generationMode: p.productionDirectives?.generationMode || 'cinematic'
           })
         })
         if (!res.ok) throw new Error(await res.text())
@@ -140,10 +142,24 @@ export function useVisualGeneration() {
             )
           })
           const cov = episodeSceneImageCoverage(withVisual, epn)
-          return withStoryboardReady(withVisual, {
-            partial: cov.missing.length > 0,
-            missingSceneIndices: cov.missing
-          })
+          const meta = (out as { metadata?: Record<string, unknown> }).metadata
+          return withStoryboardReady(
+            {
+              ...withVisual,
+              ...(meta?.productionMemory
+                ? { productionMemory: meta.productionMemory as Record<string, unknown> }
+                : {}),
+              ...(meta?.sceneProductionStates
+                ? {
+                    sceneProductionStates: meta.sceneProductionStates as import('../types/story').SceneProductionState[]
+                  }
+                : {})
+            },
+            {
+              partial: cov.missing.length > 0,
+              missingSceneIndices: cov.missing
+            }
+          )
         })
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)

@@ -25,7 +25,11 @@ export function slimStreamGenerateResult(result) {
       visualStyleProfileKey: meta.visualStyleProfileKey,
       visualStyleHybrid: meta.visualStyleHybrid,
       serverlessFastPath: Boolean(meta.serverlessFastPath),
-      ...(meta.longStoryIntelligence ? { longStoryIntelligence: meta.longStoryIntelligence } : {})
+      ...(meta.longStoryIntelligence ? { longStoryIntelligence: meta.longStoryIntelligence } : {}),
+      ...(meta.scriptOnlyComplete ? { scriptOnlyComplete: true, productionStage: meta.productionStage } : {}),
+      ...(meta.productionDirectives ? { productionDirectives: meta.productionDirectives } : {}),
+      ...(meta.sceneProductionStates ? { sceneProductionStates: meta.sceneProductionStates } : {}),
+      ...(meta.productionMemory ? { productionMemory: meta.productionMemory } : {})
     }
   }
 }

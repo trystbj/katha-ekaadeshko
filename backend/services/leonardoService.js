@@ -68,8 +68,21 @@ export async function leonardoGenerateForScript({ script, input, onProgress, cha
     try {
       const identityBlock = leonardoIdentityBlockForScriptRow(s, castMemory)
       const prompt = buildLeonardoScenePrompt(s, inputWithRefs, identityBlock)
-      const { imageUrl, seed } = await generateOneWithRetry({ prompt, modelId, width, height })
-      out.push({ scene: sceneKey, image_url: imageUrl, prompt, leonardoSeed: seed, status: 'complete' })
+      const { imageUrl, seed, leonardoImageId, leonardoGenerationId } = await generateOneWithRetry({
+        prompt,
+        modelId,
+        width,
+        height
+      })
+      out.push({
+        scene: sceneKey,
+        image_url: imageUrl,
+        prompt,
+        leonardoSeed: seed,
+        leonardoImageId,
+        leonardoGenerationId,
+        status: 'complete'
+      })
       console.info('[katha:character]', 'leonardo_scene', {
         scene: sceneKey,
         castSlots: castMemory.map((m) => `${m.label}:${m.gender}`).join(', ')
@@ -180,8 +193,15 @@ async function generateOne({ prompt, modelId, width, height, seed }) {
     const root = g?.generations_by_pk || g?.generation || g
     const status = root?.status
     const imgs = root?.generated_images
-    if (status === 'COMPLETE' && imgs?.[0]?.url)
-      return { imageUrl: imgs[0].url, generationId, seed: root?.seed }
+    if (status === 'COMPLETE' && imgs?.[0]?.url) {
+      return {
+        imageUrl: imgs[0].url,
+        generationId,
+        leonardoImageId: imgs[0].id || imgs[0].generated_image_id || null,
+        leonardoGenerationId: generationId,
+        seed: root?.seed
+      }
+    }
     if (status === 'FAILED') throw new Error('Leonardo: generation failed')
   }
   throw new Error('Leonardo: timeout')

@@ -34,7 +34,6 @@ export function WorkspaceSlotsDashboard() {
   const busy = useStudioStore((s) => s.busy)
   const setError = useStudioStore((s) => s.setError)
   const switchWorkspaceSlot = useStudioStore((s) => s.switchWorkspaceSlot)
-  const duplicateWorkspaceSlot = useStudioStore((s) => s.duplicateWorkspaceSlot)
   const clearWorkspaceSlot = useStudioStore((s) => s.clearWorkspaceSlot)
   const setWorkspaceSlotArchived = useStudioStore((s) => s.setWorkspaceSlotArchived)
   const renameWorkspaceSlot = useStudioStore((s) => s.renameWorkspaceSlot)
@@ -48,16 +47,6 @@ export function WorkspaceSlotsDashboard() {
     },
     [switchWorkspaceSlot, setError, uiText]
   )
-
-  const exportJson = useCallback((ix: number) => {
-    const body = JSON.stringify(slots[ix], null, 2)
-    const blob = new Blob([body], { type: 'application/json;charset=utf-8' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `katha-workspace-slot-${ix + 1}.json`
-    a.click()
-    URL.revokeObjectURL(a.href)
-  }, [slots])
 
   return (
     <div className="workspace-slots-dash">
@@ -158,28 +147,6 @@ export function WorkspaceSlotsDashboard() {
                   )}
                   <button
                     type="button"
-                    className="btn btn-ghost btn-small workspace-slots-card__icon-btn"
-                    disabled={Boolean(busy)}
-                    title={uiText('workspaceDuplicate')}
-                    aria-label={uiText('workspaceDuplicate')}
-                    onClick={() => {
-                      const r = duplicateWorkspaceSlot(ix)
-                      if (r === 'full') setError(uiText('workspaceDuplicateFull'))
-                    }}
-                  >
-                    <span aria-hidden>{Glyphs.duplicate}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-small workspace-slots-card__icon-btn"
-                    title={uiText('workspaceExportJsonTooltip')}
-                    aria-label={uiText('workspaceExportJsonTooltip')}
-                    onClick={() => exportJson(ix)}
-                  >
-                    <span aria-hidden>{Glyphs.download}</span>
-                  </button>
-                  <button
-                    type="button"
                     className="btn btn-ghost btn-small"
                     onClick={() => {
                       const next = window.prompt(uiText('workspaceRenamePrompt'), slotTitle(slot, ix, uiText))
@@ -212,7 +179,7 @@ export function WorkspaceSlotsDashboard() {
         })}
       </div>
       {slots.some((s) => !s.project && !s.studio.idea.trim()) ? (
-        <div style={{ marginTop: 10 }}>
+        <div className="workspace-slots-dash__new">
           <button
             type="button"
             className="btn btn-small"

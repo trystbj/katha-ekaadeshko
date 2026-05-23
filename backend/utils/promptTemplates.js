@@ -24,8 +24,12 @@ ${outline ? `Planned beats:\n${outline}\n` : ''}`
 function blueprintPreamble(inputLike) {
   const block = String(inputLike?.__generationBlueprint || '').trim()
   const repair = String(inputLike?.blueprintRepairNotes || '').trim()
-  if (!block && !repair) return ''
+  const directives = String(inputLike?.__productionDirectivesBlock || '').trim()
+  if (!block && !repair && !directives) return ''
   let out = ''
+  if (directives) {
+    out += `${directives}\n\n`
+  }
   if (block) {
     out += `=== GENERATION BLUEPRINT (HARD LOCKS — obey before any improvisation) ===\n${block}\n=== END BLUEPRINT ===\n\n`
   }

@@ -38,6 +38,10 @@ import { attachComposedNarrationToScript } from '../cinematic/cinematicStoryWrit
 import { analyzeNamingPolicy, sanitizeStoryCharacters } from '../character/characterIdentityMemory.js'
 import { mergeBibleCharactersIntoCast } from '../utils/mergeBibleCharacters.js'
 import { safeLog } from '../../api/_lib/log.js'
+import { analyzeProductionIntent } from '../services/ai-director/intentAnalyzer.js'
+import { buildAllSceneProductionStates } from '../services/cinematic/sceneProductionState.js'
+import { buildProductionMemory } from '../services/story-memory/productionMemoryStore.js'
+import { buildSmartContinuityPack } from '../services/continuity/smartContinuityEngine.js'
 
 const PROVIDERS = [
   {
@@ -192,6 +196,26 @@ export async function runKathaPipeline(input, req, opts = {}) {
   const memory = await getMemoryStore()
 
   const providersUsed = {}
+  let productionIntent = null
+  try {
+    productionIntent = await analyzeProductionIntent(pinnedInput, { onProgress })
+    pinnedInput = {
+      ...pinnedInput,
+      __productionDirectives: productionIntent.directives,
+      __productionDirectivesBlock: productionIntent.promptBlock,
+      __agentCouncil: productionIntent.agentCouncil,
+      __productionIntentMeta: {
+        provider: productionIntent.intentProvider,
+        analyzedAt: productionIntent.analyzedAt
+      },
+      generationMode: productionIntent.directives.generationMode
+    }
+    providersUsed.intentAnalyzer = productionIntent.intentProvider
+  } catch (e) {
+    safeLog('warn', 'production_intent_skipped', {
+      message: e instanceof Error ? e.message : String(e)
+    })
+  }
 
   // Stage 1 — Story generation (auto: OpenAI → Gemini → DeepSeek)
   if (onProgress) onProgress({ stage: 'story', progress: 8, message: 'Drafting story' })
@@ -435,9 +459,12 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
   let sceneOrchestration = null
   let renderAssemblyPlan = null
   let qualityReport = null
+  const scriptOnlyStage = pinnedInput.scriptOnly === true
   const studioOrchestration =
-    process.env.KATHA_STUDIO_ORCHESTRATION === '1' || pinnedInput.studioOrchestration === true
-  const skipOrchestration = (fast || pinnedInput.performancePreferLow) && !studioOrchestration
+    !scriptOnlyStage &&
+    (process.env.KATHA_STUDIO_ORCHESTRATION === '1' || pinnedInput.studioOrchestration === true)
+  let skipOrchestration = (fast || pinnedInput.performancePreferLow) && !studioOrchestration
+  if (scriptOnlyStage && isServerlessRuntime()) skipOrchestration = true
   if (!skipOrchestration) {
     try {
       const evolution = buildSceneOrchestratedPlan({
@@ -476,6 +503,37 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
   }
   const vsProfile = resolveStyleProfile(pinnedInput)
   const vsHybrid = detectStyleHybridRequested(pinnedInput)
+  const directives = pinnedInput.__productionDirectives || null
+  let continuityPack = null
+  let sceneProductionStates = null
+  let productionMemory = null
+  try {
+    continuityPack = buildSmartContinuityPack({
+      story: finalStory,
+      script,
+      images,
+      priorWorld: pinnedInput.priorWorldState,
+      characterReference: pinnedInput.characterReference,
+      bibleCharacters: pinnedInput.bibleCharacters
+    })
+    sceneProductionStates = buildAllSceneProductionStates(script, {
+      directives,
+      continuityPack
+    })
+    productionMemory = buildProductionMemory({
+      story: finalStory,
+      script,
+      directives,
+      agentCouncil: pinnedInput.__agentCouncil,
+      continuityPack,
+      priorMemorySummary: pinnedInput.priorMemorySummary || '',
+      enrichedScenes: sceneOrchestration?.enrichedScenes || []
+    })
+  } catch (e) {
+    safeLog('warn', 'production_metadata_skipped', {
+      message: e instanceof Error ? e.message : String(e)
+    })
+  }
   return {
     story: finalStory,
     script,
@@ -520,7 +578,13 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
             }
           }
         : {}),
-      ...(scriptOnly ? { scriptOnlyComplete: true, productionStage: 'script_review' } : {})
+      ...(scriptOnly ? { scriptOnlyComplete: true, productionStage: 'script_review' } : {}),
+      ...(directives ? { productionDirectives: directives } : {}),
+      ...(pinnedInput.__agentCouncil ? { agentCouncil: pinnedInput.__agentCouncil } : {}),
+      ...(pinnedInput.__productionIntentMeta ? { productionIntent: pinnedInput.__productionIntentMeta } : {}),
+      ...(sceneProductionStates?.length ? { sceneProductionStates } : {}),
+      ...(productionMemory ? { productionMemory } : {}),
+      ...(continuityPack ? { continuityPack } : {})
     }
   }
 }

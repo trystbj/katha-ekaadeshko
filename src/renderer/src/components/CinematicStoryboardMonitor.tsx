@@ -15,8 +15,6 @@ type Props = {
   activeTileIndex: number
   onActiveTileIndexChange: (index: number) => void
   busyLabel: string | null
-  showCompleteBanner?: boolean
-  onRegenerateScene?: (sceneIndex: number) => void
 }
 
 export function CinematicStoryboardMonitor({
@@ -24,9 +22,7 @@ export function CinematicStoryboardMonitor({
   episode,
   activeTileIndex,
   onActiveTileIndexChange,
-  busyLabel,
-  showCompleteBanner = true,
-  onRegenerateScene
+  busyLabel
 }: Props) {
   const uiText = useUiText()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -100,27 +96,6 @@ export function CinematicStoryboardMonitor({
         </div>
       </div>
 
-      {showCompleteBanner ? (
-        <p className="cine-sb-monitor__complete-banner" role="status">
-          {uiText('cineMonitorStoryComplete')}
-        </p>
-      ) : null}
-
-      {tiles.length > 3 ? (
-        <nav className="cine-sb-monitor__nav" aria-label={uiText('cineMonitorSceneNavAria')}>
-          {tiles.map((model) => (
-            <button
-              key={`nav-${model.scene.index}`}
-              type="button"
-              className={`cine-sb-monitor__nav-btn${model.rowIndex === activeTileIndex ? ' cine-sb-monitor__nav-btn--on' : ''}`}
-              onClick={() => onActiveTileIndexChange(model.rowIndex)}
-            >
-              {model.scene.index}
-            </button>
-          ))}
-        </nav>
-      ) : null}
-
       <div ref={scrollRef} className="cine-sb-monitor__flow panel studio-mock-panel">
         {tiles.map((model) => (
           <div key={model.scene.index} data-tile-index={model.rowIndex}>
@@ -131,8 +106,6 @@ export function CinematicStoryboardMonitor({
               viewMode={viewMode}
               subtitleStudio={vs.subtitleStudio}
               narratorLabel={narratorLabel}
-              narrationAudioUrl={narrationAudioUrl}
-              onRegenerateScene={onRegenerateScene}
               onSelect={() => {
                 onActiveTileIndexChange(model.rowIndex)
                 console.info('[katha:preview]', 'monitor_tile_select', {

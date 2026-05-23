@@ -8,7 +8,12 @@ import { setSecurityHeaders } from '../_lib/http.js'
 import { initSseResponse, sseWrite } from '../_lib/sse.js'
 import { slimStreamGenerateResult } from '../_lib/streamGenerateResult.js'
 import { isServerlessRuntime, serverlessPipelineBudgetMs } from '../../backend/utils/runtime.js'
+import { ensureMemoryStore } from '../../backend/utils/memoryStore.js'
+import { providerAvailability } from '../../core/providers/aiProviderRegistry.js'
 import { STORY_IDEA_MAX_CHARS, clampStoryIdea } from '../../shared/storyIdeaLimits.js'
+import { buildInfoPayload, KATHA_API_BUILD } from '../_lib/buildInfo.js'
+import { slimGenerateRequestBody } from '../_lib/slimGenerateBody.js'
+import { sanitizePublicError } from '../_lib/log.js'
 
 const NarratorIdSchema = z.preprocess(
   (val) => normalizeNarratorId(typeof val === 'string' ? val : ''),
@@ -113,6 +118,8 @@ const InputSchema = z
       .optional(),
     /** Step 1: story + script only — no Leonardo/TTS until user approves visuals */
     scriptOnly: z.boolean().optional(),
+    /** fast | cinematic — controls motion intensity and Leonardo video resolution */
+    generationMode: z.enum(['fast', 'cinematic']).optional(),
     characterReference: z
       .object({
         lockAllEpisodes: z.boolean().optional(),
@@ -185,9 +192,14 @@ export default async function handler(req, res) {
   let keepalive = null
   let pipelineDone = false
 
-  const writeError = (msg) => {
+  const writeError = (msg, extra = {}) => {
     try {
-      sseWrite(res, { type: 'error', error: msg })
+      sseWrite(res, {
+        type: 'error',
+        error: msg,
+        build: KATHA_API_BUILD,
+        ...extra
+      })
     } catch {
       // ignore
     }
@@ -199,9 +211,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    const input = InputSchema.parse(parseRequestBody(req))
+    await ensureMemoryStore()
+    const providers = providerAvailability()
+    if (!providers.openai && !providers.gemini && !providers.deepseek) {
+      writeError(
+        'Story AI is not configured on the server. Add OPENAI_API_KEY, GEMINI_API_KEY, or DEEPSEEK_API_KEY in Vercel → Environment Variables, then redeploy.'
+      )
+      return
+    }
 
-    sseWrite(res, { type: 'job', id: null, note: 'SSE streaming (no DB job row)' })
+    const input = InputSchema.parse(slimGenerateRequestBody(parseRequestBody(req)))
+
+    sseWrite(res, {
+      type: 'job',
+      id: null,
+      note: 'SSE streaming (no DB job row)',
+      build: KATHA_API_BUILD,
+      ...buildInfoPayload()
+    })
 
     keepalive = isServerlessRuntime()
       ? setInterval(() => {
@@ -242,16 +269,18 @@ export default async function handler(req, res) {
         narrationLanguageId: input.narration?.languageId
           ? String(input.narration.languageId).trim()
           : undefined,
-        performancePreferLow: input.performancePreferLow ?? isServerlessRuntime(),
+        performancePreferLow:
+          input.scriptOnly === true ? true : (input.performancePreferLow ?? isServerlessRuntime()),
         scriptOnly: input.scriptOnly === true,
+        generationMode: input.generationMode,
         projectId: input.projectId,
         priorMemorySummary: input.priorMemorySummary,
         priorWorldState: input.priorWorldState,
         priorRelationships: input.priorRelationships,
         creatorPreferences: input.creatorPreferences,
         directorPersonalityPreference: input.directorPersonalityPreference,
-        studioOrchestration: input.studioOrchestration,
-        multiCharacterVoices: input.multiCharacterVoices,
+        studioOrchestration: input.scriptOnly === true ? false : input.studioOrchestration,
+        multiCharacterVoices: input.scriptOnly === true ? false : input.multiCharacterVoices,
         bibleCharacters: input.bibleCharacters,
         characterReference: input.characterReference
       },
@@ -278,7 +307,16 @@ export default async function handler(req, res) {
   } catch (e) {
     pipelineDone = true
     if (keepalive) clearInterval(keepalive)
-    safeLog('error', 'jobs-stream-generate failed', { message: e instanceof Error ? e.message : String(e) })
-    writeError(publicErrorMessage(e))
+    const raw = e instanceof Error ? e.message : String(e)
+    safeLog('error', 'jobs-stream-generate failed', {
+      message: raw,
+      name: e instanceof Error ? e.name : 'Error',
+      status: typeof e?.status === 'number' ? e.status : undefined,
+      build: KATHA_API_BUILD
+    })
+    writeError(publicErrorMessage(e), {
+      detail: sanitizePublicError(raw),
+      code: e?.name === 'ZodError' ? 'validation' : 'pipeline'
+    })
   }
 }

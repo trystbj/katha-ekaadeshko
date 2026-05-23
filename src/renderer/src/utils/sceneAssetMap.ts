@@ -10,7 +10,15 @@ export function sceneIndexFromPipelineRow(
 }
 
 export function buildSceneAssetsFromPipeline(
-  images: { image_url?: string; imageUrl?: string; scene?: string | number; prompt?: string }[]
+  images: {
+    image_url?: string
+    imageUrl?: string
+    scene?: string | number
+    prompt?: string
+    leonardoSeed?: number
+    leonardoImageId?: string
+    leonardoGenerationId?: string
+  }[]
 ): AssetRef[] {
   const assets: AssetRef[] = []
   for (let i = 0; i < images.length; i++) {
@@ -25,11 +33,42 @@ export function buildSceneAssetsFromPipeline(
       key,
       url,
       prompt: String(row.prompt ?? ''),
+      ...(row.leonardoSeed != null ? { seed: row.leonardoSeed } : {}),
+      ...(row.leonardoImageId ? { leonardoImageId: row.leonardoImageId } : {}),
+      ...(row.leonardoGenerationId ? { leonardoGenerationId: row.leonardoGenerationId } : {}),
       createdAt: new Date().toISOString()
     })
     console.info('[katha:scene-map]', 'asset_from_pipeline', { key, index: i, sceneNum })
   }
   return assets
+}
+
+export function mergeSceneMotionIntoAssets(
+  assets: AssetRef[],
+  videos: { scene?: string | number; video_url?: string }[]
+): AssetRef[] {
+  if (!videos.length) return assets
+  return assets.map((a) => {
+    if (a.kind !== 'scene') return a
+    const sceneNum = Number(/^scene:(\d+)$/.exec(a.key)?.[1] ?? 0)
+    const hit = videos.find((v) => Number(v.scene) === sceneNum)
+    const motionUrl = hit?.video_url
+    return motionUrl ? { ...a, motionUrl: String(motionUrl) } : a
+  })
+}
+
+export function sceneMotionUrlForIndex(project: ProjectState | null, sceneIndex: number): string | undefined {
+  if (!project?.assets?.length || !sceneIndex) return undefined
+  const key = `scene:${sceneIndex}`
+  const hit = project.assets.find((a) => a.kind === 'scene' && a.key === key)
+  return hit?.motionUrl
+}
+
+export function episodeNeedsMotionGeneration(project: ProjectState | null, episodeScenes: StoryScene[]): boolean {
+  if (!project || !episodeScenes.length) return false
+  const hasStill = episodeScenes.some((s) => Boolean(sceneUrlForIndex(project, s.index)))
+  if (!hasStill) return false
+  return episodeScenes.some((s) => sceneUrlForIndex(project, s.index) && !sceneMotionUrlForIndex(project, s.index))
 }
 
 /** Merge incoming scene assets by key; preserve non-scene assets from existing. */

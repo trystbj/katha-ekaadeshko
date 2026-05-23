@@ -121,16 +121,52 @@ export function patchSceneProductionStatus(
 export function parsePipelinePayloadFromEpisode(episode: { rawStructured?: string } | undefined): {
   story: Record<string, unknown>
   script: Record<string, unknown>[]
+  images: Record<string, unknown>[]
+  metadata?: Record<string, unknown>
 } | null {
   if (!episode?.rawStructured) return null
   try {
     const raw = JSON.parse(episode.rawStructured) as {
       story?: Record<string, unknown>
       script?: Record<string, unknown>[]
+      images?: Record<string, unknown>[]
+      metadata?: Record<string, unknown>
     }
     if (!raw?.story || !Array.isArray(raw.script)) return null
-    return { story: raw.story, script: raw.script }
+    return {
+      story: raw.story,
+      script: raw.script,
+      images: Array.isArray(raw.images) ? raw.images : [],
+      metadata: raw.metadata
+    }
   } catch {
     return null
+  }
+}
+
+export function withVideoGenerationStarted(project: ProjectState): ProjectState {
+  return {
+    ...project,
+    productionStage: 'video_assembly',
+    updatedAt: new Date().toISOString()
+  }
+}
+
+export function withVideoGenerationComplete(project: ProjectState): ProjectState {
+  const now = new Date().toISOString()
+  const ep = project.episodes[0]
+  const scenes = (ep?.scenes ?? []).map((s) => {
+    if (s.productionStatus === 'skipped') return s
+    return {
+      ...s,
+      productionStatus: 'video_ready' as SceneProductionStatus,
+      generationStatus: 'motion' as const
+    }
+  })
+  return {
+    ...project,
+    productionStage: 'video_assembly',
+    episodes: ep ? [{ ...ep, scenes }] : project.episodes,
+    updatedAt: now
   }
 }

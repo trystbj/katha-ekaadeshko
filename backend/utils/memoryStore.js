@@ -3,6 +3,12 @@ import { dirname } from 'path'
 
 let memoryCache = null
 
+const EMPTY_MEMORY = () => ({
+  fingerprints: [],
+  signatures: [],
+  recent: []
+})
+
 function pathFromEnv() {
   return process.env.MEMORY_PATH || './data/memory.json'
 }
@@ -14,42 +20,46 @@ function isServerless() {
 
 export async function ensureMemoryStore() {
   if (isServerless()) {
-    if (!memoryCache) {
-      memoryCache = { fingerprints: [], signatures: [], recent: [] }
-    }
+    if (!memoryCache) memoryCache = EMPTY_MEMORY()
     return
   }
   const path = pathFromEnv()
-  await mkdir(dirname(path), { recursive: true })
+  try {
+    await mkdir(dirname(path), { recursive: true })
+  } catch {
+    /* ignore */
+  }
   try {
     await readFile(path, 'utf8')
   } catch {
-    await writeFile(
-      path,
-      JSON.stringify(
-        {
-          fingerprints: [],
-          signatures: [],
-          recent: []
-        },
-        null,
-        2
-      ),
-      'utf8'
-    )
+    try {
+      await writeFile(path, JSON.stringify(EMPTY_MEMORY(), null, 2), 'utf8')
+    } catch {
+      memoryCache = EMPTY_MEMORY()
+    }
   }
 }
 
 export async function getMemoryStore() {
   if (memoryCache) return memoryCache
   if (isServerless()) {
-    memoryCache = { fingerprints: [], signatures: [], recent: [] }
+    memoryCache = EMPTY_MEMORY()
     return memoryCache
   }
+  await ensureMemoryStore()
   const path = pathFromEnv()
-  const raw = await readFile(path, 'utf8')
-  memoryCache = JSON.parse(raw)
-  return memoryCache
+  try {
+    const raw = await readFile(path, 'utf8')
+    memoryCache = JSON.parse(raw)
+    if (!memoryCache || typeof memoryCache !== 'object') memoryCache = EMPTY_MEMORY()
+    return memoryCache
+  } catch (e) {
+    console.warn('[katha:memory]', 'memory_store_fallback', {
+      message: e instanceof Error ? e.message : String(e)
+    })
+    memoryCache = EMPTY_MEMORY()
+    return memoryCache
+  }
 }
 
 export function summarizeMemory(memory) {
@@ -76,8 +86,15 @@ export async function recordFingerprint(fp, meta) {
   mem.signatures = mem.signatures.slice(-120)
   mem.recent = mem.recent.slice(-250)
   if (!isServerless()) {
-    const path = pathFromEnv()
-    await writeFile(path, JSON.stringify(mem, null, 2), 'utf8')
+    try {
+      const path = pathFromEnv()
+      await mkdir(dirname(path), { recursive: true })
+      await writeFile(path, JSON.stringify(mem, null, 2), 'utf8')
+    } catch (e) {
+      console.warn('[katha:memory]', 'record_fingerprint_disk_skip', {
+        message: e instanceof Error ? e.message : String(e)
+      })
+    }
   }
   memoryCache = mem
 }
@@ -99,8 +116,15 @@ export async function recordSignature(sig, meta) {
   })
   mem.signatures = mem.signatures.slice(-120)
   if (!isServerless()) {
-    const path = pathFromEnv()
-    await writeFile(path, JSON.stringify(mem, null, 2), 'utf8')
+    try {
+      const path = pathFromEnv()
+      await mkdir(dirname(path), { recursive: true })
+      await writeFile(path, JSON.stringify(mem, null, 2), 'utf8')
+    } catch (e) {
+      console.warn('[katha:memory]', 'record_signature_disk_skip', {
+        message: e instanceof Error ? e.message : String(e)
+      })
+    }
   }
   memoryCache = mem
 }
@@ -109,4 +133,3 @@ export async function recentSignatures() {
   const mem = await getMemoryStore()
   return Array.isArray(mem?.signatures) ? mem.signatures.slice(-60) : []
 }
-

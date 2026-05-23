@@ -226,7 +226,44 @@ export interface AssetRef {
   url?: string
   prompt: string
   seed?: number
+  /** Leonardo still id for image-to-video continuity. */
+  leonardoImageId?: string
+  leonardoGenerationId?: string
+  /** Per-scene motion clip from Leonardo video pass. */
+  motionUrl?: string
   createdAt: string
+}
+
+/** Internal scene production snapshot (pipeline stages). */
+export interface SceneProductionState {
+  story: string
+  dialogue: StoryDialogueLine[]
+  characters: string[]
+  environment: string
+  emotion: string
+  camera: string
+  lighting: string
+  imageStatus: string
+  videoStatus: string
+  reviewed: boolean
+  continuityId: string
+}
+
+export interface ProductionDirectives {
+  genre: string
+  emotion: string
+  pacing: string
+  visualStyle: string
+  cameraStyle: string
+  dialogueStyle: string
+  animationStyle: string
+  targetPlatform: string
+  narrationTone: string
+  lightingStyle: string
+  motionIntensity: string
+  sceneMood: string
+  generationMode?: 'fast' | 'cinematic'
+  directorNotes?: string
 }
 
 export type CharacterReferenceStrength = 'light' | 'balanced' | 'strong'
@@ -309,6 +346,12 @@ export interface ProjectState {
   /** Step 1 complete — user may review script before visuals. */
   scriptReviewReady?: boolean
   scriptReviewReadyAt?: string
+  /** Structured AI production directives from intent analyzer. */
+  productionDirectives?: ProductionDirectives
+  /** Per-scene pipeline state for regeneration and review gates. */
+  sceneProductionStates?: SceneProductionState[]
+  /** Unified character/story/visual/animation memory snapshot. */
+  productionMemory?: Record<string, unknown>
 }
 
 export const STYLE_PRESETS: Record<
