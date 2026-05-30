@@ -40,6 +40,10 @@ type Props = {
   hideIdleThumbStrip?: boolean
   /** Hide bottom scene caption (e.g. storyboard dock owns scene context). */
   hideSceneCaption?: boolean
+  /** Hide cast portrait overlays (character preview mode). */
+  hideCastLayer?: boolean
+  /** Show prev/next scene arrows; clamp at first/last (no wrap). */
+  showSceneNav?: boolean
 }
 
 /** Center cinematic viewport — idle seasonal art, scene rotator, or generating shimmer. */
@@ -61,7 +65,9 @@ export function PreviewStage({
   castPortraits = [],
   sceneCount,
   hideIdleThumbStrip = false,
-  hideSceneCaption = false
+  hideSceneCaption = false,
+  hideCastLayer = false,
+  showSceneNav = false
 }: Props) {
   const uiText = useUiText()
   const reduced = usePrefersReducedMotion()
@@ -76,19 +82,22 @@ export function PreviewStage({
   const totalSlides = sceneCount ?? sceneUrls.length
   const canNav = !busy && totalSlides > 1 && Boolean(onCarouselIndexChange)
 
+  const atFirst = safeIx <= 0
+  const atLast = safeIx >= indexMax
+
   const goPrev = useCallback(() => {
-    if (!canNav || !onCarouselIndexChange) return
-    const next = safeIx <= 0 ? indexMax : safeIx - 1
+    if (!canNav || !onCarouselIndexChange || atFirst) return
+    const next = safeIx - 1
     console.info('[katha:preview]', 'carousel_prev', { from: safeIx, to: next })
     onCarouselIndexChange(next)
-  }, [canNav, indexMax, onCarouselIndexChange, safeIx])
+  }, [atFirst, canNav, onCarouselIndexChange, safeIx])
 
   const goNext = useCallback(() => {
-    if (!canNav || !onCarouselIndexChange) return
-    const next = safeIx >= indexMax ? 0 : safeIx + 1
+    if (!canNav || !onCarouselIndexChange || atLast) return
+    const next = safeIx + 1
     console.info('[katha:preview]', 'carousel_next', { from: safeIx, to: next })
     onCarouselIndexChange(next)
-  }, [canNav, indexMax, onCarouselIndexChange, safeIx])
+  }, [atLast, canNav, onCarouselIndexChange, safeIx])
 
   useEffect(() => {
     if (!canNav) return
@@ -167,7 +176,30 @@ export function PreviewStage({
             </div>
           ) : null}
 
-          {!busy && castPortraits.length > 0 ? (
+          {showSceneNav && canNav ? (
+            <div className="preview-stage__nav" aria-label={uiText('previewSceneNavAria')}>
+              <button
+                type="button"
+                className="preview-stage__nav-btn"
+                aria-label={uiText('previewScenePrev')}
+                disabled={atFirst}
+                onClick={goPrev}
+              >
+                ◀
+              </button>
+              <button
+                type="button"
+                className="preview-stage__nav-btn"
+                aria-label={uiText('previewSceneNext')}
+                disabled={atLast}
+                onClick={goNext}
+              >
+                ▶
+              </button>
+            </div>
+          ) : null}
+
+          {!busy && !hideCastLayer && castPortraits.length > 0 ? (
             <div className="preview-stage__cast-layer" aria-hidden={!hero}>
               {castPortraits.map((c, i) => (
                 <motion.div

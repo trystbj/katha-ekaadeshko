@@ -1,0 +1,282 @@
+/**
+ * Studio layout system — hidden scrollbars, flex/grid reflow, no overlap on preview.
+ * Scroll still works via wheel/trackpad where overflow is auto (chrome hidden globally in App.css).
+ */
+
+.app-shell.studio-mock-layout {
+  --studio-layout-gap: clamp(4px, 0.35vw, 8px);
+  --studio-panel-safe-pad: clamp(6px, 0.5vw, 10px);
+}
+
+/* Four-column grid — clip overflow at row level (template defined in studio-mock-layout.css) */
+.app-shell.studio-mock-layout--fullscreen .studio-mock-row-4 {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-shell.studio-mock-layout--fullscreen .studio-mock-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Preview column — highest visual priority */
+.app-shell.studio-mock-layout--fullscreen .studio-mock-col--preview {
+  z-index: 3;
+}
+
+.studio-mock-preview-slot {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.studio-mock-preview-wrap,
+.storyboard-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.storyboard-workspace__stage-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  z-index: 2;
+}
+
+/* Dock stays below preview — never covers stage */
+.storyboard-workspace__dock {
+  flex: 0 1 auto;
+  max-height: min(42vh, 340px);
+  min-height: 0;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--studio-layout-gap);
+  padding-top: var(--studio-panel-safe-pad);
+  border-top: 1px solid rgba(212, 175, 55, 0.22);
+}
+
+.storyboard-workspace__timeline {
+  overflow-x: clip;
+  overflow-y: visible;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.storyboard-subtitle-toolbar,
+.storyboard-cc-settings {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+/* Story column — script / scenes / voice */
+.studio-mock-col--story .studio-mock-script-panel,
+.studio-script-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-script-workspace__body {
+  overflow: hidden;
+}
+
+.studio-script-workspace__voice {
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.studio-scene-cards {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.studio-scene-cards__card--compact .studio-scene-cards__chips,
+.studio-scene-cards__card--compact .studio-scene-cards__thumb {
+  display: none;
+}
+
+.studio-scene-cards__card--compact .studio-scene-cards__head {
+  margin-bottom: 0;
+}
+
+/* Screenplay: only active scene expanded */
+.live-script-preview__block--collapsed .live-script-preview__line--screenplay,
+.live-script-preview__block--collapsed .live-script-preview__dialogue {
+  display: none;
+}
+
+.live-script-preview__block--collapsed .live-script-preview__who::after {
+  content: ' …';
+  opacity: 0.65;
+}
+
+/* Monitor column — flex feed, paginate instead of tall scroll */
+.studio-mock-col--monitor {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-mock-monitor-body {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.studio-mock-monitor-section--storyboard {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cine-sb-monitor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cine-sb-monitor__flow {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cine-sb-monitor__pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+
+.cine-sb-monitor__pager-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  opacity: 0.85;
+}
+
+.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active) .cine-sb-tile__frame {
+  min-height: 52px;
+}
+
+.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active):not(.cine-sb-tile--expanded) .cine-sb-tile__body,
+.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active):not(.cine-sb-tile--expanded) .cine-sb-tile__actions {
+  display: none;
+}
+
+.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active) {
+  margin-bottom: 4px;
+}
+
+/* Character studio — responsive wrap, no horizontal scroll */
+.studio-mock-characters-wireframe-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+
+.studio-mock-characters-wireframe-panel .monitor-char-card,
+.studio-mock-characters-wireframe-panel .char-card {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.character-consistency-locks__list {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+/* Voice tab — language menu pushes layout (no overlay overlap) */
+.studio-script-workspace__voice .narrator-voice-details__lang-menu,
+.narrator-voice-details__lang-menu--push {
+  position: static;
+  top: auto;
+  left: auto;
+  right: auto;
+  width: 100%;
+  margin-top: 6px;
+  max-height: min(36vh, 200px);
+  overflow-y: auto;
+  z-index: 1;
+}
+
+.studio-script-workspace__voice .narrator-voice-details__dropdown-zone,
+.studio-script-workspace__voice .narrator-voice-details__body {
+  overflow: visible;
+}
+
+.studio-script-workspace__voice .narrator-voice-details__grid {
+  grid-template-columns: 1fr;
+}
+
+.studio-script-workspace__voice .post-export-dock__field {
+  margin-bottom: 4px;
+}
+
+/* Popups / menus stay in safe bounds */
+.smart-scene-regen__menu,
+.narrator-voice-details__lang-menu:not(.narrator-voice-details__lang-menu--push) {
+  max-height: min(50vh, 280px);
+}
+
+/* Prevent floating controls over preview */
+.studio-mock-col--preview .studio-generation-banner,
+.studio-mock-col--preview .preview-workspace-back {
+  z-index: 4;
+}
+
+.preview-stage__cast-layer {
+  display: none;
+}
+
+.studio-mock-col--preview .preview-stage__cast-layer {
+  display: none;
+}
+
+/* Window resize: proportional gaps */
+@media (max-width: 1280px) {
+  .storyboard-workspace__dock {
+    max-height: min(48vh, 380px);
+  }
+
+  .scene-ai-director__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-height: 720px) {
+  .storyboard-workspace__dock {
+    max-height: min(36vh, 260px);
+  }
+
+  .cine-sb-tile--cinematic .cine-sb-tile__frame {
+    min-height: 88px;
+  }
+}

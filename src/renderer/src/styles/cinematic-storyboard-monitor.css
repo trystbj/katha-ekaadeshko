@@ -34,25 +34,16 @@
 
 .cine-sb-monitor__flow {
   flex: 1 1 auto;
-  min-height: 120px;
-  max-height: min(58vh, 720px);
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+  overflow-x: clip;
   scroll-behavior: smooth;
   padding: 8px 6px 12px;
   display: flex;
   flex-direction: column;
   gap: 0;
   background: linear-gradient(180deg, rgba(4, 8, 14, 0.55), rgba(8, 12, 20, 0.82));
-}
-
-.cine-sb-monitor__flow::-webkit-scrollbar {
-  width: 6px;
-}
-
-.cine-sb-monitor__flow::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.25);
-  border-radius: 4px;
 }
 
 .cine-sb-monitor__empty {

@@ -763,14 +763,11 @@
 
 .storyboard-workspace__timeline {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
+  overflow-x: clip;
+  overflow-y: visible;
   padding-bottom: 4px;
-  scroll-snap-type: x proximity;
-}
-
-.storyboard-workspace__timeline::-webkit-scrollbar {
-  height: 5px;
 }
 
 .storyboard-workspace__tl-chip {
@@ -1027,6 +1024,17 @@
   border: 1px solid rgba(255, 255, 255, 0.9);
   background: rgba(212, 175, 55, 0.92);
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+
+.storyboard-subtitle-overlay__handle--se,
+.storyboard-subtitle-overlay__handle--s,
+.storyboard-subtitle-overlay__handle--e {
+  cursor: nwse-resize;
+}
+
+.storyboard-subtitle-overlay--resizing {
+  cursor: nwse-resize;
 }
 
 .storyboard-subtitle-overlay__handle--nw {

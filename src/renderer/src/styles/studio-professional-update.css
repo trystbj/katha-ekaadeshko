@@ -1,0 +1,288 @@
+/* Professional story studio — preview, monitor, CC, character modes */
+
+.character-preview-mode-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: 0.5rem;
+}
+
+.character-preview-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.character-preview-mode__back {
+  align-self: flex-start;
+}
+
+.character-preview-mode__hero {
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: min(52vh, 420px);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.character-preview-mode__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.character-preview-mode__placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 160px;
+  background: linear-gradient(180deg, rgba(8, 16, 22, 0.9), rgba(4, 10, 14, 0.95));
+}
+
+.character-preview-mode__name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.character-preview-mode__role,
+.character-preview-mode__desc,
+.character-preview-mode__personality,
+.character-preview-mode__voice,
+.character-preview-mode__traits {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  opacity: 0.92;
+}
+
+.character-preview-mode__label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 0.15rem;
+}
+
+.studio-mock-characters-wireframe-panel--character-preview .monitor-char-card {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.scene-ai-director {
+  margin: 0.35rem 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(212, 175, 55, 0.32);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.scene-ai-director__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.scene-ai-director__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+}
+
+.scene-ai-director__row dt {
+  margin: 0;
+  font-size: 0.6rem;
+  opacity: 0.72;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.scene-ai-director__row dd {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.story-health-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  font-size: 0.65rem;
+}
+
+.story-health-strip__title {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.story-health-strip__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.55rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.story-health-strip__label {
+  opacity: 0.78;
+  margin-right: 0.15rem;
+}
+
+.story-health-strip__value {
+  font-weight: 700;
+  color: rgba(212, 175, 55, 0.95);
+}
+
+.character-consistency-locks {
+  border: none;
+  margin: 0 0 0.5rem;
+  padding: 0.35rem 0;
+}
+
+.character-consistency-locks legend {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0 0.2rem;
+}
+
+.character-consistency-locks__list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.2rem 0.45rem;
+}
+
+.character-consistency-locks__item {
+  font-size: 0.68rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+.storyboard-cc-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  align-items: flex-end;
+  padding: 0.35rem 0;
+  border-top: 1px solid rgba(212, 175, 55, 0.22);
+}
+
+.storyboard-cc-settings__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.65rem;
+  min-width: 88px;
+}
+
+.storyboard-cc-settings__toggles,
+.storyboard-cc-settings__align {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  align-items: center;
+}
+
+.storyboard-cc-settings__btn--on {
+  border-color: rgba(212, 175, 55, 0.75);
+  background: rgba(212, 175, 55, 0.15);
+}
+
+.storyboard-cc-settings__hint {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.62rem;
+  opacity: 0.75;
+}
+
+.storyboard-subtitle-toolbar__cc-btn {
+  margin-left: 0.25rem;
+}
+
+.smart-scene-regen {
+  position: relative;
+  display: inline-block;
+}
+
+.smart-scene-regen__menu {
+  position: absolute;
+  z-index: 12;
+  right: 0;
+  top: 100%;
+  margin: 0.2rem 0 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  min-width: 168px;
+  border-radius: 8px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(12, 18, 26, 0.96);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.smart-scene-regen__item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.smart-scene-regen__item:hover {
+  background: rgba(212, 175, 55, 0.12);
+}
+
+.cine-sb-tile__scene-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.live-script-preview__line--screenplay {
+  display: block;
+  white-space: pre-wrap;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  margin-top: 0.35rem;
+}
+
+.preview-stage__nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.storyboard-workspace__tl-dur {
+  display: block;
+  font-size: 0.55rem;
+  opacity: 0.85;
+}

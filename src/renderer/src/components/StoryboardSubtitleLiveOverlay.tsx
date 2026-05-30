@@ -17,6 +17,7 @@ type Props = {
   visible: boolean
   containerRef: RefObject<HTMLElement | null>
   onPositionChange: (pos: SubtitleFreePosition) => void
+  onScaleChange?: (fontSizePct: number) => void
 }
 
 export function StoryboardSubtitleLiveOverlay({
@@ -24,12 +25,18 @@ export function StoryboardSubtitleLiveOverlay({
   studio,
   visible,
   containerRef,
-  onPositionChange
+  onPositionChange,
+  onScaleChange
 }: Props) {
   const line = useMemo(() => cinematicSubtitleLineForScene(scene), [scene])
-  const pos = useMemo(() => resolveSubtitleFreePosition(studio), [studio.positionXPct, studio.positionYPct, studio.positionPreset, studio.advanced.customLinePct])
+  const pos = useMemo(
+    () => resolveSubtitleFreePosition(studio),
+    [studio.positionXPct, studio.positionYPct, studio.positionPreset, studio.advanced.customLinePct]
+  )
   const [dragging, setDragging] = useState(false)
+  const [resizing, setResizing] = useState(false)
   const dragRef = useRef(false)
+  const resizeRef = useRef<{ startSize: number; startY: number } | null>(null)
 
   const animClass =
     studio.advanced.animation === 'fade_in'
@@ -44,7 +51,7 @@ export function StoryboardSubtitleLiveOverlay({
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!studio.subtitlesOn || e.button !== 0) return
+      if (!studio.subtitlesOn || e.button !== 0 || resizing) return
       const box = containerRef.current?.getBoundingClientRect()
       if (!box) return
       e.preventDefault()
@@ -53,20 +60,30 @@ export function StoryboardSubtitleLiveOverlay({
       setDragging(true)
       onPositionChange(pointerToSubtitlePosition(e.clientX, e.clientY, box))
     },
-    [containerRef, onPositionChange, studio.subtitlesOn]
+    [containerRef, onPositionChange, resizing, studio.subtitlesOn]
   )
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      if (resizeRef.current && onScaleChange) {
+        const { startSize, startY } = resizeRef.current
+        const delta = Math.round((startY - e.clientY) * 0.25)
+        onScaleChange(Math.min(160, Math.max(70, startSize + delta)))
+        return
+      }
       if (!dragRef.current) return
       const box = containerRef.current?.getBoundingClientRect()
       if (!box) return
       onPositionChange(pointerToSubtitlePosition(e.clientX, e.clientY, box))
     },
-    [containerRef, onPositionChange]
+    [containerRef, onPositionChange, onScaleChange]
   )
 
   const endDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (resizeRef.current) {
+      resizeRef.current = null
+      setResizing(false)
+    }
     if (!dragRef.current) return
     dragRef.current = false
     setDragging(false)
@@ -76,6 +93,18 @@ export function StoryboardSubtitleLiveOverlay({
       /* already released */
     }
   }, [])
+
+  const onHandleDown = useCallback(
+    (e: React.PointerEvent<HTMLSpanElement>) => {
+      if (!studio.subtitlesOn || !onScaleChange) return
+      e.stopPropagation()
+      e.preventDefault()
+      e.currentTarget.setPointerCapture(e.pointerId)
+      resizeRef.current = { startSize: studio.advanced.fontSizePct, startY: e.clientY }
+      setResizing(true)
+    },
+    [onScaleChange, studio.advanced.fontSizePct, studio.subtitlesOn]
+  )
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -88,10 +117,12 @@ export function StoryboardSubtitleLiveOverlay({
   )
 
   useEffect(() => {
-    if (!dragging) return
+    if (!dragging && !resizing) return
     const stop = () => {
       dragRef.current = false
+      resizeRef.current = null
       setDragging(false)
+      setResizing(false)
     }
     window.addEventListener('pointerup', stop)
     window.addEventListener('pointercancel', stop)
@@ -99,13 +130,13 @@ export function StoryboardSubtitleLiveOverlay({
       window.removeEventListener('pointerup', stop)
       window.removeEventListener('pointercancel', stop)
     }
-  }, [dragging])
+  }, [dragging, resizing])
 
   if (!visible || !studio.subtitlesOn || !line) return null
 
   return (
     <div
-      className={`storyboard-subtitle-overlay${dragging ? ' storyboard-subtitle-overlay--dragging' : ''} ${animClass}`}
+      className={`storyboard-subtitle-overlay${dragging ? ' storyboard-subtitle-overlay--dragging' : ''}${resizing ? ' storyboard-subtitle-overlay--resizing' : ''} ${animClass}`}
       role="group"
       aria-label="Subtitle position"
       tabIndex={0}
@@ -120,14 +151,13 @@ export function StoryboardSubtitleLiveOverlay({
       }}
     >
       <span className="storyboard-subtitle-overlay__frame" aria-hidden>
-        <span className="storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--nw" />
-        <span className="storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--ne" />
-        <span className="storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--sw" />
-        <span className="storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--se" />
-        <span className="storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--n" />
-        <span className="storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--s" />
-        <span className="storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--e" />
-        <span className="storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--w" />
+        {(['nw', 'ne', 'sw', 'se', 'n', 's', 'e', 'w'] as const).map((edge) => (
+          <span
+            key={edge}
+            className={`storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--${edge}`}
+            onPointerDown={edge === 'se' || edge === 's' || edge === 'e' ? onHandleDown : undefined}
+          />
+        ))}
       </span>
       <span className="storyboard-subtitle-overlay__text">{line}</span>
     </div>

@@ -34,6 +34,14 @@ import { ScriptReviewWorkspace } from './components/ScriptReviewWorkspace'
 import { showScriptReviewWorkspace, withScriptReviewReopened } from './utils/productionWorkflow'
 import { PreviewWorkspaceBackButton } from './components/PreviewWorkspaceBackButton'
 import { StudioScriptWorkspaceTabs } from './components/StudioScriptWorkspaceTabs'
+import { CharacterPreviewMode } from './components/CharacterPreviewMode'
+import { CharacterConsistencyLocks } from './components/CharacterConsistencyLocks'
+import {
+  DEFAULT_CHARACTER_CONSISTENCY_LOCKS,
+  type CharacterConsistencyLocks as CharacterConsistencyLocksState
+} from './types/story'
+import { buildStoryboardTileModels } from './utils/cinematicStoryboardSceneModel'
+import type { SmartRegenAction } from './components/SmartSceneRegenMenu'
 import { useVisualGeneration } from './hooks/useVisualGeneration'
 import { useVideoGeneration } from './hooks/useVideoGeneration'
 import { episodeNeedsMotionGeneration } from './utils/sceneAssetMap'
@@ -469,6 +477,24 @@ export default function App() {
 
   const [embeddedPreviewIndex, setEmbeddedPreviewIndex] = useState(0)
   const [embeddedHeroOverride, setEmbeddedHeroOverride] = useState<string | null>(null)
+  const [characterPreviewId, setCharacterPreviewId] = useState<string | null>(null)
+
+  const characterPreviewChar = useMemo(
+    () => project?.bible?.characters.find((c) => c.id === characterPreviewId) ?? null,
+    [characterPreviewId, project?.bible?.characters]
+  )
+
+  const sceneDurationByIndex = useMemo(() => {
+    if (!project || !activeEpisode) return new Map<number, number>()
+    const models = buildStoryboardTileModels({
+      project,
+      episode: activeEpisode,
+      cinematicPlan: activeEpisode.cinematicDirectorPlan ?? null,
+      busyLabel: busy,
+      narratorLabel: ''
+    })
+    return new Map(models.map((m) => [m.scene.index, m.durationSec]))
+  }, [activeEpisode, busy, project])
 
   const pipelineSceneTotalEstimate = useMemo(() => {
     const fromEpisode = activeEpisode?.scenes?.length ?? 0
@@ -591,6 +617,7 @@ export default function App() {
     setEditMode(false)
     setEmbeddedPreviewIndex(0)
     setEmbeddedHeroOverride(null)
+    setCharacterPreviewId(null)
     console.info('[katha:production]', 'start_new_story', { slot: activeWorkspaceSlotIndex })
   }, [activeWorkspaceSlotIndex, clearWorkspaceSlot, uiText])
 
@@ -799,14 +826,49 @@ export default function App() {
     if (activeEpisode?.scenes?.length) setCharactersMonitorOpen(false)
   }, [activeEpisode?.scenes?.length, project?.id])
 
+  const exitCharacterPreview = useCallback(() => {
+    setCharacterPreviewId(null)
+    setEmbeddedHeroOverride(null)
+  }, [])
+
   const onMonitorSceneSelect = useCallback(
     (rowIndex: number) => {
+      setCharacterPreviewId(null)
       setEmbeddedHeroOverride(null)
       setEmbeddedPreviewIndex(rowIndex)
       const sc = activeEpisode?.scenes[rowIndex]
       if (sc) setFocusedSceneSpeaker(sc.character.trim())
     },
     [activeEpisode?.scenes]
+  )
+
+  const onMonitorSmartRegen = useCallback(
+    (sceneIndex: number, action: SmartRegenAction) => {
+      if (!project) return
+      const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(project)
+      switch (action) {
+        case 'image':
+          void generateVisuals({ episodeNumber: epn, sceneIndices: [sceneIndex] })
+          break
+        case 'motion':
+          void generateSceneVideos({ episodeNumber: epn, sceneIndices: [sceneIndex] })
+          break
+        case 'script':
+        case 'dialogue':
+        case 'narration':
+        case 'scene':
+        default:
+          void regenerateScene(epn, sceneIndex)
+      }
+    },
+    [
+      activeEpisode?.number,
+      generateSceneVideos,
+      generateVisuals,
+      project,
+      regenerateScene,
+      selectedEpisode
+    ]
   )
 
   useEffect(() => {
@@ -1138,6 +1200,16 @@ export default function App() {
                   }}
                   patchProject={patchProject}
                 />
+              ) : characterPreviewChar ? (
+                <div className="studio-mock-preview-wrap workspace-premium__stage character-preview-mode-wrap">
+                  <CharacterPreviewMode
+                    character={characterPreviewChar}
+                    narratorId={project?.bible?.narratorId}
+                    busy={Boolean(busy)}
+                    onBackToScene={exitCharacterPreview}
+                    onRegeneratePortrait={() => void generateCharacterBase(characterPreviewChar.id)}
+                  />
+                </div>
               ) : showStoryboardPreview && activeEpisode ? (
                 <StoryboardPreviewWorkspace
                   project={project}
@@ -1146,9 +1218,12 @@ export default function App() {
                   sceneUrls={renderSourceUrls}
                   heroUrl={embeddedHeroOverride}
                   carouselIndex={embeddedPreviewIndex}
+                  hideCastOverlays={Boolean(characterPreviewId)}
                   onCarouselIndexChange={(i) => {
+                    setCharacterPreviewId(null)
                     setEmbeddedHeroOverride(null)
                     setEmbeddedPreviewIndex(i)
+                    onMonitorSceneSelect(i)
                   }}
                   busyLabel={busy}
                   jobProgress={job?.progress}
@@ -1167,10 +1242,14 @@ export default function App() {
                   heroUrl={embeddedHeroOverride}
                   carouselIndex={embeddedPreviewIndex}
                   sceneCount={activeEpisode?.scenes?.length}
-                  castPortraits={previewCastPortraits}
+                  castPortraits={characterPreviewChar ? [] : previewCastPortraits}
+                  hideCastLayer={Boolean(characterPreviewChar)}
+                  showSceneNav={(activeEpisode?.scenes?.length ?? 0) > 1}
                   onCarouselIndexChange={(i) => {
+                    setCharacterPreviewId(null)
                     setEmbeddedHeroOverride(null)
                     setEmbeddedPreviewIndex(i)
+                    onMonitorSceneSelect(i)
                   }}
                   busy={Boolean(busy)}
                   jobProgress={job?.progress}
@@ -1371,19 +1450,20 @@ export default function App() {
                   streamReveal={streamReveal}
                   focusedSpeaker={focusedSceneSpeaker}
                   activeSceneIndex={activeEpisode?.scenes[embeddedPreviewIndex]?.index}
+                  sceneThumbUrl={(sc) => sceneUrlForIndex(project, sc.index)}
+                  sceneDurationSec={(sc) => sceneDurationByIndex.get(sc.index)}
                   onActiveSceneIndex={(sceneIndex) => {
                     const ix = activeEpisode?.scenes.findIndex((s) => s.index === sceneIndex) ?? -1
-                    if (ix >= 0) setEmbeddedPreviewIndex(ix)
+                    if (ix >= 0) onMonitorSceneSelect(ix)
                   }}
                   onSceneFocus={(speaker, sceneIndex) => {
+                    setCharacterPreviewId(null)
                     setFocusedSceneSpeaker(speaker.trim())
                     const url = sceneUrlForIndex(project, sceneIndex)
                     const ix =
                       activeEpisode?.scenes.findIndex((s) => s.index === sceneIndex) ??
                       renderSourceUrls.indexOf(url ?? '')
                     if (ix >= 0) {
-                      setEmbeddedHeroOverride(null)
-                      setEmbeddedPreviewIndex(ix)
                       onMonitorSceneSelect(ix)
                     } else if (url) {
                       const uix = renderSourceUrls.indexOf(url)
@@ -1652,8 +1732,7 @@ export default function App() {
                     activeTileIndex={embeddedPreviewIndex}
                     onActiveTileIndexChange={onMonitorSceneSelect}
                     busyLabel={busy}
-                    onRegenerateScene={onMonitorRegenerateScene}
-                    onReplaceSceneImage={onMonitorReplaceSceneImage}
+                    onSmartRegen={onMonitorSmartRegen}
                   />
                 </section>
               ) : null}
@@ -1716,7 +1795,20 @@ export default function App() {
                     </button>
                   ) : null}
                 </div>
-                <div className="panel studio-mock-panel studio-mock-characters-wireframe-panel">
+                <div
+                  className={`panel studio-mock-panel studio-mock-characters-wireframe-panel${characterPreviewChar ? ' studio-mock-characters-wireframe-panel--character-preview' : ''}`}
+                >
+                <CharacterConsistencyLocks
+                  locks={project.characterConsistencyLocks ?? DEFAULT_CHARACTER_CONSISTENCY_LOCKS}
+                  disabled={Boolean(busy) || storyMetaLocked}
+                  onChange={(locks: CharacterConsistencyLocksState) =>
+                    patchProject((p) => ({
+                      ...p,
+                      updatedAt: new Date().toISOString(),
+                      characterConsistencyLocks: locks
+                    }))
+                  }
+                />
                 {project.bible?.characters.map((c) => (
                   <MonitorCharacterCard
                     key={c.id}
@@ -1730,19 +1822,10 @@ export default function App() {
                     showReferenceControls={Boolean(editMode)}
                     characterId={c.id}
                     onOpenPortrait={() => {
-                      if (c.baseImageUrl) {
-                        const ix = renderSourceUrls.indexOf(c.baseImageUrl)
-                        if (ix >= 0) {
-                          setEmbeddedHeroOverride(null)
-                          setEmbeddedPreviewIndex(ix)
-                        } else {
-                          setEmbeddedHeroOverride(c.baseImageUrl)
-                        }
-                        console.info('[katha:preview]', 'character_portrait_embedded', {
-                          name: c.name,
-                          inCarousel: ix >= 0
-                        })
-                      }
+                      if (!c.baseImageUrl) return
+                      setCharacterPreviewId(c.id)
+                      setEmbeddedHeroOverride(c.baseImageUrl)
+                      console.info('[katha:preview]', 'character_preview_mode', { name: c.name })
                     }}
                     onGeneratePortrait={() => void generateCharacterBase(c.id)}
                     onNameChange={(name) =>

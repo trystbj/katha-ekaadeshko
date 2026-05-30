@@ -7,6 +7,7 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import type { StreamRevealState } from '../store/useStudioStore'
 import { useStudioStore } from '../store/useStudioStore'
 import { liveRevealPhaseKey } from '../utils/liveRevealDocument'
+import { formatSceneScreenplay } from '../utils/formatSceneScreenplay'
 
 type Props = {
   scenes: StoryScene[]
@@ -24,6 +25,10 @@ type Props = {
    * scene staging + dialogue only (narration belongs in Story Monitor / storyboard).
    */
   scriptVoicePanel?: boolean
+  /** Script tab: professional screenplay blocks instead of quote lines. */
+  screenplayMode?: boolean
+  /** When set, only the matching scene index shows full script body. */
+  activeSceneIndex?: number
 }
 
 export function LiveScriptPreview({
@@ -35,7 +40,9 @@ export function LiveScriptPreview({
   focusedSpeaker,
   onSceneFocus,
   emptyHint,
-  scriptVoicePanel = false
+  scriptVoicePanel = false,
+  screenplayMode = false,
+  activeSceneIndex
 }: Props) {
   const uiText = useUiText()
   const reduced = usePrefersReducedMotion()
@@ -144,6 +151,9 @@ export function LiveScriptPreview({
               const dialogueLines = s.dialogueLines ?? []
               const sceneStaging = (s.visualDescription ?? '').trim()
               const voiceOnly = scriptVoicePanel
+              const screenplayBlock = screenplayMode && !voiceOnly ? formatSceneScreenplay(s) : ''
+              const scriptCollapsed =
+                screenplayMode && activeSceneIndex != null && s.index !== activeSceneIndex
               const sceneStoryBody = voiceOnly
                 ? sceneStaging ||
                   (dialogueLines.length
@@ -151,7 +161,7 @@ export function LiveScriptPreview({
                     : narrationBody && !isNarrator
                       ? narrationBody
                       : '')
-                : narrationBody
+                : screenplayBlock || narrationBody
               return (
                 <motion.li
                   key={s.index}
@@ -168,7 +178,7 @@ export function LiveScriptPreview({
                   }
                   className={`live-script-preview__block ${focused ? 'live-script-preview__block--focus' : ''} ${
                     isNarrator ? 'live-script-preview__block--narrator' : ''
-                  }`}
+                  }${scriptCollapsed ? ' live-script-preview__block--collapsed' : ''}`}
                   onClick={() => onSceneFocus?.(s.character, s.index)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -191,10 +201,12 @@ export function LiveScriptPreview({
                       className={
                         voiceOnly
                           ? 'live-script-preview__line live-script-preview__line--scene-story'
-                          : 'live-script-preview__line'
+                          : screenplayMode
+                            ? 'live-script-preview__line live-script-preview__line--screenplay'
+                            : 'live-script-preview__line'
                       }
                     >
-                      {voiceOnly ? (
+                      {voiceOnly || screenplayMode ? (
                         sceneStoryBody
                       ) : (
                         <>

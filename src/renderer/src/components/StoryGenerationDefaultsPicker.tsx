@@ -329,7 +329,10 @@ export function StoryGenerationDefaultsPicker({
                     <span aria-hidden>{Glyphs.caretDown}</span>
                   </button>
                   {narratorDropdownOpen === 'language' ? (
-                    <div className="narrator-voice-details__lang-menu" role="listbox">
+                    <div
+                      className={`narrator-voice-details__lang-menu${embeddedInGeneratedDialog ? ' narrator-voice-details__lang-menu--push' : ''}`}
+                      role="listbox"
+                    >
                       {NARRATION_LANGS.map((x) => {
                         const selected = x.id === narration.languageId
                         return (

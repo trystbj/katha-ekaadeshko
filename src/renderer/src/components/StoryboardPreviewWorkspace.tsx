@@ -12,6 +12,11 @@ import { normalizeSubtitleStudio } from '../types/subtitleStudio'
 import { StoryboardSubtitleToolbar } from './StoryboardSubtitleToolbar'
 import type { SubtitleFreePosition } from '../utils/subtitleFreePosition'
 import { deriveCinematicProductionGate, sceneImageStateForIndex } from '../utils/cinematicProductionGate'
+import { scenePlanAt } from '../cinematic/environmentCss'
+import type { CinematicDirectorPlan } from '../../../../core/cinematic/types'
+import { SceneAiDirectorStrip } from './SceneAiDirectorStrip'
+import { StoryHealthStrip } from './StoryHealthStrip'
+import { buildStoryboardTileModels } from '../utils/cinematicStoryboardSceneModel'
 
 type Props = {
   project: ProjectState
@@ -29,6 +34,8 @@ type Props = {
   onRegenerateMissingSceneImages?: () => void
   onGenerateVisuals?: (opts?: { sceneIndices?: number[] }) => void
   patchProject: (fn: (p: ProjectState) => ProjectState) => void
+  /** Exclusive character portrait mode — hides scene cast overlays. */
+  hideCastOverlays?: boolean
 }
 
 export function StoryboardPreviewWorkspace({
@@ -46,7 +53,8 @@ export function StoryboardPreviewWorkspace({
   onGenerateFinalVideo,
   onRegenerateMissingSceneImages,
   onGenerateVisuals,
-  patchProject
+  patchProject,
+  hideCastOverlays = false
 }: Props) {
   const uiText = useUiText()
   const stageWrapRef = useRef<HTMLDivElement>(null)
@@ -64,14 +72,28 @@ export function StoryboardPreviewWorkspace({
     return mem.map((m) => `${m.label} (${m.gender})`).join(' · ')
   }, [project.characterIdentityMemory])
 
-  const castPortraits = useMemo(
+  const castPortraits = useMemo(() => {
+    if (hideCastOverlays) return []
+    return (project?.bible?.characters ?? [])
+      .filter((c) => c.baseImageUrl)
+      .slice(0, 4)
+      .map((c) => ({ name: c.name, url: String(c.baseImageUrl), role: c.role }))
+  }, [hideCastOverlays, project?.bible?.characters])
+
+  const cinematicPlan = episode.cinematicDirectorPlan as CinematicDirectorPlan | null | undefined
+  const scenePlan = scenePlanAt(cinematicPlan, safeIx)
+  const tileModels = useMemo(
     () =>
-      (project?.bible?.characters ?? [])
-        .filter((c) => c.baseImageUrl)
-        .slice(0, 4)
-        .map((c) => ({ name: c.name, url: String(c.baseImageUrl), role: c.role })),
-    [project?.bible?.characters]
+      buildStoryboardTileModels({
+        project,
+        episode,
+        cinematicPlan,
+        busyLabel,
+        narratorLabel: ''
+      }),
+    [project, episode, cinematicPlan, busyLabel]
   )
+  const activeDurationSec = tileModels[safeIx]?.durationSec
 
   const patchSubtitle = useCallback(
     (partial: Parameters<typeof normalizeSubtitleStudio>[0]) => {
@@ -135,6 +157,8 @@ export function StoryboardPreviewWorkspace({
           hideIdleThumbStrip
           hideSceneCaption
           castPortraits={castPortraits}
+          hideCastLayer={hideCastOverlays}
+          showSceneNav={sceneCount > 1}
           sceneCount={sceneCount}
           hideHeading
           idleBlank={!activeSceneUrl && !heroUrl}
@@ -146,10 +170,15 @@ export function StoryboardPreviewWorkspace({
           visible={!rendering}
           containerRef={stageWrapRef}
           onPositionChange={onSubtitlePositionChange}
+          onScaleChange={(fontSizePct) =>
+            patchSubtitle({ advanced: { ...studio.advanced, fontSizePct } })
+          }
         />
       </div>
 
       <div className="storyboard-workspace__dock">
+        <StoryHealthStrip project={project} episode={episode} />
+        <SceneAiDirectorStrip scene={activeScene} plan={scenePlan} />
         <p className="storyboard-workspace__hint">{uiText('storyboardModeHint')}</p>
 
         {castSummary ? (
@@ -180,9 +209,12 @@ export function StoryboardPreviewWorkspace({
                   console.info('[katha:scene-map]', 'timeline_select', { sceneIndex: sc.index, row: i })
                   onCarouselIndexChange(i)
                 }}
-                title={sc.text.slice(0, 120)}
+                title={sc.sceneTitle?.trim() || uiText('cineSceneNum', { n: String(sc.index) })}
               >
                 <span className="storyboard-workspace__tl-num">{sc.index}</span>
+                {activeDurationSec != null && on ? (
+                  <span className="storyboard-workspace__tl-dur">{activeDurationSec}s</span>
+                ) : null}
               </button>
             )
           })}

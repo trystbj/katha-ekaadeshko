@@ -5,6 +5,7 @@ import type { CinematicStoryboardTileModel } from '../utils/cinematicStoryboardS
 import type { SubtitleStudioState } from '../types/subtitleStudio'
 import { storyboardSubtitleOverlayStyle } from '../utils/storyboardSubtitleOverlay'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
+import { SmartSceneRegenMenu, type SmartRegenAction } from './SmartSceneRegenMenu'
 type ViewMode = 'compact' | 'cinematic'
 
 type Props = {
@@ -18,6 +19,7 @@ type Props = {
   onToggleExpand: () => void
   onRegenerateScene?: () => void
   onReplaceImage?: () => void
+  onSmartRegen?: (action: SmartRegenAction) => void
   busy?: boolean
 }
 
@@ -55,6 +57,7 @@ export function CinematicStoryboardTile({
   onToggleExpand,
   onRegenerateScene,
   onReplaceImage,
+  onSmartRegen,
   busy = false
 }: Props) {
   const uiText = useUiText()
@@ -63,8 +66,9 @@ export function CinematicStoryboardTile({
   const { scene, imageUrl, plan } = model
   const showMiniMotion = hover && !reduced && imageUrl
   const motionClass = motionPreviewClass(plan?.motion?.preset)
-  const narrationBody = (scene.narrationText ?? scene.text).trim()
-  const dialogueLines = scene.dialogueLines ?? []
+  const sceneTitle =
+    scene.sceneTitle?.trim() ||
+    uiText('cineSceneNum', { n: String(scene.index) })
 
   const subtitleLine =
     subtitleStudio.subtitlesOn && scene.text.trim()
@@ -101,6 +105,8 @@ export function CinematicStoryboardTile({
         </div>
 
         <div className="cine-sb-tile__body">
+          <p className="cine-sb-tile__scene-title">{sceneTitle}</p>
+
           <div className="cine-sb-tile__tags">
             {model.tagKeys.map((key) => (
               <span key={key} className="cine-sb-tile__tag">
@@ -108,25 +114,6 @@ export function CinematicStoryboardTile({
               </span>
             ))}
           </div>
-
-          <p className="cine-sb-tile__narration">{narrationBody}</p>
-
-          {dialogueLines.length
-            ? dialogueLines.map((d, di) => (
-                <p key={`dlg-${scene.index}-${di}`} className="cine-sb-tile__dialogue">
-                  <span className="cine-sb-tile__dialogue-who">{d.character}</span>
-                  {Glyphs.colon}
-                  {Glyphs.space}
-                  {Glyphs.ldquo}
-                  {d.line}
-                  {Glyphs.rdquo}
-                </p>
-              ))
-            : null}
-
-          {(expanded || viewMode === 'cinematic') && scene.visualDescription ? (
-            <p className="cine-sb-tile__visual">{scene.visualDescription}</p>
-          ) : null}
 
           <div className="cine-sb-tile__meta-row">
             <span className="cine-sb-tile__meta" title={uiText(model.motionKey)}>
@@ -186,7 +173,15 @@ export function CinematicStoryboardTile({
         >
           {expanded ? uiText('cineTileCollapse') : uiText('cineTileExpand')}
         </button>
-        {onRegenerateScene ? (
+        {onSmartRegen ? (
+          <SmartSceneRegenMenu
+            disabled={busy}
+            onAction={(action) => {
+              onSmartRegen(action)
+            }}
+          />
+        ) : null}
+        {onRegenerateScene && !onSmartRegen ? (
           <button
             type="button"
             className="btn btn-ghost btn-small"
@@ -199,7 +194,7 @@ export function CinematicStoryboardTile({
             {uiText('cineActionRegenerate')}
           </button>
         ) : null}
-        {onReplaceImage ? (
+        {onReplaceImage && !onSmartRegen ? (
           <button
             type="button"
             className="btn btn-ghost btn-small"

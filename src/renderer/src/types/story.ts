@@ -116,6 +116,25 @@ export interface NarrationSettings {
 
 export type NamingPolicyMode = 'names' | 'pronoun_only' | 'anonymous'
 
+/** UI toggles for cross-scene character consistency (studio). */
+export interface CharacterConsistencyLocks {
+  lockFace: boolean
+  lockHair: boolean
+  lockClothing: boolean
+  lockAge: boolean
+  lockVoice: boolean
+  lockPersonality: boolean
+}
+
+export const DEFAULT_CHARACTER_CONSISTENCY_LOCKS: CharacterConsistencyLocks = {
+  lockFace: true,
+  lockHair: true,
+  lockClothing: true,
+  lockAge: true,
+  lockVoice: false,
+  lockPersonality: true
+}
+
 /** Locked cast identity for Leonardo + playback (per project). */
 export interface CharacterIdentitySlot {
   slot: number
@@ -347,6 +366,8 @@ export interface ProjectState {
   namingPolicyMode?: NamingPolicyMode
   /** Persistent cast locks passed to image generation and UI. */
   characterIdentityMemory?: CharacterIdentitySlot[]
+  /** Per-project consistency lock toggles (Character Studio). */
+  characterConsistencyLocks?: CharacterConsistencyLocks
   /** Storyboard-first workflow phase. */
   workflowPhase?: StoryboardWorkflowPhase
   /** True after pipeline story/script/images land (before manual final render). */
@@ -470,6 +491,8 @@ export function defaultProject(partial?: Partial<ProjectState>): ProjectState {
     characterReference: partial?.characterReference,
     namingPolicyMode: partial?.namingPolicyMode,
     characterIdentityMemory: partial?.characterIdentityMemory,
+    characterConsistencyLocks:
+      partial?.characterConsistencyLocks ?? DEFAULT_CHARACTER_CONSISTENCY_LOCKS,
     workflowPhase: partial?.workflowPhase,
     storyboardReady: partial?.storyboardReady,
     storyboardReadyAt: partial?.storyboardReadyAt

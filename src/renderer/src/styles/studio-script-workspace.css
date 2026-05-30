@@ -86,6 +86,50 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--studio-accent, #c9a86a) 35%, transparent);
 }
 
+.studio-scene-cards__thumb-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.studio-scene-cards__thumb {
+  flex: 0 0 52px;
+  width: 52px;
+  height: 40px;
+  border-radius: 6px;
+  background-size: cover;
+  background-position: center;
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.studio-scene-cards__thumb--empty {
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.2));
+}
+
+.studio-scene-cards__meta-col {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.studio-scene-cards__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.studio-scene-cards__chip {
+  font-size: 0.62rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  opacity: 0.9;
+}
+
+.studio-scene-cards__chip--status {
+  border: 1px solid color-mix(in srgb, var(--studio-accent, #c9a86a) 40%, transparent);
+}
+
 .studio-scene-cards__head {
   display: flex;
   align-items: baseline;

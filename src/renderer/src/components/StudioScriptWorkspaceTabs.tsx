@@ -20,6 +20,8 @@ type Props = {
   emptyHint?: string
   activeSceneIndex?: number
   onActiveSceneIndex?: (sceneIndex: number) => void
+  sceneThumbUrl?: (scene: StoryScene) => string | undefined
+  sceneDurationSec?: (scene: StoryScene) => number | undefined
 }
 
 export function StudioScriptWorkspaceTabs({
@@ -32,7 +34,9 @@ export function StudioScriptWorkspaceTabs({
   onSceneFocus,
   emptyHint,
   activeSceneIndex,
-  onActiveSceneIndex
+  onActiveSceneIndex,
+  sceneThumbUrl,
+  sceneDurationSec
 }: Props) {
   const uiText = useUiText()
   const [tab, setTab] = useState<StudioScriptTab>('scenes')
@@ -71,6 +75,8 @@ export function StudioScriptWorkspaceTabs({
               if (sc) onSceneFocus?.(sc.character, sceneIndex)
             }}
             emptyHint={emptyHint}
+            sceneThumbUrl={sceneThumbUrl}
+            sceneDurationSec={sceneDurationSec}
           />
         ) : null}
 
@@ -84,6 +90,8 @@ export function StudioScriptWorkspaceTabs({
             focusedSpeaker={focusedSpeaker}
             onSceneFocus={onSceneFocus}
             emptyHint={emptyHint}
+            screenplayMode
+            activeSceneIndex={activeSceneIndex}
           />
         ) : null}
 
