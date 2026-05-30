@@ -26,7 +26,7 @@ export function inferAmbienceCue(ctx, styleId) {
   if (ctx.actionLevel > 0.6) tags.push('footsteps')
 
   if (sid === 'cozy_storybook') tags.push('birds', 'wind')
-  if (sid === 'dark_anime') tags.push('wind', 'whisper')
+  if (sid === 'cinematic_realistic') tags.push('room_tone', 'wind_soft')
   if (sid === 'cinematic_anime' && ctx.emotion === 'wonder') tags.push('magic')
 
   const unique = [...new Set(tags)]

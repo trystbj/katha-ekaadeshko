@@ -500,7 +500,25 @@ async function main() {
         continue
       }
       idlePolls = 0
-      await processJob(job)
+      try {
+        await processJob(job)
+      } catch (jobErr) {
+        const jobId = job?.id ? String(job.id) : ''
+        const msg =
+          jobErr instanceof Error
+            ? jobErr.message
+            : typeof jobErr === 'object' && jobErr !== null
+              ? JSON.stringify(jobErr, null, 2)
+              : String(jobErr)
+        console.error('Job failed:', jobId, msg)
+        if (jobId) {
+          try {
+            await api('POST', '/api/worker-fail', { id: jobId, error: msg.slice(0, 1900) })
+          } catch (failErr) {
+            console.error('worker-fail report error:', failErr?.message || failErr)
+          }
+        }
+      }
     } catch (e) {
       console.error('Worker error:', e?.message || e)
       await sleep(3000)

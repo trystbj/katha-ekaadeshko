@@ -76,8 +76,22 @@
   background: rgba(160, 220, 160, 0.85);
 }
 
-.cinematic-style-preview--dark_anime .cinematic-style-preview__particle {
-  background: rgba(140, 120, 220, 0.7);
+.cinematic-style-preview--cinematic_realistic .cinematic-style-preview__particle {
+  background: rgba(200, 185, 160, 0.75);
+}
+
+.cinematic-style-preview--cinematic_realistic .cinematic-style-preview__vignette {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    transparent 42%,
+    transparent 74%,
+    rgba(0, 0, 0, 0.38) 100%
+  );
+}
+
+.cinematic-style-preview--cinematic_realistic .cinematic-style-preview__glow {
+  opacity: 0.55;
 }
 
 .cinematic-style-preview__badge {

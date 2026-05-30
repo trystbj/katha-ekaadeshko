@@ -6,8 +6,8 @@ export function isServerlessRuntime() {
 /** Wall-clock budget for full stream generate on serverless (under Vercel maxDuration). */
 export function serverlessPipelineBudgetMs() {
   const n = Number(process.env.KATHA_STREAM_PIPELINE_MS)
-  if (Number.isFinite(n) && n > 10_000) return Math.min(n, 52_000)
-  return 48_000
+  if (Number.isFinite(n) && n > 10_000) return Math.min(n, 58_000)
+  return 58_000
 }
 
 /** Skip validate/enhance LLM round-trips on Vercel (saves ~20–40s). Set KATHA_SERVERLESS_FAST=0 to disable. */

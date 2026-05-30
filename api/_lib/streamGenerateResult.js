@@ -29,7 +29,11 @@ export function slimStreamGenerateResult(result) {
       ...(meta.scriptOnlyComplete ? { scriptOnlyComplete: true, productionStage: meta.productionStage } : {}),
       ...(meta.productionDirectives ? { productionDirectives: meta.productionDirectives } : {}),
       ...(meta.sceneProductionStates ? { sceneProductionStates: meta.sceneProductionStates } : {}),
-      ...(meta.productionMemory ? { productionMemory: meta.productionMemory } : {})
+      ...(meta.productionMemory ? { productionMemory: meta.productionMemory } : {}),
+      ...(meta.masterStoryContext ? { masterStoryContext: meta.masterStoryContext } : {}),
+      ...(meta.pipelineCheckpoint ? { pipelineCheckpoint: meta.pipelineCheckpoint } : {}),
+      ...(meta.pipelineResumable != null ? { pipelineResumable: meta.pipelineResumable } : {}),
+      ...(meta.pipelineYielded != null ? { pipelineYielded: meta.pipelineYielded } : {})
     }
   }
 }

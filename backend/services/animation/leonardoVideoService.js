@@ -4,8 +4,15 @@
 
 import { isServerlessRuntime } from '../../utils/runtime.js'
 import { leonardoDimensionsForAspectMode } from '../leonardoService.js'
+import {
+  parseLeonardoApiError,
+  summarizeVideoFailures,
+  humanizeVideoFailure
+} from '../../utils/leonardoErrors.js'
+import { imagePromptEnglishLockLine } from '../../../shared/outputLanguageLock.js'
 
 const LEONARDO_API = 'https://cloud.leonardo.ai/api/rest/v1'
+const VIDEO_MAX_ATTEMPTS = 2
 
 function requireKey() {
   const key = process.env.LEONARDO_API_KEY
@@ -35,7 +42,8 @@ function motionPromptForScene(row, directives = {}) {
   ]
     .filter(Boolean)
     .join('. ')
-  return base.slice(0, 900) || 'Subtle cinematic camera movement, emotional atmosphere'
+  const motion = base.slice(0, 900) || 'Subtle cinematic camera movement, emotional atmosphere'
+  return `${imagePromptEnglishLockLine()} ${motion}`.trim()
 }
 
 /**
@@ -89,7 +97,27 @@ async function pollMotionJob(generationId) {
     if (status === 'COMPLETE' && motionUrl) return { videoUrl: motionUrl, generationId }
     if (status === 'FAILED') throw new Error('Leonardo motion: generation failed')
   }
-  throw new Error('Leonardo motion: timeout')
+  throw new Error('Leonardo motion: timeout — try fast mode or fewer scenes')
+}
+
+async function createAndPollVideo({ imageId, prompt, resolution, frameInterpolation }) {
+  let lastErr = null
+  for (let attempt = 1; attempt <= VIDEO_MAX_ATTEMPTS; attempt++) {
+    try {
+      const jobId = await createImageToVideo({ imageId, prompt, resolution, frameInterpolation })
+      return await pollMotionJob(jobId)
+    } catch (e) {
+      lastErr = e
+      const message = e instanceof Error ? e.message : String(e)
+      console.warn('[katha:leonardo-video]', 'scene_retry', { attempt, message })
+      if (attempt < VIDEO_MAX_ATTEMPTS && /timeout|ECONNRESET|fetch failed|5\d{2}/i.test(message)) {
+        await sleep(1500 * attempt)
+        continue
+      }
+      throw e
+    }
+  }
+  throw lastErr || new Error('Leonardo motion: generation failed')
 }
 
 /**
@@ -129,13 +157,12 @@ export async function leonardoGenerateVideoForScript(opts = {}) {
     }
     try {
       const prompt = motionPromptForScene(row, directives)
-      const jobId = await createImageToVideo({
+      const { videoUrl } = await createAndPollVideo({
         imageId,
         prompt,
         resolution,
         frameInterpolation
       })
-      const { videoUrl } = await pollMotionJob(jobId)
       out.push({
         scene: sceneNum,
         video_url: videoUrl,
@@ -145,7 +172,7 @@ export async function leonardoGenerateVideoForScript(opts = {}) {
         generationMode: mode
       })
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e)
+      const message = humanizeVideoFailure(e instanceof Error ? e.message : String(e))
       failures.push({ scene: sceneNum, message })
       console.warn('[katha:leonardo-video]', 'scene_failed', { scene: sceneNum, message })
     }
@@ -163,6 +190,9 @@ export async function leonardoGenerateVideoForScript(opts = {}) {
       ok: out.length,
       failed: failures.length
     })
+  }
+  if (!out.length && failures.length && process.env.LEONARDO_API_KEY) {
+    throw new Error(summarizeVideoFailures(failures))
   }
   return out
 }

@@ -5,7 +5,7 @@
 const BOOKEND_STYLES = {
   soft_anime_fantasy: 'anime_fantasy',
   cinematic_anime: 'anime_cinematic',
-  dark_anime: 'dark_cinematic',
+  cinematic_realistic: 'documentary_real',
   cozy_storybook: 'storybook_warm',
   comic_panel: 'comic_punch',
   custom: 'cinematic_neutral',

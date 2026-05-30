@@ -1,9 +1,16 @@
 import { summarizeMemory } from './memoryStore.js'
 import { buildStoryStyleHintLine, buildScriptVisualStyleSection } from './visualStyleLock.js'
-import { languageDisplayName } from './generationBlueprint.js'
+import {
+  OUTPUT_LANGUAGE,
+  englishOutputEnforcementBlock,
+  regionalCultureContextLine
+} from '../../shared/outputLanguageLock.js'
+import { isServerlessRuntime } from './runtime.js'
+import { serverlessMaxScriptScenes } from './serverlessSceneLimits.js'
 import {
   characterPersonalityWritingBlock,
-  cinematicWritingBlueprintSection
+  cinematicWritingBlueprintSection,
+  screenplayQualityRulesBlock
 } from '../cinematic/cinematicStoryWriting.js'
 
 function longStoryScriptSection(inputLike) {
@@ -25,8 +32,13 @@ function blueprintPreamble(inputLike) {
   const block = String(inputLike?.__generationBlueprint || '').trim()
   const repair = String(inputLike?.blueprintRepairNotes || '').trim()
   const directives = String(inputLike?.__productionDirectivesBlock || '').trim()
-  if (!block && !repair && !directives) return ''
-  let out = ''
+  const regional = regionalCultureContextLine(
+    inputLike?.storyLanguage,
+    inputLike?.country
+  )
+  const englishLock = englishOutputEnforcementBlock(regional)
+  if (!block && !repair && !directives) return `${englishLock}\n\n`
+  let out = `${englishLock}\n\n`
   if (directives) {
     out += `${directives}\n\n`
   }
@@ -55,9 +67,10 @@ export function buildStoryPrompt(inputLike) {
     seedLine,
     storyLanguage
   } = inputLike
-  const langDisp =
-    String(inputLike?.__storyLanguageDisplay || '').trim() ||
-    languageDisplayName(storyLanguage || inputLike?.storyLanguage)
+  const langDisp = OUTPUT_LANGUAGE
+  const regionalAtmosphere =
+    String(inputLike?.__regionalContextDisplay || '').trim() ||
+    regionalCultureContextLine(inputLike?.storyLanguage, inputLike?.country)
   const mem = summarizeMemory(memory)
   const variation = forceVariation
     ? `\nHARD VARIATION REQUIRED:\n- Use different setting type, conflict type, and character archetypes than recent.\n- Use an unexpected but culturally plausible hook.\n`
@@ -84,7 +97,7 @@ ${cinematicWrite}
 
 Constraints:
 - Follow the GENERATION BLUEPRINT locks above first; they override latent defaults.
-- Primary prose language: ${langDisp} — title, setting, story prose, and any inline dialogue must stay in this language unless the USER SEED explicitly permits bilingualism (${langDisp} still dominant).
+- Primary prose language: ${langDisp} ONLY — title, setting, story prose, and any inline dialogue must be ${langDisp} (regional atmosphere: ${regionalAtmosphere} for culture/names/traditions, not for script alphabet).
 - 100% original. No copying or recognizable IP.
 - Cultural authenticity: include believable details (places, customs) without stereotyping. Only use personal names if USER SEED / NAMING LOCK allows names; otherwise pronouns and relationship words only.
 - Strict logical consistency (timeline, motivations, causal chain).
@@ -108,9 +121,10 @@ Return JSON ONLY with EXACT keys:
 
 export function buildValidationPrompt({ story, input, region }) {
   const preamble = blueprintPreamble(input)
-  const langDisp =
-    String(input?.__storyLanguageDisplay || '').trim() ||
-    languageDisplayName(input?.storyLanguage)
+  const langDisp = OUTPUT_LANGUAGE
+  const regionalAtmosphere =
+    String(input?.__regionalContextDisplay || '').trim() ||
+    regionalCultureContextLine(input?.storyLanguage, input?.country)
   return `${preamble}You will validate a story for logic and consistency.
 
 Input metadata:
@@ -119,10 +133,11 @@ Input metadata:
 - theme: ${input.theme}
 - genre: ${input.genre}
 - locked prose/dialogue language: ${langDisp}
+- regional cultural atmosphere (not output language): ${regionalAtmosphere}
 
 Rules:
 - Honor GENERATION BLUEPRINT locks: do not relocate setting to a different culture than locked region unless USER SEED explicitly demands it.
-- Preserve dominant language ${langDisp}; do not translate everything into English unless ${langDisp} already is English.
+- Preserve dominant language ${langDisp}; if any field uses non-English script, rewrite that field into ${langDisp} while keeping regional culture.
 - DO NOT rewrite creatively or swap genres (no injecting comedy beats into non-comedy locks, etc.).
 - Fix contradictions, timeline issues, character inconsistency, unclear causality.
 - Remove redundancy and repeated lines.
@@ -142,9 +157,10 @@ ${JSON.stringify(story)}`
 
 export function buildEnhancementPrompt({ story, input, region }) {
   const preamble = blueprintPreamble(input)
-  const langDisp =
-    String(input?.__storyLanguageDisplay || '').trim() ||
-    languageDisplayName(input?.storyLanguage)
+  const langDisp = OUTPUT_LANGUAGE
+  const regionalAtmosphere =
+    String(input?.__regionalContextDisplay || '').trim() ||
+    regionalCultureContextLine(input?.storyLanguage, input?.country)
   return `${preamble}You will enhance a story for cultural richness and immersion.
 
 Input metadata:
@@ -153,6 +169,7 @@ Input metadata:
 - theme: ${input.theme}
 - genre: ${input.genre}
 - locked prose/dialogue language: ${langDisp}
+- regional cultural atmosphere (not output language): ${regionalAtmosphere}
 
 Rules:
 - Obey GENERATION BLUEPRINT locks: never contradict genre, region, language, or USER SEED priorities.
@@ -178,9 +195,11 @@ ${JSON.stringify(story)}`
 export function buildScriptPrompt({ story, input, region }) {
   const visualLock = buildScriptVisualStyleSection(input)
   const preamble = blueprintPreamble(input)
-  const langDisp =
-    String(input?.__storyLanguageDisplay || '').trim() ||
-    languageDisplayName(input?.storyLanguage)
+  const langDisp = OUTPUT_LANGUAGE
+  const masterBlock = String(input?.__masterStoryContextBlock || '').trim()
+  const regionalNote = input?.__regionalContextDisplay
+    ? `Regional atmosphere (culture while writing in ${langDisp}): ${input.__regionalContextDisplay}.`
+    : ''
   const castBlock = characterPersonalityWritingBlock(story?.characters || [])
   const cinematicWrite = cinematicWritingBlueprintSection({
     genre: input?.genre,
@@ -191,25 +210,27 @@ export function buildScriptPrompt({ story, input, region }) {
 
   return `${preamble}Convert this story into a cinematic short-form screenplay suitable for 40s–2min video.
 
-${cinematicWrite}
+${masterBlock ? `${masterBlock}\n\n` : ''}${cinematicWrite}
 
-${castBlock ? `${castBlock}\n\n` : ''}Metadata:
+${castBlock ? `${castBlock}\n\n` : ''}${regionalNote ? `${regionalNote}\n\n` : ''}Metadata:
 - country: ${input.country}
 - region: ${region}
 - theme: ${input.theme}
 - genre: ${input.genre}
-- narration + dialogue language lock: ${langDisp}
+- narration + dialogue language lock: ${langDisp} (regional culture only — never regional script in JSON fields)
 
 ${visualLock}
 
 ${longStoryScriptSection(input)}
 
+${screenplayQualityRulesBlock(langDisp)}
+
 Rules:
 - Follow GENERATION BLUEPRINT locks (genre, region, pacing, visual card).
-- 6–10 scenes (use LONG-STORY SCENE PLAN count when provided above).
+- ${isServerlessRuntime() ? `Produce exactly ${serverlessMaxScriptScenes(input)} scenes (server-optimized batch — quality over quantity).` : '6–10 scenes (use LONG-STORY SCENE PLAN count when provided above).'}
 - Each scene must include:
   - scene (number)
-  - visual_description (shot + key actions + setting + visible emotion/body language)
+  - visual_description (shot + key actions + setting + visible emotion/body language — NO text, subtitles, or captions in the frame)
   - narration (cinematic voiceover for TTS — immersive, emotional, varied rhythm; 1–4 sentences; NOT robotic list tone)
   - dialogue (array of { character, line } — natural spoken lines when characters talk; include reactions, interruptions, questions; empty array only if scene is pure voiceover)
 - Write narration and every dialogue line in ${langDisp} unless USER SEED explicitly authorizes bilingual delivery (${langDisp} remains primary).

@@ -74,9 +74,12 @@ export function buildEpisodeScenesFromScriptRows(
   const slice = scriptRows.slice(0, maxCount)
   const sceneIndices = new Set<number>()
   const scenes: StoryScene[] = []
+  const seenSceneNum = new Set<number>()
   for (let i = 0; i < slice.length; i++) {
     const s = slice[i]
     const sceneNum = sceneIndexFromPipelineRow(s as { scene?: string | number }, i + 1)
+    if (seenSceneNum.has(sceneNum)) continue
+    seenSceneNum.add(sceneNum)
     sceneIndices.add(sceneNum)
     const narration = typeof s.narration === 'string' ? s.narration : ''
     const composed =

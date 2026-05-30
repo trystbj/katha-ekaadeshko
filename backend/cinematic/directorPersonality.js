@@ -96,7 +96,7 @@ const PROFILES = {
 const STYLE_MAP = {
   cinematic_anime: 'anime_director',
   soft_anime_fantasy: 'fantasy_epic',
-  dark_anime: 'dark_psychological',
+  cinematic_realistic: 'hollywood_cinematic',
   cozy_storybook: 'cozy_storybook',
   comic_panel: 'anime_director',
   custom: 'hollywood_cinematic'

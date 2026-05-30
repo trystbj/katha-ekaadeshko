@@ -12,15 +12,11 @@ import { parseStructuredEpisode, fingerprintFromEpisode } from '../services/pars
 import { simpleHash } from '../services/fingerprint'
 import type { StoryBible, StoryEpisode, VisualStyleId } from '../types/story'
 import { defaultProject } from '../types/story'
-import { NARRATION_LANGUAGE_LABEL_EN } from '../constants/narrationLanguages'
+import { regionalCultureContextLine } from '@shared/outputLanguageLock.js'
 import { useStudioStore } from '../store/useStudioStore'
 import { pushStoryToHistory } from '../utils/storyHistory'
 import { getVisualPackExtraPrompt } from '../utils/visualThemePackExtras'
 import { analyzeNamingPolicy, sanitizeStoryCharacters } from '@shared/characterNamingPolicy.js'
-
-function langName(code: string): string {
-  return NARRATION_LANGUAGE_LABEL_EN[code] ?? code
-}
 
 async function ai(
   system: string,
@@ -78,7 +74,7 @@ export function useStoryGeneration() {
         idea: ideaUse,
         styleId: styleId as VisualStyleId,
         customVisualPrompt: styleId === 'custom' ? customVisualPrompt : undefined,
-        languageName: langName(storyLanguage),
+        regionalCulture: regionalCultureContextLine(storyLanguage),
         aspectMode: 'vertical_9_16',
         visualAccent: accent
       })

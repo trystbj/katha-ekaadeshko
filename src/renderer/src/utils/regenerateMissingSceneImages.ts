@@ -28,7 +28,10 @@ function studioInputFromProject(project: ProjectState) {
 export async function regenerateMissingSceneImages(
   project: ProjectState,
   episodeNumber: number,
-  opts?: { onScene?: (sceneIndex: number, ok: boolean) => void }
+  opts?: {
+    onScene?: (sceneIndex: number, ok: boolean) => void
+    onProjectPatch?: (project: ProjectState) => void
+  }
 ): Promise<ProjectState> {
   const ep = project.episodes.find((e) => e.number === episodeNumber)
   if (!ep) return project
@@ -40,7 +43,7 @@ export async function regenerateMissingSceneImages(
     const rowIx = ep.scenes.findIndex((s) => s.index === sceneIndex)
     if (rowIx < 0) continue
     try {
-      const res = await fetchRegenerationPlan('visuals', rowIx + 1, ep as StoryEpisode, {
+      const res = await fetchRegenerationPlan('visuals', sceneIndex, ep as StoryEpisode, {
         execute: true,
         studioInput: studioInputFromProject(next)
       })
@@ -50,11 +53,15 @@ export async function regenerateMissingSceneImages(
         const assetsFromPipeline = buildSceneAssetsFromPipeline([
           { scene: sceneIndex, image_url: hit.imageUrl, prompt: '' }
         ])
-        next = {
-          ...next,
-          assets: mergeProjectAssets(next.assets, assetsFromPipeline),
-          updatedAt: new Date().toISOString()
-        }
+        next = withStoryboardReady(
+          {
+            ...next,
+            assets: mergeProjectAssets(next.assets, assetsFromPipeline),
+            updatedAt: new Date().toISOString()
+          },
+          { partial: true, episodeNumber }
+        )
+        opts?.onProjectPatch?.(next)
         opts?.onScene?.(sceneIndex, true)
       } else {
         opts?.onScene?.(sceneIndex, false)

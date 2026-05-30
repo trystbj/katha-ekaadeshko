@@ -34,9 +34,9 @@ export function inferVisualEffects(ctx, styleId, environment) {
   }
   if (env.particles > 0.3) embers = env.particles * 0.6
 
-  if (styleId === 'dark_anime') {
-    fog = Math.max(fog, 0.35)
-    magicalGlow *= 0.5
+  if (styleId === 'cinematic_realistic') {
+    fog = Math.min(fog, 0.18)
+    magicalGlow = 0
   }
   if (styleId === 'comic_panel' && ctx.actionLevel > 0.4) {
     speedLines = Math.max(speedLines, 0.55)

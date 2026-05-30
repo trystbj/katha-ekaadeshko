@@ -4,7 +4,8 @@ import type { VisualStyleId } from '../types/story'
 /** Legacy Sketch slot stored as romantic_glow — map to Cartoon (cozy storybook). */
 const LEGACY_STYLE_MAP: Record<string, VisualStyleId> = {
   romantic_glow: 'cozy_storybook',
-  sketch: 'cozy_storybook'
+  sketch: 'cozy_storybook',
+  dark_anime: 'cinematic_realistic'
 }
 
 export function migrateVisualStyleId(raw: unknown): VisualStyleId | '' {
@@ -15,7 +16,7 @@ export function migrateVisualStyleId(raw: unknown): VisualStyleId | '' {
     'soft_anime_fantasy',
     'cozy_storybook',
     'cinematic_anime',
-    'dark_anime',
+    'cinematic_realistic',
     'comic_panel',
     'custom'
   ]

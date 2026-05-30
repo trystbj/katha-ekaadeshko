@@ -424,9 +424,14 @@ input.select:focus-visible {
   mix-blend-mode: multiply;
 }
 
-.style-card--dark_anime::before {
-  animation: style-void 8s ease-in-out infinite;
-  background-image: radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0.65), transparent 55%);
+.style-card--cinematic_realistic::before {
+  animation: style-float-soft 7s ease-in-out infinite;
+  background-image: radial-gradient(
+    circle at 35% 15%,
+    rgba(255, 255, 255, 0.18),
+    transparent 55%
+  );
+  opacity: 0.12;
 }
 
 .style-card--custom::before {

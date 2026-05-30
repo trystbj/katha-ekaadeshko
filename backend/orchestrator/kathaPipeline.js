@@ -29,6 +29,11 @@ import {
   normalizePipelineInput
 } from '../utils/generationBlueprint.js'
 import { isServerlessRuntime, serverlessFastPipeline } from '../utils/runtime.js'
+import { createPipelineBudget, PipelineYieldError } from '../utils/pipelineBudget.js'
+import {
+  capScriptScenes,
+  serverlessMaxScriptScenes
+} from '../utils/serverlessSceneLimits.js'
 import {
   runLongStoryIntelligence,
   enrichContextMemoryFromOutputs
@@ -42,6 +47,12 @@ import { analyzeProductionIntent } from '../services/ai-director/intentAnalyzer.
 import { buildAllSceneProductionStates } from '../services/cinematic/sceneProductionState.js'
 import { buildProductionMemory } from '../services/story-memory/productionMemoryStore.js'
 import { buildSmartContinuityPack } from '../services/continuity/smartContinuityEngine.js'
+import {
+  buildMasterStoryContextDeterministic,
+  buildMasterStoryContextAiPrompt,
+  mergeMasterStoryContext,
+  masterStoryContextPromptBlock
+} from '../cinematic/masterStoryContext.js'
 
 const PROVIDERS = [
   {
@@ -165,21 +176,47 @@ async function maybeBlueprintRepairStory({ pinnedInput, region, memory, finalSto
  * 4) OpenAI generates script JSON array
  * 5) Parallel: Leonardo images + TTS audio
  */
+function buildYieldResult(partial, pinnedInput, region, providersUsed, extraMeta = {}) {
+  return {
+    story: partial.story || null,
+    script: Array.isArray(partial.script) ? partial.script : [],
+    images: Array.isArray(partial.images) ? partial.images : [],
+    audio: Array.isArray(partial.audio) ? partial.audio : [],
+    metadata: {
+      country: pinnedInput.country,
+      region,
+      genre: pinnedInput.genre,
+      theme: pinnedInput.theme,
+      storyLanguage: pinnedInput.storyLanguage,
+      pipelineCheckpoint: extraMeta.checkpoint || 'partial',
+      pipelineResumable: true,
+      aiProviders: providersUsed,
+      ...extraMeta
+    }
+  }
+}
+
 export async function runKathaPipeline(input, req, opts = {}) {
   const onProgress = typeof opts?.onProgress === 'function' ? opts.onProgress : null
+  const budget = opts.budget || createPipelineBudget()
   const normalized = normalizePipelineInput(input)
+  const pipelinePhase = String(normalized.pipelinePhase || input.pipelinePhase || 'full').trim() || 'full'
+  const resumeStory = input.resumeStory && typeof input.resumeStory === 'object' ? input.resumeStory : null
   const region = getRegionForCountry(normalized.country)
   const blueprintPack = buildGenerationBlueprint(normalized)
   let pinnedInput = {
     ...normalized,
     __generationBlueprint: blueprintPack.blueprintBlock,
-    __storyLanguageDisplay: blueprintPack.languageDisplayName,
+    __storyLanguageDisplay: 'English',
     __generationBlueprintMeta: blueprintPack.compactMeta
   }
 
   let longStoryPlan = { active: false }
+  const storyOnlyPhase = pipelinePhase === 'story'
   try {
-    longStoryPlan = runLongStoryIntelligence(pinnedInput, { onProgress })
+    if (!isServerlessRuntime() || !storyOnlyPhase) {
+      longStoryPlan = runLongStoryIntelligence(pinnedInput, { onProgress })
+    }
     if (longStoryPlan?.active && longStoryPlan.blueprintBlock) {
       pinnedInput = {
         ...pinnedInput,
@@ -196,21 +233,51 @@ export async function runKathaPipeline(input, req, opts = {}) {
   const memory = await getMemoryStore()
 
   const providersUsed = {}
+
+  if (resumeStory) {
+    if (onProgress) {
+      onProgress({ stage: 'resume', progress: 38, message: 'Continuing from saved story…' })
+    }
+    if (input.__masterStoryContext || input.masterStoryContext) {
+      pinnedInput = {
+        ...pinnedInput,
+        __masterStoryContext: input.__masterStoryContext || input.masterStoryContext,
+        __masterStoryContextBlock: masterStoryContextPromptBlock(
+          input.__masterStoryContext || input.masterStoryContext
+        )
+      }
+    }
+    return continuePipelineFromStory(
+      pinnedInput,
+      region,
+      resumeStory,
+      req,
+      providersUsed,
+      onProgress,
+      memory,
+      { budget }
+    )
+  }
+
   let productionIntent = null
   try {
-    productionIntent = await analyzeProductionIntent(pinnedInput, { onProgress })
-    pinnedInput = {
-      ...pinnedInput,
-      __productionDirectives: productionIntent.directives,
-      __productionDirectivesBlock: productionIntent.promptBlock,
-      __agentCouncil: productionIntent.agentCouncil,
-      __productionIntentMeta: {
-        provider: productionIntent.intentProvider,
-        analyzedAt: productionIntent.analyzedAt
-      },
-      generationMode: productionIntent.directives.generationMode
+    if (!isServerlessRuntime() || !storyOnlyPhase) {
+      productionIntent = await analyzeProductionIntent(pinnedInput, { onProgress })
     }
-    providersUsed.intentAnalyzer = productionIntent.intentProvider
+    if (productionIntent) {
+      pinnedInput = {
+        ...pinnedInput,
+        __productionDirectives: productionIntent.directives,
+        __productionDirectivesBlock: productionIntent.promptBlock,
+        __agentCouncil: productionIntent.agentCouncil,
+        __productionIntentMeta: {
+          provider: productionIntent.intentProvider,
+          analyzedAt: productionIntent.analyzedAt
+        },
+        generationMode: productionIntent.directives.generationMode
+      }
+      providersUsed.intentAnalyzer = productionIntent.intentProvider
+    }
   } catch (e) {
     safeLog('warn', 'production_intent_skipped', {
       message: e instanceof Error ? e.message : String(e)
@@ -272,7 +339,8 @@ export async function runKathaPipeline(input, req, opts = {}) {
       req,
       providersUsed,
       onProgress,
-      memory
+      memory,
+      { budget }
     )
   }
 
@@ -286,10 +354,23 @@ export async function runKathaPipeline(input, req, opts = {}) {
     theme: pinnedInput.theme,
     genre: pinnedInput.genre
   })
-  return await continuePipelineFromStory(pinnedInput, region, story, req, providersUsed, onProgress, memory)
+  return await continuePipelineFromStory(pinnedInput, region, story, req, providersUsed, onProgress, memory, {
+    budget
+  })
 }
 
-async function continuePipelineFromStory(pinnedInput, region, story, req, providersUsed, onProgress, memory) {
+async function continuePipelineFromStory(
+  pinnedInput,
+  region,
+  story,
+  req,
+  providersUsed,
+  onProgress,
+  memory,
+  opts = {}
+) {
+  const budget = opts.budget || createPipelineBudget()
+  const pipelinePhase = String(pinnedInput.pipelinePhase || 'full').trim() || 'full'
   const fast = serverlessFastPipeline()
   let finalStory = story
 
@@ -364,6 +445,83 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
     })
   }
 
+  // Stage 3b — Master story context + character identity memory (before screenplay)
+  if (onProgress) {
+    onProgress({
+      stage: 'master_context',
+      progress: 42,
+      message: 'Building master story context and character locks…'
+    })
+  }
+  let masterStoryContext =
+    pinnedInput.__masterStoryContext && typeof pinnedInput.__masterStoryContext === 'object'
+      ? pinnedInput.__masterStoryContext
+      : buildMasterStoryContextDeterministic(finalStory, pinnedInput, region)
+  if (!pinnedInput.__masterStoryContext && !fast && !isServerlessRuntime()) {
+    try {
+      const { json: ctxAi, provider: ctxProvider } = await aiJsonAuto({
+        purpose: 'master_story_context',
+        schemaHint: 'MasterStoryContext',
+        prompt: buildMasterStoryContextAiPrompt(finalStory, pinnedInput, region, masterStoryContext),
+        order: ['deepseek', 'openai', 'gemini']
+      })
+      masterStoryContext = mergeMasterStoryContext(masterStoryContext, ctxAi)
+      providersUsed.masterStoryContext = ctxProvider
+    } catch (e) {
+      safeLog('warn', 'master_story_context_fallback', {
+        message: e instanceof Error ? e.message : String(e)
+      })
+    }
+  }
+  pinnedInput = {
+    ...pinnedInput,
+    __masterStoryContext: masterStoryContext,
+    __masterStoryContextBlock: masterStoryContextPromptBlock(masterStoryContext),
+    screenplayLanguage: pinnedInput.screenplayLanguage || 'en',
+    __storyLanguageDisplay: 'English',
+    __regionalContextDisplay: masterStoryContext.regionalContext
+  }
+
+  budget.checkpoint('master_context', { story: finalStory, masterStoryContext })
+
+  if (pipelinePhase === 'story') {
+    throw new PipelineYieldError(
+      buildYieldResult(
+        { story: finalStory, script: [] },
+        pinnedInput,
+        region,
+        providersUsed,
+        {
+          checkpoint: 'story_ready',
+          masterStoryContext,
+          outputLanguage: 'English',
+          regionalContext: masterStoryContext.regionalContext,
+          productionStage: 'writing'
+        }
+      ),
+      'story_ready'
+    )
+  }
+
+  if (budget.shouldStop()) {
+    throw new PipelineYieldError(
+      buildYieldResult(
+        { story: finalStory, script: [] },
+        pinnedInput,
+        region,
+        providersUsed,
+        {
+          checkpoint: 'story_ready',
+          masterStoryContext,
+          outputLanguage: 'English',
+          regionalContext: masterStoryContext.regionalContext,
+          productionStage: 'writing'
+        }
+      ),
+      'story_ready'
+    )
+  }
+
   // Stage 4 — Script generation (auto: OpenAI → Gemini → DeepSeek)
   if (onProgress) {
     const n = longPlan?.targetSceneCount
@@ -381,16 +539,24 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
   })
   let script = normalizeScriptJson(scriptRaw)
   if (!script.length) {
-    throw new Error(
-      'Script generation returned no scenes. Try a shorter seed or tap Generate again.'
-    )
+    throw new Error('Script generation returned no scenes. Tap Generate again to continue.')
   }
+  const maxScenes = serverlessMaxScriptScenes(pinnedInput)
+  script = capScriptScenes(script, maxScenes)
   script = attachComposedNarrationToScript(script, finalStory)
+  budget.checkpoint('script', { story: finalStory, script })
   console.info('[katha:story-writing]', 'script_enriched', {
     scenes: script.length,
     withDialogue: script.filter((r) => Array.isArray(r.dialogue) && r.dialogue.length > 0).length
   })
   providersUsed.script = scriptProvider
+
+  if (masterStoryContext?.memory) {
+    masterStoryContext.memory.scene_context_memory = script.map((row, i) => ({
+      scene: Number(row?.scene) > 0 ? Number(row.scene) : i + 1,
+      summary: String(row.visual_description || row.narration || '').slice(0, 200)
+    }))
+  }
 
   if (longPlan?.active) {
     longPlan.contextMemory = enrichContextMemoryFromOutputs(
@@ -463,7 +629,8 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
   const studioOrchestration =
     !scriptOnlyStage &&
     (process.env.KATHA_STUDIO_ORCHESTRATION === '1' || pinnedInput.studioOrchestration === true)
-  let skipOrchestration = (fast || pinnedInput.performancePreferLow) && !studioOrchestration
+  let skipOrchestration =
+    (fast || pinnedInput.performancePreferLow || budget.shouldYieldOptional()) && !studioOrchestration
   if (scriptOnlyStage && isServerlessRuntime()) skipOrchestration = true
   if (!skipOrchestration) {
     try {
@@ -546,6 +713,9 @@ async function continuePipelineFromStory(pinnedInput, region, story, req, provid
       theme: pinnedInput.theme,
       length: pinnedInput.length,
       storyLanguage: pinnedInput.storyLanguage,
+      outputLanguage: masterStoryContext?.outputLanguage || 'English',
+      regionalContext: masterStoryContext?.regionalContext,
+      masterStoryContext,
       generationBlueprint: pinnedInput.__generationBlueprintMeta,
       aiProviders: providersUsed,
       ambientBedUrl,

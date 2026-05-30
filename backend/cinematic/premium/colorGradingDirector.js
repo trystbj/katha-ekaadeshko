@@ -20,7 +20,7 @@ function pickGrade(emotionProfile, input) {
     return GRADE_PRESETS.horror_cold
   if (genre.includes('fantasy') || ep.primary === 'wonder') return GRADE_PRESETS.fantasy_dream
   if (genre.includes('documentary')) return GRADE_PRESETS.documentary_real
-  if (String(input?.styleId) === 'dark_anime') return GRADE_PRESETS.dark_noir
+  if (String(input?.styleId) === 'cinematic_realistic') return GRADE_PRESETS.documentary_real
   if (/anime/.test(String(input?.styleId || ''))) return GRADE_PRESETS.anime_cinematic
   if (ep.primary === 'sadness') return { ...GRADE_PRESETS.nostalgic_film, warmth: 0.42 }
   return GRADE_PRESETS.nostalgic_film

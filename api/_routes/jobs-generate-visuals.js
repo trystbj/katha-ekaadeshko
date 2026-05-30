@@ -1,11 +1,12 @@
 import { z } from 'zod'
-import { runKathaVisualPipeline } from '../../backend/orchestrator/kathaVisualPipeline.js'
+import { runStreamVisualPipeline } from '../_lib/streamVisualRunner.js'
+import { serverlessMaxScenesPerVisualBatch } from '../../backend/utils/serverlessSceneLimits.js'
 import { checkRateLimit, clientIp } from '../_lib/rateLimit.js'
 import { parseRequestBody } from '../_lib/parseBody.js'
 import { publicErrorMessage, safeLog } from '../_lib/log.js'
 import { setSecurityHeaders } from '../_lib/http.js'
 import { initSseResponse, sseWrite } from '../_lib/sse.js'
-import { isServerlessRuntime, serverlessPipelineBudgetMs } from '../../backend/utils/runtime.js'
+import { isServerlessRuntime } from '../../backend/utils/runtime.js'
 
 const BodySchema = z.object({
   story: z.record(z.unknown()),
@@ -19,28 +20,14 @@ const BodySchema = z.object({
   theme: z.string().optional(),
   country: z.string().optional(),
   storyLanguage: z.string().optional(),
+  screenplayLanguage: z.string().optional(),
+  projectId: z.string().optional(),
+  characterVisualLocks: z.array(z.record(z.unknown())).optional(),
   narratorId: z.string().optional(),
   characterReference: z.record(z.unknown()).optional(),
-  bibleCharacters: z.array(z.record(z.unknown())).optional()
+  bibleCharacters: z.array(z.record(z.unknown())).optional(),
+  masterStoryContext: z.record(z.unknown()).optional()
 })
-
-function runVisualWithBudget(input, req, onProgress) {
-  const run = runKathaVisualPipeline({ ...input, req, onProgress })
-  if (!isServerlessRuntime()) return run
-  const budgetMs = serverlessPipelineBudgetMs()
-  return Promise.race([
-    run,
-    new Promise((_, reject) => {
-      setTimeout(() => {
-        const e = new Error(
-          'Visual generation timed out on the server (~60s limit). Try fewer scenes or regenerate one scene at a time.'
-        )
-        e.status = 504
-        reject(e)
-      }, budgetMs)
-    })
-  ])
-}
 
 export default async function handler(req, res) {
   process.env.KATHA_SERVERLESS = '1'
@@ -77,10 +64,25 @@ export default async function handler(req, res) {
         }, 10_000)
       : null
 
-    const result = await runVisualWithBudget(
+    const scriptAll = body.script
+    const wanted = Array.isArray(body.sceneIndices) ? body.sceneIndices : null
+    let script = scriptAll
+    let batchNote = null
+    if (!wanted?.length && isServerlessRuntime() && scriptAll.length > 1) {
+      const batchSize = serverlessMaxScenesPerVisualBatch(scriptAll.length)
+      if (batchSize < scriptAll.length) {
+        script = scriptAll.slice(0, batchSize)
+        const remaining = scriptAll
+          .slice(batchSize)
+          .map((row, i) => Number(row?.scene) > 0 ? Number(row.scene) : batchSize + i + 1)
+        batchNote = { batchSize, remainingSceneIndices: remaining }
+      }
+    }
+
+    const result = await runStreamVisualPipeline(
       {
         story: body.story,
-        script: body.script,
+        script,
         sceneIndices: body.sceneIndices,
         input: {
           aspectMode: body.aspectMode || 'vertical_9_16',
@@ -91,15 +93,29 @@ export default async function handler(req, res) {
           theme: body.theme,
           country: body.country,
           storyLanguage: body.storyLanguage,
+          screenplayLanguage: body.screenplayLanguage || 'en',
+          projectId: body.projectId,
+          characterVisualLocks: body.characterVisualLocks,
           narratorId: body.narratorId,
           characterReference: body.characterReference,
-          bibleCharacters: body.bibleCharacters
+          bibleCharacters: body.bibleCharacters,
+          ...(body.masterStoryContext ? { masterStoryContext: body.masterStoryContext } : {})
         }
       },
       req,
       (p) => {
         try {
-          sseWrite(res, { type: 'progress', ...p })
+          if (p?.stage === 'scene_complete' && p?.image) {
+            sseWrite(res, {
+              type: 'scene_image',
+              scene: p.scene,
+              image: p.image,
+              progress: p.progress,
+              total: p.total
+            })
+          } else {
+            sseWrite(res, { type: 'progress', ...p })
+          }
         } catch {
           /* closed */
         }
@@ -108,7 +124,22 @@ export default async function handler(req, res) {
 
     done = true
     if (keepalive) clearInterval(keepalive)
-    sseWrite(res, { type: 'result', result })
+    const merged = {
+      ...result,
+      metadata: {
+        ...(result.metadata || {}),
+        ...(batchNote ? { visualBatch: batchNote } : {})
+      }
+    }
+    if (merged.metadata?.pipelineYielded) {
+      sseWrite(res, {
+        type: 'checkpoint',
+        checkpoint: merged.metadata.pipelineCheckpoint || 'visuals_partial',
+        resumable: true,
+        message: 'Scene images saved — continue with remaining scenes.'
+      })
+    }
+    sseWrite(res, { type: 'result', result: merged })
     res.end()
   } catch (e) {
     done = true

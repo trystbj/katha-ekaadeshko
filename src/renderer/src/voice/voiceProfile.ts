@@ -131,8 +131,8 @@ function stylePresetEmotion(
       return { emotion: 'fantasy', pacing: 'calm', intensity: 'medium' }
     case 'cinematic_anime':
       return { emotion: 'epic', pacing: 'dramatic', intensity: 'high' }
-    case 'dark_anime':
-      return { emotion: 'suspense', pacing: 'suspense', intensity: 'high' }
+    case 'cinematic_realistic':
+      return { emotion: 'epic', pacing: 'dramatic', intensity: 'high' }
     case 'comic_panel':
       return { emotion: 'comedy', pacing: 'energetic', intensity: 'medium' }
     case 'custom':

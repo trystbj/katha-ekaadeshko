@@ -2,6 +2,8 @@
  * Structured production directives — master contract for all generation stages.
  */
 
+import { englishOutputEnforcementBlock } from '../../../shared/outputLanguageLock.js'
+
 export const EMPTY_PRODUCTION_DIRECTIVES = {
   genre: '',
   emotion: '',
@@ -62,8 +64,8 @@ export function buildHeuristicDirectives(input = {}, overrides = {}) {
   const visualStyle =
     styleId === 'cinematic_anime'
       ? 'cinematic_anime_filmic'
-      : styleId === 'dark_anime'
-        ? 'noir_anime_contrast'
+      : styleId === 'cinematic_realistic'
+        ? 'photoreal_cinematic_filmic'
         : styleId === 'cozy_storybook'
           ? 'soft_storybook_warmth'
           : styleId === 'comic_panel'
@@ -125,9 +127,11 @@ export function productionDirectivesPromptBlock(directives) {
     .map(([k, _]) => `- ${k}: ${d[k] || '(infer from blueprint)'}`)
     .join('\n')
   const mode = d.generationMode === 'fast' ? 'FAST (efficient motion, simpler shots)' : 'CINEMATIC (emotional timing, rich camera)'
-  return `=== AI PRODUCTION DIRECTIVES (${mode}) ===
+  return `${englishOutputEnforcementBlock()}
+
+=== AI PRODUCTION DIRECTIVES (${mode}) ===
 Behave as an intelligent cinematic director — not prompt completion.
-Honor these locks across story, dialogue, visuals, and motion:
+Honor these locks across story, dialogue, visuals, and motion (all human-readable fields in English):
 ${lines}
 ${d.directorNotes ? `Director notes: ${d.directorNotes}\n` : ''}=== END PRODUCTION DIRECTIVES ===`
 }

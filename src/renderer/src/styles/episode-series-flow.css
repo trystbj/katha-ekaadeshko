@@ -71,8 +71,21 @@
 .studio-mock-episode-flow-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  align-items: flex-start;
+  gap: 8px 10px;
+  margin-top: 8px;
+  padding-top: 6px;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  clear: both;
+  border-top: 1px solid rgba(212, 175, 55, 0.22);
+}
+
+.studio-mock-episode-flow-tools .btn-small {
+  white-space: normal;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .studio-mock-episode-flow-tools .btn-small {

@@ -47,12 +47,29 @@ function genreNarrationStyle(genre, storyTone) {
 }
 
 /**
+ * Screenplay JSON quality rules (script prompt + blueprint).
+ */
+export function screenplayQualityRulesBlock(lang = 'English') {
+  return [
+    'SCREENPLAY QUALITY (professional — mandatory):',
+    `- Visible script language: ${lang} only in narration, dialogue, and visual_description (regional culture in names/places/tone, not foreign script systems).`,
+    '- Scene pacing: each scene = one clear story beat; open with image/action, not abstract summary; end on a micro-turn (reveal, choice, shock, tenderness).',
+    '- Narration: cinematic audiobook voice — sensory, emotional, present-tense friendly; vary sentence length; never repeat the same opener across scenes.',
+    '- Dialogue: subtext and conflict; characters respond to what was JUST said; no exposition dumps ("As you know…"); include beats, hesitation, and silence when appropriate.',
+    '- Continuity: props, weather, time-of-day, injuries, and relationships carry forward unless the story changes them on-screen.',
+    '- visual_description: filmable staging only — who is visible, what they do, environment, light, emotion on faces; NEVER subtitles, captions, or readable text in frame.',
+    '- Forbidden filler: "Meanwhile," "Suddenly," "In a surprising turn," "The air was thick with tension" in every scene; "He/She felt sad" without showing why.',
+    '- No disconnected vignettes: every scene advances plot or deepens character; no random emotional jumps.'
+  ].join('\n')
+}
+
+/**
  * Blueprint block injected into generation blueprint.
  */
 export function cinematicWritingBlueprintSection(input = {}) {
   const genre = String(input.genre || '').trim()
   const storyTone = String(input.storyTone || '').trim()
-  const lang = String(input.__storyLanguageDisplay || input.storyLanguage || 'English').trim()
+  const lang = String(input.__storyLanguageDisplay || 'English').trim() || 'English'
 
   return [
     'CINEMATIC STORYTELLING INTELLIGENCE (screenplay-grade — mandatory):',
@@ -64,11 +81,12 @@ export function cinematicWritingBlueprintSection(input = {}) {
     '- Scenes must feel alive: environment, faces, gestures, ambient sound, emotional tension, subtle thoughts when appropriate.',
     '- Relationship-aware: dialogue and reactions must reflect who these people are to each other RIGHT NOW.',
     ...genreNarrationStyle(genre, storyTone),
-    `Language soul (${lang}): idiomatic, emotionally natural wording — not literal translation tone; dialogue must sound spoken aloud by real people in-region.`,
+    `Language soul (${lang}): idiomatic, emotionally natural ${lang} wording — regional culture informs names, customs, and setting only; dialogue must sound spoken aloud by real people in that cultural context while staying in ${lang}.`,
     'Character conversations: include natural spoken lines in dialogue[] — interruptions, questions, emotional responses, pauses — not narration-only puppet shows.',
     'Narration may be longer when the emotional beat needs room; never pad with empty adjectives — every sentence must earn its place.',
     'Smart expansion: linger on turning points, climax, goodbye, betrayal, reunion; move faster through connective travel only when needed.',
-    'Continuity: emotional tone must flow from previous scene — no random resets to neutral exposition.'
+    'Continuity: emotional tone must flow from previous scene — no random resets to neutral exposition.',
+    screenplayQualityRulesBlock(lang)
   ].join('\n')
 }
 

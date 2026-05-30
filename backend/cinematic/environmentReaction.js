@@ -47,9 +47,10 @@ export function inferEnvironmentReaction(ctx, styleId, storyTone) {
     warmth = 0.6
   }
 
-  if (sid === 'dark_anime') {
-    lightingMood = 'dark'
-    fog = Math.max(fog, 0.35)
+  if (sid === 'cinematic_realistic') {
+    lightingMood = ctx.emotion === 'fear' || ctx.emotion === 'sadness' ? 'low_key' : 'natural'
+    fog = Math.min(fog, 0.2)
+    warmth = Math.min(0.72, warmth + 0.05)
   }
   if (sid === 'cozy_storybook') {
     warmth = 0.78
@@ -64,7 +65,7 @@ export function inferEnvironmentReaction(ctx, styleId, storyTone) {
   if (lightingMood === 'dark') filterHint = 'moody'
   else if (lightingMood === 'mystic') filterHint = 'mystical_glow'
   else if (warmth > 0.7) filterHint = 'warm'
-  else if (sid === 'cinematic_anime') filterHint = 'cinematic'
+  else if (sid === 'cinematic_anime' || sid === 'cinematic_realistic') filterHint = 'cinematic'
 
   if (ctx.actionLevel > 0.75) shake = Math.max(shake, 0.4)
 

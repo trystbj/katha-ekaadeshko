@@ -29,8 +29,8 @@ function sanitizeMeta(meta) {
 function mapKnownPipelineError(raw, err) {
   const msg = String(raw || '').trim()
   if (!msg) return null
-  if (err?.status === 504 || /timed out/i.test(msg)) {
-    return 'Generation timed out. Try a shorter story or generate again.'
+  if (err?.status === 504 || /timed out|60s limit|server time limit/i.test(msg)) {
+    return 'Generation paused — your progress was saved. Tap Generate again to continue.'
   }
   if (/API_KEY|missing API key|All providers failed|providers failed/i.test(msg)) {
     if (/openai.*missing|gemini.*missing|deepseek.*missing/i.test(msg.toLowerCase())) {
@@ -50,9 +50,6 @@ function mapKnownPipelineError(raw, err) {
   if (/Invalid request/i.test(msg) || msg.includes('Zod')) {
     return 'Invalid story settings. Check genre, style, narrator, and seed, then try again.'
   }
-  if (/Generation timed out on the server/i.test(msg)) {
-    return msg
-  }
   if (/invalid JSON response/i.test(msg)) {
     return 'AI returned an invalid response. Please try Generate again.'
   }
@@ -65,11 +62,23 @@ function mapKnownPipelineError(raw, err) {
   if (/HTTP 5\d{2}/.test(msg)) {
     return 'AI provider server error. Try again in a few minutes.'
   }
+  if (/LEONARDO_API_KEY is missing/i.test(msg)) {
+    return 'Leonardo is not configured. Add LEONARDO_API_KEY in server environment variables.'
+  }
+  if (/Leonardo motion: timeout/i.test(msg)) {
+    return 'Leonardo video generation timed out. Try fast mode or fewer scenes, then retry.'
+  }
+  if (/Leonardo:/i.test(msg) || /Video generation failed/i.test(msg)) {
+    return msg.length > 360 ? `${msg.slice(0, 357)}…` : msg
+  }
+  if (/missing_leonardo_image_id|Missing scene still ID/i.test(msg)) {
+    return 'Scene images are missing Leonardo IDs. Regenerate scene stills, then try Final Video again.'
+  }
   if (/AbortError|aborted|ECONNRESET|fetch failed/i.test(msg)) {
-    return 'Connection to the AI provider was interrupted. Try again with a shorter story.'
+    return 'Connection interrupted — progress may be saved. Tap Generate again to continue.'
   }
   if (/Function.*timeout|ECONNRESET|fetch failed/i.test(msg)) {
-    return 'Server connection interrupted. Try again with a shorter story length.'
+    return 'Server connection interrupted — tap Generate again to resume from the last saved step.'
   }
   return null
 }

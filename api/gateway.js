@@ -25,6 +25,7 @@ import workerClaim from './_routes/worker-claim.js'
 import workerPending from './_routes/worker-pending.js'
 import workerProgress from './_routes/worker-progress.js'
 import workerComplete from './_routes/worker-complete.js'
+import workerFail from './_routes/worker-fail.js'
 
 const ROUTES = {
   health,
@@ -49,7 +50,8 @@ const ROUTES = {
   'worker-claim': workerClaim,
   'worker-pending': workerPending,
   'worker-progress': workerProgress,
-  'worker-complete': workerComplete
+  'worker-complete': workerComplete,
+  'worker-fail': workerFail
 }
 
 /** Allow longer OpenAI TTS preview (Pro: up to 300s; Hobby capped by plan). */

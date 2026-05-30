@@ -37,6 +37,9 @@ import {
 } from '@shared/projectMemory.js'
 import { mergeProjectAssets } from '../utils/sceneAssetMap'
 import { withScriptReviewReady } from '../utils/productionWorkflow'
+import { formatApiError } from '../utils/formatApiError'
+import { normalizeStudioErrorMessage } from '../utils/formatStudioError'
+import { serializePipelineError, taskStateFromStage } from '../utils/studioTaskState'
 
 const GENERATE_FAIL_FALLBACK =
   'Story generation failed. Open /api/health in your browser — if storyAiReady is false, add OPENAI_API_KEY (or GEMINI/DEEPSEEK) in Vercel env and redeploy. Local: npm run dev:vercel.'
@@ -45,30 +48,43 @@ function humanizeGenerateError(
   msg: string,
   uiText: (key: string, vars?: Record<string, string | number | boolean | null>) => string
 ): string {
-  const t = msg.trim()
-  if (!t || /^request failed$/i.test(t)) {
+  const t = formatApiError(msg, msg.trim()).trim()
+  if (!t || t === '[object Object]' || /^request failed$/i.test(t)) {
     const localized = uiText('generateOpaqueFailure')
     return localized === 'generateOpaqueFailure' ? GENERATE_FAIL_FALLBACK : localized
   }
-  return t
+  return normalizeStudioErrorMessage(t) || t
 }
 
 function formatStreamError(
   evt: Record<string, unknown>,
   uiText: (key: string, vars?: Record<string, string | number | boolean | null>) => string
 ): string {
-  const main = humanizeGenerateError(String(evt.error || 'Generation failed'), uiText)
+  const rawMain = serializePipelineError(evt.error, 'Generation failed')
   const detail = String(evt.detail || '').trim()
+  const main = humanizeGenerateError(rawMain, uiText)
+  const normalizedMain = normalizeStudioErrorMessage(main) || main
+  if (/timed out|60s limit|shorter story|progress was saved/i.test(`${rawMain} ${detail}`)) {
+    console.error('[katha:generate] stream_error_timeout', {
+      error: evt.error,
+      build: evt.build
+    })
+    return uiText('generateTimeoutResume')
+  }
   const build = String(evt.build || '').trim()
   const code = String(evt.code || '').trim()
-  let out = main
-  if (detail && detail !== main && !main.includes(detail)) {
-    out = `${main} — ${detail}`
-  }
-  if (build) out = `${out} (API build ${build})`
-  if (code) out = `${out} [${code}]`
+  const detailIsDup =
+    !detail ||
+    detail === rawMain ||
+    detail === main ||
+    main.includes(detail) ||
+    detail.includes(main) ||
+    /timed out|60s limit|shorter story|server time limit|generate again/i.test(detail)
+  let out = detailIsDup ? normalizedMain : normalizeStudioErrorMessage(`${normalizedMain} — ${detail}`) || normalizedMain
+  if (import.meta.env.DEV && build) out = `${out} (API build ${build})`
+  if (import.meta.env.DEV && code && code !== 'pipeline') out = `${out} [${code}]`
   console.error('[katha:generate] stream_error', { error: evt.error, detail, build, code })
-  return out
+  return normalizeStudioErrorMessage(out) || normalizedMain
 }
 
 async function readGenerateHttpError(
@@ -85,7 +101,7 @@ async function readGenerateHttpError(
   } catch {
     /* plain text / SSE fragment */
   }
-  if (text.length > 0 && text.length < 500 && !text.startsWith('<!')) {
+    if (text.length > 0 && text.length < 500 && !text.startsWith('<!')) {
     return humanizeGenerateError(text, uiText)
   }
   return uiText('generateRequestFailed', { status: String(res.status) })
@@ -211,6 +227,8 @@ export function useBackendGenerate() {
           autoVoiceDirector: narrationDraft.autoVoiceDirector,
           narratorGenderPreference: narrationDraft.narratorGenderPreference ?? 'auto',
           storyLanguage,
+          screenplayLanguage: 'en',
+          outputLanguage: 'English',
           styleId: styleId as VisualStyleId,
           ...(styleId === 'custom' ? { customVisualPrompt: customVisualPrompt.trim() } : {}),
           ...(visualAccent ? { visualAccent } : {}),
@@ -236,85 +254,162 @@ export function useBackendGenerate() {
             : {}),
           scriptOnly: true,
           generationMode: prefersReducedMotion ? 'fast' : 'cinematic',
-          performancePreferLow: true
+          performancePreferLow: true,
+          pipelinePhase: 'story'
         })
       })
-      if (!res.ok) {
-        const httpErr = await readGenerateHttpError(res, uiText)
-        console.error('[katha:generate] http_error', res.status, httpErr)
-        throw new Error(httpErr)
-      }
-      if (!res.body) throw new Error('No response body (browser blocked streaming?)')
 
-      const reader = res.body.getReader()
-      const dec = new TextDecoder()
-      let buf = ''
-      let out: JobsStreamGenerateResult | null = null
-      let lastError: string | null = null
-      let sawStreamActivity = false
-      const log: string[] = []
+      const consumeStream = async (response: Response): Promise<JobsStreamGenerateResult> => {
+        if (!response.ok) {
+          const httpErr = await readGenerateHttpError(response, uiText)
+          console.error('[katha:generate] http_error', response.status, httpErr)
+          throw new Error(httpErr)
+        }
+        if (!response.body) throw new Error('No response body (browser blocked streaming?)')
 
-      const handleEvents = (events: Record<string, unknown>[]) => {
-        for (const evt of events) {
-          if (evt.type === 'job' || evt.type === 'progress' || evt.type === 'result' || evt.type === 'error') {
-            sawStreamActivity = true
-          }
-          if (evt.type === 'job') {
-            useStudioStore.getState().setWorkspaceJob(workspaceIx, {
-              id: evt.id != null ? String(evt.id) : 'job',
-              stage: 'starting',
-              progress: 0,
-              log: []
-            })
-          } else if (evt.type === 'progress') {
-            const msg = evt.message ? String(evt.message) : String(evt.stage || '')
-            const hintKey = sseLiveStatusHint(String(evt.stage || ''), msg)
-            log.push(hintKey ? uiText(hintKey) : msg)
-            const stJob = useStudioStore.getState().workspaceRuntime[workspaceIx]?.job
-            useStudioStore.getState().setWorkspaceJob(workspaceIx, {
-              id: stJob?.id || 'job',
-              stage: String(evt.stage || ''),
-              progress: Number(evt.progress || 0),
-              log: log.slice(-60)
-            })
-          } else if (evt.type === 'result') {
-            out = evt.result as JobsStreamGenerateResult
-          } else if (evt.type === 'error') {
-            const errMsg = formatStreamError(evt, uiText)
-            lastError = errMsg
-            throw new Error(errMsg)
+        const reader = response.body.getReader()
+        const dec = new TextDecoder()
+        let buf = ''
+        let out: JobsStreamGenerateResult | null = null
+        let lastError: string | null = null
+        let sawStreamActivity = false
+        const log: string[] = []
+
+        const handleEvents = (events: Record<string, unknown>[]) => {
+          for (const evt of events) {
+            if (
+              evt.type === 'job' ||
+              evt.type === 'progress' ||
+              evt.type === 'result' ||
+              evt.type === 'error' ||
+              evt.type === 'checkpoint'
+            ) {
+              sawStreamActivity = true
+            }
+            if (evt.type === 'job') {
+              useStudioStore.getState().setWorkspaceJob(workspaceIx, {
+                id: evt.id != null ? String(evt.id) : 'job',
+                stage: 'starting',
+                progress: 0,
+                log: []
+              })
+            } else if (evt.type === 'progress') {
+              const stage = String(evt.stage || '')
+              const phase = taskStateFromStage(stage)
+              if (phase === 'generating_images') {
+                useStudioStore.getState().setWorkspaceBusy(workspaceIx, 'leonardo')
+              } else if (phase === 'validating_scenes') {
+                useStudioStore.getState().setWorkspaceBusy(workspaceIx, 'validating')
+              } else if (phase !== 'idle' && phase !== 'completed' && phase !== 'failed') {
+                useStudioStore.getState().setWorkspaceBusy(workspaceIx, 'generating')
+              }
+              const msg = evt.message ? String(evt.message) : stage
+              const hintKey = sseLiveStatusHint(stage, msg)
+              log.push(hintKey ? uiText(hintKey) : msg)
+              const stJob = useStudioStore.getState().workspaceRuntime[workspaceIx]?.job
+              useStudioStore.getState().setWorkspaceJob(workspaceIx, {
+                id: stJob?.id || 'job',
+                stage: String(evt.stage || ''),
+                progress: Number(evt.progress || 0),
+                log: log.slice(-60)
+              })
+            } else if (evt.type === 'checkpoint') {
+              const ckMsg = evt.message ? String(evt.message) : uiText('liveGenSseCheckpoint')
+              log.push(ckMsg)
+              const stJob = useStudioStore.getState().workspaceRuntime[workspaceIx]?.job
+              useStudioStore.getState().setWorkspaceJob(workspaceIx, {
+                id: stJob?.id || 'job',
+                stage: String(evt.checkpoint || 'checkpoint'),
+                progress: stJob?.progress ?? 40,
+                log: log.slice(-60)
+              })
+            } else if (evt.type === 'result') {
+              out = evt.result as JobsStreamGenerateResult
+            } else if (evt.type === 'error') {
+              const errMsg = formatStreamError(evt, uiText)
+              lastError = errMsg
+              throw new Error(errMsg)
+            }
           }
         }
-      }
 
-      while (true) {
-        const { value, done } = await reader.read()
-        if (value) buf += dec.decode(value, { stream: true })
-        if (done) {
-          buf += dec.decode()
-          break
+        while (true) {
+          const { value, done } = await reader.read()
+          if (value) buf += dec.decode(value, { stream: true })
+          if (done) {
+            buf += dec.decode()
+            break
+          }
+          const drained = drainSseBuffer(buf)
+          buf = drained.rest
+          handleEvents(drained.events)
         }
-        const drained = drainSseBuffer(buf)
-        buf = drained.rest
-        handleEvents(drained.events)
-      }
 
-      const tail = drainSseBuffer(buf)
-      handleEvents(tail.events)
+        const tail = drainSseBuffer(buf)
+        handleEvents(tail.events)
 
-      if (!out) {
-        if (lastError) throw new Error(lastError)
-        if (sawStreamActivity || log.length > 0) {
+        if (!out) {
+          if (lastError) throw new Error(lastError)
+          if (sawStreamActivity || log.length > 0) {
+            throw new Error(uiText('generateStoppedResume'))
+          }
           throw new Error(
-            'Generation stopped before finishing (server time limit or connection closed). Try again — use a shorter length, or redeploy the latest build.'
+            'Story generation did not start (no stream from server). Check that OPENAI_API_KEY, GEMINI_API_KEY, or DEEPSEEK_API_KEY is set on Vercel and redeploy.'
           )
         }
-        throw new Error(
-          'Story generation did not start (no stream from server). Check that OPENAI_API_KEY, GEMINI_API_KEY, or DEEPSEEK_API_KEY is set on Vercel and redeploy.'
-        )
+        return out
       }
 
-      const pipelineResult: JobsStreamGenerateResult = out
+      let pipelineResult = await consumeStream(res)
+
+      const needsScriptPhase =
+        pipelineResult.story &&
+        (!Array.isArray(pipelineResult.script) || pipelineResult.script.length === 0) &&
+        (pipelineResult.metadata?.pipelineCheckpoint === 'story_ready' ||
+          pipelineResult.metadata?.pipelineYielded === true)
+
+      if (needsScriptPhase) {
+        useStudioStore.getState().setWorkspaceJob(workspaceIx, {
+          id: 'job',
+          stage: 'script_resume',
+          progress: 42,
+          log: [uiText('liveGenSseScriptResume')]
+        })
+        const resScript = await fetch('/api/jobs-stream-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: ac.signal,
+          body: JSON.stringify({
+            theme: themeEnriched,
+            country,
+            genre: backendGenre,
+            length: backendLength,
+            aspectMode: 'vertical_9_16',
+            narratorId,
+            narration: narrationDraft,
+            autoVoiceDirector: narrationDraft.autoVoiceDirector,
+            narratorGenderPreference: narrationDraft.narratorGenderPreference ?? 'auto',
+            storyLanguage,
+            screenplayLanguage: 'en',
+            styleId: styleId as VisualStyleId,
+            ...(styleId === 'custom' ? { customVisualPrompt: customVisualPrompt.trim() } : {}),
+            seedLine: clampStoryIdea(idea),
+            projectId,
+            scriptOnly: true,
+            performancePreferLow: true,
+            pipelinePhase: 'script',
+            resumeStory: pipelineResult.story,
+            ...(pipelineResult.metadata?.masterStoryContext
+              ? { masterStoryContext: pipelineResult.metadata.masterStoryContext }
+              : {})
+          })
+        })
+        const scriptPhase = await consumeStream(resScript)
+        pipelineResult = {
+          ...scriptPhase,
+          story: scriptPhase.story || pipelineResult.story
+        }
+      }
 
       const namingPolicy = analyzeNamingPolicy(idea, themeEnriched)
       const sanitizedCast = sanitizeStoryCharacters(
@@ -513,7 +608,15 @@ export function useBackendGenerate() {
           : {}),
         ...(pipelineResult.metadata?.productionMemory
           ? { productionMemory: pipelineResult.metadata.productionMemory }
-          : {})
+          : {}),
+        ...(pipelineResult.metadata?.masterStoryContext
+          ? { masterStoryContext: pipelineResult.metadata.masterStoryContext as Record<string, unknown> }
+          : {}),
+        outputLanguage:
+          (pipelineResult.metadata?.outputLanguage as string | undefined) || 'English',
+        regionalContext:
+          (pipelineResult.metadata?.regionalContext as string | undefined) ||
+          pipelineResult.metadata?.storyLanguage
       })
       const nextProject = withScriptReviewReady({
         ...baseProject,
@@ -553,7 +656,10 @@ export function useBackendGenerate() {
       }
     } catch (e) {
       useStudioStore.getState().setWorkspaceStreamReveal(workspaceIx, null)
-      let msg = humanizeGenerateError(e instanceof Error ? e.message : String(e), uiText)
+      let msg =
+        normalizeStudioErrorMessage(
+          humanizeGenerateError(serializePipelineError(e, 'Generation failed'), uiText)
+        ) || uiText('generateTimeoutResume')
       if (e instanceof TypeError && /fetch|network|failed/i.test(msg)) {
         msg = uiText('generateNetworkError')
       }

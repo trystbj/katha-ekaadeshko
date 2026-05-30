@@ -23,7 +23,7 @@ export function mixSegmentAudio(segment, ctx, expression, styleId) {
   }
 
   if (sid === 'cozy_storybook') intensity *= 0.88
-  if (sid === 'dark_anime' && ctx.suspenseLevel > 0.5) intensity = Math.max(0.22, intensity * 0.8)
+  if (sid === 'cinematic_realistic' && ctx.suspenseLevel > 0.5) intensity = Math.max(0.28, intensity * 0.88)
   if (sid === 'comic_panel' && ctx.actionLevel > 0.4) intensity = Math.min(0.75, intensity * 1.05)
 
   const musicGainMul =

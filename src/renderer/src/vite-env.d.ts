@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+/** Injected at build time (vite.web.config.ts) — verify deploy in production-resume dock. */
+declare const __KATHA_UI_BUILD__: string
+
 import type { ProjectState } from './types/story'
 
 export type ApiKeyMask = {

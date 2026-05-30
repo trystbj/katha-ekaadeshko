@@ -13,7 +13,8 @@ type Props = {
   project: ProjectState
   episode: StoryEpisode
   busyLabel: string | null
-  onGenerateVisuals: (opts?: { sceneIndices?: number[] }) => void
+  /** User finished review — queue and generate all scene images in sequence. */
+  onApproveAndGenerateAll: () => void
   onNextScene: (sceneIndex: number) => void
   patchProject: (fn: (p: ProjectState) => ProjectState) => void
 }
@@ -31,7 +32,7 @@ export function ScriptReviewWorkspace({
   project,
   episode,
   busyLabel,
-  onGenerateVisuals,
+  onApproveAndGenerateAll,
   onNextScene,
   patchProject
 }: Props) {
@@ -129,17 +130,9 @@ export function ScriptReviewWorkspace({
           type="button"
           className="btn btn-generate-cta"
           disabled={busy}
-          onClick={() => onGenerateVisuals()}
+          onClick={() => onApproveAndGenerateAll()}
         >
-          {uiText('scriptReviewGenerateAllVisuals')}
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={busy || !approvedIndices.length}
-          onClick={() => onGenerateVisuals({ sceneIndices: approvedIndices })}
-        >
-          {uiText('scriptReviewGenerateApproved')}
+          {busy ? uiText('storyboardRegeneratingImages') : uiText('scriptReviewGenerateScenes')}
         </button>
       </div>
 
@@ -269,14 +262,6 @@ export function ScriptReviewWorkspace({
                   onClick={() => setSceneStatus(sc.index, 'queued')}
                 >
                   {uiText('scriptReviewQueue')}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  disabled={busy}
-                  onClick={() => onGenerateVisuals({ sceneIndices: [sc.index] })}
-                >
-                  {uiText('scriptReviewGenerateScene')}
                 </button>
                 <button
                   type="button"

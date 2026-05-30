@@ -31,7 +31,9 @@ import { StudioAmbientBackdrop } from './components/StudioAmbientBackdrop'
 import { PreviewStage } from './components/PreviewStage'
 import { StoryboardPreviewWorkspace } from './components/StoryboardPreviewWorkspace'
 import { ScriptReviewWorkspace } from './components/ScriptReviewWorkspace'
-import { showScriptReviewWorkspace } from './utils/productionWorkflow'
+import { showScriptReviewWorkspace, withScriptReviewReopened } from './utils/productionWorkflow'
+import { deriveProductionResume } from './utils/productionResume'
+import { ProductionResumeDock } from './components/ProductionResumeDock'
 import { useVisualGeneration } from './hooks/useVisualGeneration'
 import { useVideoGeneration } from './hooks/useVideoGeneration'
 import { episodeNeedsMotionGeneration } from './utils/sceneAssetMap'
@@ -39,6 +41,7 @@ import { CinematicStoryboardMonitor } from './components/CinematicStoryboardMoni
 import { MonitorEpisodeAccordion } from './components/MonitorEpisodeAccordion'
 import { canShowStoryboardWorkspace } from './utils/storyboardWorkflow'
 import { regenerateMissingSceneImages } from './utils/regenerateMissingSceneImages'
+import { withVisualGenerationApproved } from './utils/sceneVisualApproval'
 import { queueEpisodeVideoRender } from './utils/episodeVideoRender'
 
 const PostExportVideoWorkspace = lazy(() =>
@@ -88,7 +91,7 @@ import './styles/episode-series-flow.css'
 import { BrandTitleStardust } from './components/BrandTitleStardust'
 import { repairProjectOnLoad } from './utils/projectRecovery'
 import { collectRenderImageUrls } from './utils/collectRenderImageUrls'
-import { orderedSceneImageUrls, sceneUrlForIndex } from './utils/sceneAssetMap'
+import { dedupeScenePreviewUrls, sceneStillUrlsForEpisode, sceneUrlForIndex } from './utils/sceneAssetMap'
 import { resumeEpisodeVideoRenderIfNeeded } from './utils/episodeVideoRender'
 import { CreatorStudioPanel } from './components/CreatorStudioPanel'
 
@@ -444,9 +447,25 @@ export default function App() {
     return activeEpisode?.scenes ?? []
   }, [activeEpisode?.scenes, streamReveal?.pendingProject, ongoingEpisodeNumber])
 
-  const renderSourceUrls = useMemo(
-    () => orderedSceneImageUrls(project, activeEpisode?.scenes) || collectRenderImageUrls(project),
-    [project, activeEpisode?.scenes]
+  const renderSourceUrls = useMemo(() => {
+    if (activeEpisode?.scenes?.length) {
+      return sceneStillUrlsForEpisode(project, activeEpisode.scenes)
+    }
+    return collectRenderImageUrls(project)
+  }, [project, activeEpisode?.scenes])
+
+  const pipelineThumbUrls = useMemo(
+    () => dedupeScenePreviewUrls(renderSourceUrls),
+    [renderSourceUrls]
+  )
+
+  const previewCastPortraits = useMemo(
+    () =>
+      (project?.bible?.characters ?? [])
+        .filter((c) => c.baseImageUrl)
+        .slice(0, 4)
+        .map((c) => ({ name: c.name, url: String(c.baseImageUrl), role: c.role })),
+    [project?.bible?.characters]
   )
 
   const [embeddedPreviewIndex, setEmbeddedPreviewIndex] = useState(0)
@@ -498,31 +517,71 @@ export default function App() {
           !project.lastRenderVideoUrl &&
           !streamReveal &&
           !showScriptReview &&
-          (canShowStoryboardWorkspace(project) || project.storyboardReady)
+          (canShowStoryboardWorkspace(project, activeEpisode?.number) || project.storyboardReady)
       ),
     [project, streamReveal, showScriptReview]
   )
 
+  const activeWorkspaceSlotIndex = useStudioStore((s) => s.activeWorkspaceSlotIndex)
+  const clearWorkspaceSlot = useStudioStore((s) => s.clearWorkspaceSlot)
+
+  const productionResume = useMemo(
+    () => deriveProductionResume(project, selectedEpisode ?? activeEpisode?.number ?? undefined),
+    [project, selectedEpisode, activeEpisode?.number]
+  )
+
+  useEffect(() => {
+    const concept = project?.bible?.concept?.trim()
+    if (!concept) return
+    if (!useStudioStore.getState().idea.trim()) {
+      setIdea(concept)
+    }
+  }, [project?.id, project?.bible?.concept, setIdea])
+
+  const onReopenScriptReview = useCallback(() => {
+    patchProject((p) => withScriptReviewReopened(p))
+  }, [patchProject])
+
+  const onStartNewStory = useCallback(() => {
+    if (!window.confirm(uiText('startNewStoryConfirm'))) return
+    clearWorkspaceSlot(activeWorkspaceSlotIndex)
+    setEditMode(false)
+    setEmbeddedPreviewIndex(0)
+    setEmbeddedHeroOverride(null)
+    console.info('[katha:production]', 'start_new_story', { slot: activeWorkspaceSlotIndex })
+  }, [activeWorkspaceSlotIndex, clearWorkspaceSlot, uiText])
+
+  const approveAndGenerateAllSceneImages = useCallback(() => {
+    const p = useStudioStore.getState().project
+    if (!p?.bible) return
+    const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(p)
+    console.info('[katha:production]', 'user_approved_parallel_visuals', { episodeNumber: epn })
+    patchProject((cur) => withVisualGenerationApproved(cur, epn))
+    void generateVisuals({ episodeNumber: epn })
+  }, [activeEpisode?.number, generateVisuals, patchProject, selectedEpisode])
+
   const onRegenerateMissingSceneImages = useCallback(async () => {
     const p = useStudioStore.getState().project
     if (!p?.bible) return
-    const epn = resolveOngoingEpisodeNumber(p)
+    const epn = selectedEpisode ?? resolveOngoingEpisodeNumber(p)
     setBusy('leonardo')
     setError(null)
     try {
-      const next = await regenerateMissingSceneImages(p, epn)
+      const next = await regenerateMissingSceneImages(p, epn, {
+        onProjectPatch: (partial) => patchProject(() => partial)
+      })
       patchProject(() => next)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(null)
     }
-  }, [patchProject, setBusy, setError])
+  }, [patchProject, selectedEpisode, setBusy, setError])
 
   const onGenerateFinalVideo = useCallback(() => {
     const p = useStudioStore.getState().project
     if (!p?.bible) return
-    const epn = resolveOngoingEpisodeNumber(p)
+    const epn = selectedEpisode ?? resolveOngoingEpisodeNumber(p)
     const ep = p.episodes.find((e) => e.number === epn) ?? p.episodes[0]
     console.info('[katha:render]', 'user_triggered_final_render', { projectId: p.id, episodeNumber: epn })
     void (async () => {
@@ -534,6 +593,41 @@ export default function App() {
       void queueEpisodeVideoRender({ project: latest, episodeNumber: epn, force: true })
     })()
   }, [generateSceneVideos, selectedEpisode])
+
+  const onProductionResume = useCallback(() => {
+    if (!productionResume || !project) return
+    console.info('[katha:production]', 'resume_action', { kind: productionResume.kind })
+    switch (productionResume.kind) {
+      case 'review_script':
+        patchProject((p) => withScriptReviewReopened(p))
+        break
+      case 'generate_scene_images':
+        approveAndGenerateAllSceneImages()
+        break
+      case 'finish_scene_images':
+        if (project.assetsGenerationApproved) {
+          void onRegenerateMissingSceneImages()
+        } else {
+          approveAndGenerateAllSceneImages()
+        }
+        break
+      case 'create_final_video':
+        onGenerateFinalVideo()
+        break
+      case 'watch_export':
+        document.getElementById('studio-preview-column')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        break
+      default:
+        break
+    }
+  }, [
+    approveAndGenerateAllSceneImages,
+    onGenerateFinalVideo,
+    onRegenerateMissingSceneImages,
+    patchProject,
+    productionResume,
+    project
+  ])
 
   useEffect(() => {
     const prev = prevBusyCelebrateRef.current
@@ -732,10 +826,11 @@ export default function App() {
   )
 
   useEffect(() => {
-    if (embeddedPreviewIndex >= renderSourceUrls.length) {
+    const maxIx = (activeEpisode?.scenes?.length ?? renderSourceUrls.length) - 1
+    if (maxIx >= 0 && embeddedPreviewIndex > maxIx) {
       setEmbeddedPreviewIndex(0)
     }
-  }, [renderSourceUrls.length, embeddedPreviewIndex])
+  }, [activeEpisode?.scenes?.length, renderSourceUrls.length, embeddedPreviewIndex])
 
   const loadStoryFromHistory = async (id: string) => {
     const k = window.katha
@@ -909,7 +1004,9 @@ export default function App() {
     <>
       <StudioAmbientBackdrop referenceTheme />
       <StreamRevealDriver />
-      <div className="app-shell app-shell--premium studio-mock-layout studio-mock-layout--fullscreen">
+      <div
+        className={`app-shell app-shell--premium studio-mock-layout studio-mock-layout--fullscreen${project?.bible && productionResume ? ' app-shell--resume-dock' : ''}`}
+      >
       <div className="studio-mock-frame">
       <div className="studio-mock-brand-corner" role="banner">
         <div className="studio-mock-head__brand studio-mock-head__brand--corner">
@@ -938,15 +1035,14 @@ export default function App() {
             </div>
           </div>
         </div>
+        {lastError ? (
+          <div className="studio-mock-brand-error error-banner" role="alert" aria-live="assertive">
+            {lastError}
+          </div>
+        ) : null}
       </div>
       <main className="main studio-mock-main">
-        <div className="studio-mock-banner-row" aria-live="polite">
-          {lastError ? (
-            <div className="error-banner" role="alert">
-              {lastError}
-            </div>
-          ) : null}
-        </div>
+        <div className="studio-mock-banner-row" aria-live="polite" aria-hidden />
 
         <div className="studio-mock-body">
           <div className="studio-mock-row-4">
@@ -1029,7 +1125,7 @@ export default function App() {
                 visible={Boolean(busy)}
                 busyLabel={busy}
                 job={job}
-                sceneThumbnailUrls={renderSourceUrls}
+                sceneThumbnailUrls={pipelineThumbUrls}
                 sceneTotalEstimate={pipelineSceneTotalEstimate}
                 onCancelPipeline={abortPipelineGenerate}
               />
@@ -1049,7 +1145,7 @@ export default function App() {
                   project={project}
                   episode={activeEpisode}
                   busyLabel={busy}
-                  onGenerateVisuals={(opts) => void generateVisuals(opts)}
+                  onApproveAndGenerateAll={approveAndGenerateAllSceneImages}
                   onNextScene={(sceneIndex) => {
                     const ix = activeEpisode.scenes.findIndex((s) => s.index === sceneIndex)
                     const next = activeEpisode.scenes[ix + 1]
@@ -1075,6 +1171,7 @@ export default function App() {
                   celebrateTitleKey="previewCelebrateStoryboard"
                   onGenerateFinalVideo={onGenerateFinalVideo}
                   onRegenerateMissingSceneImages={onRegenerateMissingSceneImages}
+                  onGenerateVisuals={() => approveAndGenerateAllSceneImages()}
                   patchProject={patchProject}
                 />
               ) : (
@@ -1084,6 +1181,8 @@ export default function App() {
                   sceneUrls={renderSourceUrls}
                   heroUrl={embeddedHeroOverride}
                   carouselIndex={embeddedPreviewIndex}
+                  sceneCount={activeEpisode?.scenes?.length}
+                  castPortraits={previewCastPortraits}
                   onCarouselIndexChange={(i) => {
                     setEmbeddedHeroOverride(null)
                     setEmbeddedPreviewIndex(i)
@@ -1096,9 +1195,9 @@ export default function App() {
                       ? 'previewCelebrateStoryboard'
                       : 'previewCelebrateReady'
                   }
-                  pipelineThumbUrls={renderSourceUrls}
+                  pipelineThumbUrls={busy ? pipelineThumbUrls : []}
                   hideHeading
-                  idleBlank
+                  idleBlank={!renderSourceUrls.some(Boolean) && !embeddedHeroOverride}
                   useWireframeExplanation
                 />
               )}
@@ -1190,7 +1289,45 @@ export default function App() {
               {project?.bible && totalEpisodes > 1 ? (
                 <EpisodeSequentialBanner flashEpisodeDone={episodeExportFlash} totalEpisodes={totalEpisodes} />
               ) : null}
+              {project?.bible && productionResume ? (
+                <p className="studio-mock-resume-hint studio-mock-series-note" role="status">
+                  {uiText(productionResume.hintKey, {
+                    missing: String(productionResume.coverage.missing.length),
+                    total: String(productionResume.coverage.total)
+                  })}
+                </p>
+              ) : null}
               <div id="studio-story-actions" className="row studio-mock-actions-row">
+                {project?.bible && productionResume && !showStoryboardPreview ? (
+                  <button
+                    type="button"
+                    className="btn btn-generate-cta"
+                    disabled={Boolean(busy)}
+                    onClick={() => onProductionResume()}
+                  >
+                    {busy ? uiText('storyboardRegeneratingImages') : uiText(productionResume.labelKey)}
+                  </button>
+                ) : null}
+                {project?.bible && !showScriptReview ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={Boolean(busy)}
+                    onClick={() => onReopenScriptReview()}
+                  >
+                    {uiText('reopenScriptReview')}
+                  </button>
+                ) : null}
+                {project?.bible ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={Boolean(busy)}
+                    onClick={() => onStartNewStory()}
+                  >
+                    {uiText('startNewStory')}
+                  </button>
+                ) : null}
                 {project?.bible && wantsContinueEpisode ? (
                   <>
                     <button
@@ -1777,6 +1914,16 @@ export default function App() {
           </div>
         </div>
       ) : null}
+
+      <ProductionResumeDock
+        visible={Boolean(project?.bible)}
+        busy={Boolean(busy)}
+        productionResume={productionResume}
+        showScriptReview={showScriptReview}
+        onResume={onProductionResume}
+        onReopenScriptReview={onReopenScriptReview}
+        onStartNewStory={onStartNewStory}
+      />
 
     </div>
     </>

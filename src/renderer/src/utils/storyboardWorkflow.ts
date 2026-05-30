@@ -28,17 +28,22 @@ export function isStoryboardReady(project: ProjectState | null | undefined): boo
   return cov.total > 0 && cov.withImage === cov.total
 }
 
-export function canShowStoryboardWorkspace(project: ProjectState | null | undefined): boolean {
+export function canShowStoryboardWorkspace(
+  project: ProjectState | null | undefined,
+  episodeNumber?: number
+): boolean {
   if (!project?.bible) return false
-  const ep = project.episodes[0]
+  const ep =
+    (episodeNumber != null ? project.episodes.find((e) => e.number === episodeNumber) : null) ??
+    [...project.episodes].reverse().find((e) => e.scenes?.length) ??
+    project.episodes[0]
   if (!ep?.scenes?.length) return false
   const hasSceneAsset = (project.assets ?? []).some(
     (a) => a.kind === 'scene' && typeof a.url === 'string' && a.url.length > 0
   )
-  if (project.scriptReviewReady && project.productionStage === 'script_review' && !hasSceneAsset) {
-    return false
-  }
-  return hasSceneAsset || Boolean(project.storyboardReady)
+  return (
+    hasSceneAsset || Boolean(project.storyboardReady) || Boolean(project.assetsGenerationApproved)
+  )
 }
 
 export function deriveWorkflowPhase(
@@ -53,11 +58,15 @@ export function deriveWorkflowPhase(
 
 export function withStoryboardReady(
   project: ProjectState,
-  opts?: { partial?: boolean; missingSceneIndices?: number[] }
+  opts?: { partial?: boolean; missingSceneIndices?: number[]; episodeNumber?: number }
 ): ProjectState {
   const now = new Date().toISOString()
-  const ep = project.episodes[0]
-  const cov = episodeSceneImageCoverage(project, ep?.number ?? 1)
+  const epn =
+    opts?.episodeNumber ??
+    [...project.episodes].reverse().find((e) => e.scenes?.length)?.number ??
+    project.episodes[0]?.number ??
+    1
+  const cov = episodeSceneImageCoverage(project, epn)
   const partial = opts?.partial ?? cov.missing.length > 0
   const missing = opts?.missingSceneIndices ?? cov.missing
   return {

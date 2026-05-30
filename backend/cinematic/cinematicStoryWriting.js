@@ -2,5 +2,6 @@ export {
   cinematicWritingBlueprintSection,
   characterPersonalityWritingBlock,
   composeScenePlaybackText,
-  attachComposedNarrationToScript
+  attachComposedNarrationToScript,
+  screenplayQualityRulesBlock
 } from '../../shared/cinematicStoryWriting.js'

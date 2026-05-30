@@ -1,5 +1,6 @@
 /**
- * Resolve language for narrator preview (story language before generation).
+ * Resolve language for narrator preview TTS.
+ * Studio locks visible script + preview speech to English; regional picker is culture-only.
  */
 
 const SUPPORTED = new Set([
@@ -48,10 +49,6 @@ export function basePreviewLang(code) {
  * Priority: story language (pre-generation locale) → narration language → UI language.
  * @param {{ storyLanguage?: string, narrationLanguage?: string, uiLang?: string }} opts
  */
-export function resolvePreviewLanguage(opts = {}) {
-  const story = basePreviewLang(opts.storyLanguage)
-  if (opts.storyLanguage && String(opts.storyLanguage).trim()) return story
-  const narration = basePreviewLang(opts.narrationLanguage)
-  if (opts.narrationLanguage && String(opts.narrationLanguage).trim()) return narration
-  return basePreviewLang(opts.uiLang || 'ne')
+export function resolvePreviewLanguage(_opts = {}) {
+  return 'en'
 }

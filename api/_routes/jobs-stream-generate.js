@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { runKathaPipeline } from '../../backend/orchestrator/kathaPipeline.js'
+import { runStreamPipeline } from '../_lib/streamPipelineRunner.js'
 import { normalizeNarratorId } from '../../backend/utils/narratorPresets.js'
 import { checkRateLimit, clientIp } from '../_lib/rateLimit.js'
 import { parseRequestBody } from '../_lib/parseBody.js'
@@ -7,7 +7,7 @@ import { publicErrorMessage, safeLog } from '../_lib/log.js'
 import { setSecurityHeaders } from '../_lib/http.js'
 import { initSseResponse, sseWrite } from '../_lib/sse.js'
 import { slimStreamGenerateResult } from '../_lib/streamGenerateResult.js'
-import { isServerlessRuntime, serverlessPipelineBudgetMs } from '../../backend/utils/runtime.js'
+import { isServerlessRuntime } from '../../backend/utils/runtime.js'
 import { ensureMemoryStore } from '../../backend/utils/memoryStore.js'
 import { providerAvailability } from '../../core/providers/aiProviderRegistry.js'
 import { STORY_IDEA_MAX_CHARS, clampStoryIdea } from '../../shared/storyIdeaLimits.js'
@@ -24,7 +24,7 @@ const VisualStyleIdSchema = z.enum([
   'soft_anime_fantasy',
   'cinematic_anime',
   'comic_panel',
-  'dark_anime',
+  'cinematic_realistic',
   'cozy_storybook',
   'custom'
 ])
@@ -59,6 +59,8 @@ const InputSchema = z
     aspectMode: z.enum(['vertical_9_16', 'horizontal_16_9']),
     narratorId: NarratorIdSchema,
     storyLanguage: z.string().min(2).max(24).optional().default('en'),
+    /** Screenplay editor language — defaults English; story culture uses `country`. */
+    screenplayLanguage: z.string().min(2).max(24).optional().default('en'),
     audienceAgeCategory: z.string().max(48).optional(),
     storyTone: z.string().max(32).optional(),
     seedLine: z.string().max(STORY_IDEA_MAX_CHARS).optional(),
@@ -118,6 +120,10 @@ const InputSchema = z
       .optional(),
     /** Step 1: story + script only — no Leonardo/TTS until user approves visuals */
     scriptOnly: z.boolean().optional(),
+    /** Staged pipeline: full | story (stop after bible) | script (resume with resumeStory) */
+    pipelinePhase: z.enum(['full', 'story', 'script']).optional(),
+    resumeStory: z.record(z.unknown()).optional(),
+    masterStoryContext: z.record(z.unknown()).optional(),
     /** fast | cinematic — controls motion intensity and Leonardo video resolution */
     generationMode: z.enum(['fast', 'cinematic']).optional(),
     characterReference: z
@@ -152,24 +158,6 @@ const InputSchema = z
       }
     }
   })
-
-function runPipelineWithBudget(input, req, opts) {
-  const run = runKathaPipeline(input, req, opts)
-  if (!isServerlessRuntime()) return run
-  const budgetMs = serverlessPipelineBudgetMs()
-  return Promise.race([
-    run,
-    new Promise((_, reject) => {
-      setTimeout(() => {
-        const e = new Error(
-          'Generation timed out on the server (~60s limit). Try again or use a shorter story length.'
-        )
-        e.status = 504
-        reject(e)
-      }, budgetMs)
-    })
-  ])
-}
 
 export default async function handler(req, res) {
   process.env.KATHA_SERVERLESS = '1'
@@ -241,7 +229,7 @@ export default async function handler(req, res) {
         }, 10_000)
       : null
 
-    const result = await runPipelineWithBudget(
+    const result = await runStreamPipeline(
       {
         theme: String(input.theme).trim(),
         country: String(input.country).trim(),
@@ -250,6 +238,7 @@ export default async function handler(req, res) {
         aspectMode: input.aspectMode === 'horizontal_16_9' ? 'horizontal_16_9' : 'vertical_9_16',
         narratorId: input.narratorId,
         storyLanguage: String(input.storyLanguage).trim(),
+        screenplayLanguage: String(input.screenplayLanguage || 'en').trim(),
         audienceAgeCategory: input.audienceAgeCategory
           ? String(input.audienceAgeCategory).trim()
           : undefined,
@@ -282,7 +271,10 @@ export default async function handler(req, res) {
         studioOrchestration: input.scriptOnly === true ? false : input.studioOrchestration,
         multiCharacterVoices: input.scriptOnly === true ? false : input.multiCharacterVoices,
         bibleCharacters: input.bibleCharacters,
-        characterReference: input.characterReference
+        characterReference: input.characterReference,
+        pipelinePhase: input.pipelinePhase || 'full',
+        ...(input.resumeStory ? { resumeStory: input.resumeStory } : {}),
+        ...(input.masterStoryContext ? { __masterStoryContext: input.masterStoryContext } : {})
       },
       req,
       {
@@ -301,6 +293,19 @@ export default async function handler(req, res) {
     pipelineDone = true
     if (keepalive) clearInterval(keepalive)
 
+    const checkpoint = result?.metadata?.pipelineCheckpoint
+    if (result?.metadata?.pipelineYielded && checkpoint) {
+      sseWrite(res, {
+        type: 'checkpoint',
+        checkpoint,
+        resumable: true,
+        message:
+          checkpoint === 'story_ready'
+            ? 'Story saved — continuing screenplay in background…'
+            : 'Progress saved — you can resume from here.'
+      })
+    }
+
     const payload = slimStreamGenerateResult(result)
     sseWrite(res, { type: 'result', result: payload })
     res.end()
@@ -314,8 +319,12 @@ export default async function handler(req, res) {
       status: typeof e?.status === 'number' ? e.status : undefined,
       build: KATHA_API_BUILD
     })
-    writeError(publicErrorMessage(e), {
-      detail: sanitizePublicError(raw),
+    const publicMsg = publicErrorMessage(e)
+    const isResume =
+      /paused|progress was saved|tap generate again|resume/i.test(publicMsg) ||
+      /timed out|60s limit|server time limit/i.test(raw)
+    writeError(publicMsg, {
+      ...(isResume ? {} : { detail: sanitizePublicError(raw) }),
       code: e?.name === 'ZodError' ? 'validation' : 'pipeline'
     })
   }

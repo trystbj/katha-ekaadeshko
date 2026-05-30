@@ -1,0 +1,58 @@
+/* Fixed workflow dock — visible above all panels when resuming a saved story */
+
+.production-resume-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 12000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  border-top: 1px solid rgba(212, 175, 55, 0.55);
+  background: linear-gradient(180deg, rgba(12, 18, 28, 0.94), rgba(6, 10, 18, 0.98));
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.production-resume-dock__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgba(255, 248, 232, 0.92);
+  overflow-wrap: anywhere;
+}
+
+.production-resume-dock__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.production-resume-dock__actions .btn {
+  flex: 1 1 auto;
+  min-width: min(100%, 10rem);
+  white-space: normal;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.production-resume-dock__primary {
+  flex: 2 1 14rem;
+  font-weight: 800;
+}
+
+.production-resume-dock__build {
+  margin: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  color: rgba(212, 175, 55, 0.72);
+  font-family: ui-monospace, monospace;
+}
+
+.app-shell--resume-dock {
+  padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+}

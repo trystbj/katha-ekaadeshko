@@ -8,8 +8,23 @@ import { getRegionForCountry } from '../utils/regionData.js'
 import { normalizePipelineInput } from '../utils/generationBlueprint.js'
 import { normalizeProductionDirectives } from '../services/ai-director/productionDirectives.js'
 import { buildSmartContinuityPack, continuityBlockForScene } from '../services/continuity/smartContinuityEngine.js'
+import { buildAllSceneVisualBlueprints } from '../services/cinematic/cinematicVisualBlueprint.js'
+import {
+  attachPortraitUrlsToLocks,
+  buildCharacterVisualLocks,
+  characterConsistencyPromptBlock
+} from '../services/cinematic/characterConsistencyEngine.js'
+import {
+  buildStoryboardDirectorPlan,
+  storyboardDirectorPromptBlock
+} from '../services/cinematic/cinematicStoryboardDirector.js'
 import { buildAllSceneProductionStates } from '../services/cinematic/sceneProductionState.js'
 import { buildProductionMemory } from '../services/story-memory/productionMemoryStore.js'
+import {
+  masterStoryContextPromptBlock,
+  buildScenePromptFromMasterContext,
+  priorSceneSummaryFromRow
+} from '../cinematic/masterStoryContext.js'
 
 /**
  * @param {object} opts
@@ -43,23 +58,69 @@ export async function runKathaVisualPipeline(opts = {}) {
   const directives = normalizeProductionDirectives(
     opts.productionDirectives || opts.directives || input.__productionDirectives || {}
   )
+  const continuityPack = buildSmartContinuityPack({
+    story,
+    script,
+    images: [],
+    priorWorld: input.priorWorldState,
+    characterReference: input.characterReference,
+    bibleCharacters: input.bibleCharacters
+  })
+
+  const castMemory = continuityPack.castMemory || []
+  const characterLocks = attachPortraitUrlsToLocks(
+    buildCharacterVisualLocks(
+      Array.isArray(story?.characters) ? story.characters : input.bibleCharacters || [],
+      input.characterVisualLocks
+    ),
+    input.bibleCharacters || []
+  )
+  const characterBlock = characterConsistencyPromptBlock(characterLocks)
+  const storyboardPlan = buildStoryboardDirectorPlan(script, directives)
+  const storyboardBlock = storyboardDirectorPromptBlock(storyboardPlan)
+
+  const masterCtx = input.__masterStoryContext || input.masterStoryContext
+  const masterBlock =
+    String(input.__masterStoryContextBlock || '').trim() ||
+    (masterCtx ? masterStoryContextPromptBlock(masterCtx) : '')
+
+  const sceneMasterBlocks = script.map((row, i) => {
+    const sceneNum = Number(row?.scene) > 0 ? Number(row.scene) : i + 1
+    const prior = i > 0 ? priorSceneSummaryFromRow(script[i - 1]) : ''
+    return masterCtx
+      ? buildScenePromptFromMasterContext(masterCtx, row, sceneNum, prior)
+      : ''
+  })
+
   const inputWithContinuity = {
     ...input,
+    __masterStoryContext: masterCtx,
+    __masterStoryContextBlock: masterBlock,
+    __sceneMasterContextBlocks: sceneMasterBlocks,
     __productionDirectives: directives,
+    __continuityPack: continuityPack,
+    __characterVisualLocks: characterLocks,
+    __characterConsistencyBlock: characterBlock,
+    __storyboardDirectorBlock: storyboardBlock,
     __sceneContinuityBlocks: script.map((row, i) => {
       const sceneNum = Number(row?.scene) > 0 ? Number(row.scene) : i + 1
-      return continuityBlockForScene(
-        buildSmartContinuityPack({
-          story,
-          script,
-          images: [],
-          priorWorld: input.priorWorldState,
-          bibleCharacters: input.bibleCharacters
-        }),
-        sceneNum
-      )
-    })
+      return continuityBlockForScene(continuityPack, sceneNum)
+    }),
+    __characterReferencePrompt: [input.__characterReferencePrompt, characterBlock, storyboardBlock]
+      .filter(Boolean)
+      .join('\n')
   }
+
+  const sceneBlueprints = buildAllSceneVisualBlueprints(script, inputWithContinuity, {
+    directives,
+    continuityPack,
+    castMemory,
+    seedLine: input.seedLine || input.theme
+  }).map((bp, i) => ({
+    ...bp,
+    directorNote: [bp.directorNote, sceneMasterBlocks[i]].filter(Boolean).join(' ').slice(0, 900)
+  }))
+  inputWithContinuity.__sceneBlueprints = sceneBlueprints
 
   if (onProgress) {
     onProgress({ stage: 'visuals', progress: 5, message: 'Starting cinematic visuals…' })
@@ -71,7 +132,9 @@ export async function runKathaVisualPipeline(opts = {}) {
       input: inputWithContinuity,
       region,
       onProgress,
-      characters: story.characters || []
+      characters: story.characters || [],
+      sceneBlueprints,
+      projectId: input.projectId || story.id
     }),
     ttsGenerateForScript({
       script,
@@ -86,7 +149,7 @@ export async function runKathaVisualPipeline(opts = {}) {
     onProgress({ stage: 'done', progress: 100, message: 'Visual generation complete' })
   }
 
-  const continuityPack = buildSmartContinuityPack({
+  const continuityPackFinal = buildSmartContinuityPack({
     story,
     script,
     images,
@@ -96,7 +159,7 @@ export async function runKathaVisualPipeline(opts = {}) {
   })
   const sceneProductionStates = buildAllSceneProductionStates(script, {
     directives,
-    continuityPack
+    continuityPack: continuityPackFinal
   }).map((st) => {
     const sceneNum = Number(String(st.continuityId || '').replace('scene:', '')) || 0
     const hasImg = images.some((im) => Number(im?.scene) === sceneNum && (im.image_url || im.imageUrl))
@@ -106,7 +169,7 @@ export async function runKathaVisualPipeline(opts = {}) {
     story,
     script,
     directives,
-    continuityPack,
+    continuityPack: continuityPackFinal,
     priorMemorySummary: input.priorMemorySummary || ''
   })
 
@@ -117,11 +180,15 @@ export async function runKathaVisualPipeline(opts = {}) {
       region,
       sceneCount: script.length,
       visualGeneration: true,
+      ...(masterCtx ? { masterStoryContext: masterCtx } : {}),
       productionStage: 'narration_motion',
       productionDirectives: directives,
       sceneProductionStates,
       productionMemory,
-      continuityPack
+      continuityPack: continuityPackFinal,
+      sceneVisualBlueprints: sceneBlueprints,
+      characterVisualLocks: characterLocks,
+      storyboardDirectorPlan: storyboardPlan
     }
   }
 }

@@ -20,7 +20,7 @@ export const USER_GUIDE_SECTIONS: GuideSection[] = [
         items: [
           'AI-directed storytelling — stories, scripts, and episodes generated with cinematic pacing.',
           'Automatic narration — voice matching for language, tone, and optional gender preference.',
-          'Visual styles — from soft fantasy to dark anime, comic panels, or your own custom look.',
+          'Visual styles — from soft fantasy to cinematic realistic, comic panels, or your own custom look.',
           'Cinematic playback — motion, environment, expressions, and effects sync to each scene.',
           'Subtitles — emotion-aware timing, presets, dual-language options, and WebVTT export.',
           'Render pipeline — queue vertical video; local worker for highest-quality exports.',
@@ -87,7 +87,7 @@ export const USER_GUIDE_SECTIONS: GuideSection[] = [
       {
         type: 'p',
         text:
-          'Pick a style card before Generate: Soft Anime Fantasy, Cozy Storybook, Cinematic, Dark Anime, Comic, or Custom look. Each preset changes palette, lighting, and emotional framing for stills and playback.'
+          'Pick a style card before Generate: Soft Anime Fantasy, Cozy Storybook, Cinematic, Cinematic Realistic, Comic, or Custom look. Each preset changes palette, lighting, and emotional framing for stills and playback.'
       },
       {
         type: 'h4',
@@ -358,11 +358,11 @@ export const USER_GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         type: 'h4',
-        text: 'Dark Anime'
+        text: 'Cinematic Realistic'
       },
       {
         type: 'p',
-        text: 'Atmospheric shadows, fog, tension — horror-leaning fantasy, mystery, psychological stakes.'
+        text: 'Photorealistic humans, film-quality lighting, natural color grading — drama, documentary tone, grounded emotional stakes with cinematic framing.'
       },
       {
         type: 'h4',

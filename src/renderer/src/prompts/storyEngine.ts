@@ -1,6 +1,11 @@
 import type { AspectMode, ProjectState, StoryBible, VisualStyleId } from '../types/story'
 import { getStylePromptSuffix } from '../types/story'
 import { narratorIdentityForId } from '../constants/narratorVoiceProfiles'
+import {
+  OUTPUT_LANGUAGE,
+  englishOutputEnforcementBlock,
+  regionalCultureContextLine
+} from '@shared/outputLanguageLock.js'
 
 export const CORE_STORY_RULES = `You are the structured storytelling engine for "कथा एकादेशको".
 You are NOT a free-form chatbot.
@@ -28,7 +33,8 @@ export function buildBibleUserPrompt(params: {
   styleId: VisualStyleId
   /** Required when `styleId` is `custom`. */
   customVisualPrompt?: string
-  languageName: string
+  /** Regional culture label (story language picker — not output language). */
+  regionalCulture: string
   aspectMode: AspectMode
   /** Nepal theme-pack mood line merged into visual guidance. */
   visualAccent?: string
@@ -42,9 +48,12 @@ export function buildBibleUserPrompt(params: {
       ? `${style} Layered mood / aesthetic cues (hybrid explicitly requested — fuse thoughtfully): ${accent}`
       : `${style} Ambient mood accent ONLY — must NOT replace or contradict the locked rendering medium above: ${accent}`
   }
-  return `User idea (seed): ${params.idea}
+  return `${englishOutputEnforcementBlock(params.regionalCulture)}
 
-Target language for all titles, names transliteration if needed, and episode text: ${params.languageName}
+User idea (seed): ${params.idea}
+
+Output language for all titles, episode text, narration, dialogue, scene descriptions, and metadata: ${OUTPUT_LANGUAGE} ONLY.
+Regional cultural atmosphere (names, setting, traditions — NOT output language): ${params.regionalCulture}
 Visual style injection (LOCKED — reuse verbatim inside each character baseImagePrompt): ${injected}
 Aspect default: ${params.aspectMode} (influence composition hints in outline only).
 
@@ -154,9 +163,11 @@ ${narratorIdentity.epicProfile ? `- Epic/Myth: ${narratorIdentity.epicProfile}` 
   const fingerprints = project.contentFingerprints.slice(-24).join(' | ')
   const narratorLock = bible.narratorId?.trim() || '(match bible / studio narrator preset)'
   const styleLock = `${bible.styleId}${bible.styleId === 'custom' && bible.customVisualPrompt?.trim() ? ` — ${bible.customVisualPrompt.trim()}` : ''}`
-  const dialogueLang = bible.language?.trim() || '(story language from bible)'
+  const regionalCulture = regionalCultureContextLine(bible.language, undefined)
 
-  return `Generate EPISODE ${episodeNumber} of ${bible.totalEpisodes}.
+  return `${englishOutputEnforcementBlock(regionalCulture)}
+
+Generate EPISODE ${episodeNumber} of ${bible.totalEpisodes}.
 
 Bible title: ${bible.title}
 Concept: ${bible.concept}
@@ -166,7 +177,7 @@ Continuity locks (do not reset between episodes):
 - Narrator language & voice intent: ${narrationLine ?? '(use studio narrator settings if present)'}
 - Built-in narrator identity (LOCKED voiceprint; adapt performance without changing identity): ${narratorIdentityHint ?? '(use the selected built-in narrator identity)'}
 - Visual medium lock: ${styleLock}
-- Spoken / on-screen language: ${dialogueLang}
+- Spoken / on-screen language: ${OUTPUT_LANGUAGE} (regional culture: ${regionalCulture})
 - Preserve character faces, relationships, setting, subtitle cadence, music beds / ambient mood direction when referenced in memory.
 
 Performance logic requirements (do NOT change the narrator identity):
@@ -219,7 +230,10 @@ If Type is Thought, Text is inner monologue; still set Character to who thinks i
 }
 
 export function buildMemoryUpdatePrompt(project: ProjectState, newEpisodeBlock: string): string {
-  return `Compress story memory AFTER this episode. Return 6-10 bullet lines, canonical facts only.
+  const regionalCulture = regionalCultureContextLine(project.bible?.language, undefined)
+  return `${englishOutputEnforcementBlock(regionalCulture)}
+
+Compress story memory AFTER this episode. Return 6-10 bullet lines, canonical facts only. Write bullets in ${OUTPUT_LANGUAGE} only.
 
 Previous memory:
 ${project.memorySummary || '(empty)'}
@@ -231,7 +245,9 @@ Output format: bullet list lines starting with "- ", no JSON, no code fences.`
 }
 
 export function buildOpenAIRefinePrompt(structuredEpisode: string): string {
-  return `You polish dialogue for emotional clarity and distinct character voice. 
+  return `${englishOutputEnforcementBlock()}
+
+You polish dialogue for emotional clarity and distinct character voice. Keep all lines in ${OUTPUT_LANGUAGE}.
 Keep the EXACT same template fields and order. Do not add scenes. Do not remove Cliffhanger line.
 Do not change Episode number, Type, or Estimated Duration except fix obvious typos.
 
@@ -282,7 +298,7 @@ export function recommendLengthFromIdea(idea: string): string {
 export function recommendStyleFromIdea(idea: string): VisualStyleId {
   const s = idea.toLowerCase()
   if (/love|romance|heart|wedding|kiss|cozy|storybook|gentle|folktale/i.test(s)) return 'cozy_storybook'
-  if (/horror|dark|blood|nightmare|shadow/i.test(s)) return 'dark_anime'
+  if (/horror|dark|blood|nightmare|shadow|photoreal|realistic|documentary/i.test(s)) return 'cinematic_realistic'
   if (/fight|battle|war|ninja|mech|speed/i.test(s)) return 'cinematic_anime'
   if (/comic|funny|gag|slice/i.test(s)) return 'comic_panel'
   if (/magic|fairy|realm|dragon|soft/i.test(s)) return 'soft_anime_fantasy'

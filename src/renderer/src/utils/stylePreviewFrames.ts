@@ -34,11 +34,11 @@ export function previewFrameSpecForStyle(styleId: VisualStyleId, customVisualPro
         prompt:
           `${baseScene} Illustrated comic panel style, bold ink outlines, dynamic composition, vivid stylized colors, halftone accents, strong visual storytelling, expressive poses, high-contrast shading.`
       }
-    case 'dark_anime':
+    case 'cinematic_realistic':
       return {
         seed: 390_055,
         prompt:
-          `${baseScene} Dark fantasy moody animation, shadows and fog, dramatic rim lighting, mysterious atmosphere, intense expressions, darker palette with deep blues and purples, cinematic suspense moment.`
+          `${baseScene} Cinematic photorealistic film still, natural facial anatomy, realistic skin and eyes, film-quality motivated lighting, shallow depth of field, real-world environment detail, natural color grading, human emotional expressions, realistic wardrobe continuity, documentary-cinematic framing.`
       }
     case 'cozy_storybook':
       return {

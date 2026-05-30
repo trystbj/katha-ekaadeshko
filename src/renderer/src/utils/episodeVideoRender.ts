@@ -11,6 +11,8 @@ import { resolveCinematicExportPreset } from '@shared/cinematicExportPresets.js'
 import { timingOverridesFromPlan } from '../engines/timelineSync'
 import { ensureVideoStudio } from './ensureVideoStudio'
 import { withRenderComplete, withRenderStarted } from './storyboardWorkflow'
+import { formatApiError } from './formatApiError'
+import { serializePipelineError } from './studioTaskState'
 
 const LOG = '[katha:render]'
 
@@ -24,6 +26,82 @@ type RenderStatusRow = {
 }
 
 const activePolls = new Map<string, ReturnType<typeof setTimeout>>()
+const RENDER_POLL_TIMEOUT_MS = 45 * 60 * 1000
+const pollStartedAt = new Map<string, number>()
+const RENDER_MAX_QUEUE_RETRIES = 2
+const RENDER_MAX_JOB_RETRIES = 1
+const RENDER_STUCK_PROGRESS_TICKS = 24
+const RENDER_POLL_MISS_WARN = 20
+
+type RenderCheckpoint =
+  | 'precheck'
+  | 'queued'
+  | 'polling'
+  | 'downloading'
+  | 'encoding'
+  | 'complete'
+  | 'failed'
+  | 'retry'
+  | 'stalled'
+
+type PollSession = {
+  episodeNumber: number
+  queueRetries: number
+  jobRetries: number
+  pollMisses: number
+  lastProgress: number
+  lastProgressTicks: number
+}
+
+const pollSessions = new Map<string, PollSession>()
+
+function logCheckpoint(jobId: string, checkpoint: RenderCheckpoint, detail?: Record<string, unknown>) {
+  log(`checkpoint_${checkpoint}`, { jobId, ...detail })
+}
+
+function isRetryableRenderError(message: string): boolean {
+  const m = String(message || '').toLowerCase()
+  if (!m) return true
+  return (
+    m.includes('timeout') ||
+    m.includes('network') ||
+    m.includes('fetch') ||
+    m.includes('econn') ||
+    m.includes('worker') ||
+    m.includes('503') ||
+    m.includes('502') ||
+    m.includes('504') ||
+    m.includes('download') ||
+    m.includes('ffmpeg') ||
+    m.includes('stuck')
+  )
+}
+
+function inferCheckpointFromStage(stage: string, status: BackgroundRenderJob['status']): RenderCheckpoint {
+  const s = String(stage || '').toLowerCase()
+  if (status === 'complete') return 'complete'
+  if (status === 'failed') return 'failed'
+  if (s.includes('download') || s.includes('image')) return 'downloading'
+  if (s.includes('encod') || s.includes('mux') || s.includes('subtitle') || s.includes('audio')) {
+    return 'encoding'
+  }
+  return 'polling'
+}
+
+type RenderPrecheck = { ok: true; imageCount: number } | { ok: false; reason: string }
+
+function validateRenderPayload(payload: RenderRequest): RenderPrecheck {
+  const images = Array.isArray(payload.images) ? payload.images : []
+  if (!images.length) return { ok: false, reason: 'No scene images to render.' }
+  const bad = images.filter((u) => {
+    const t = String(u || '').trim()
+    return !t || (!/^https?:\/\//i.test(t) && !t.startsWith('/'))
+  })
+  if (bad.length) {
+    return { ok: false, reason: `${bad.length} scene image URL(s) are invalid or unreachable.` }
+  }
+  return { ok: true, imageCount: images.length }
+}
 
 function log(event: string, detail?: Record<string, unknown>) {
   if (detail) console.info(LOG, event, detail)
@@ -194,11 +272,94 @@ function stopPolling(jobId: string) {
   const t = activePolls.get(jobId)
   if (t) clearTimeout(t)
   activePolls.delete(jobId)
+  pollStartedAt.delete(jobId)
+  pollSessions.delete(jobId)
 }
 
-function schedulePoll(jobId: string, episodeNumber: number) {
+async function requeueRenderAfterFailure(
+  priorJobId: string,
+  episodeNumber: number,
+  reason: string
+): Promise<boolean> {
+  const session = pollSessions.get(priorJobId)
+  if (!session || session.jobRetries >= RENDER_MAX_JOB_RETRIES) return false
+
+  const project = useStudioStore.getState().project
+  if (!project?.bible) return false
+  const episode = project.episodes.find((e) => e.number === episodeNumber)
+  const payload = buildRenderRequest(project, episode)
+  const pre = payload ? validateRenderPayload(payload) : { ok: false as const, reason: 'No render payload' }
+  if (!pre.ok) {
+    log('render_retry_skip', { priorJobId, reason: pre.reason })
+    return false
+  }
+
+  session.jobRetries += 1
+  logCheckpoint(priorJobId, 'retry', {
+    episodeNumber,
+    attempt: session.jobRetries,
+    priorError: reason.slice(0, 200)
+  })
+
+  stopPolling(priorJobId)
+  patchActiveProject((p) => ({ ...p, renderJobId: undefined, updatedAt: new Date().toISOString() }))
+
+  try {
+    const { jobId } = await queueBackgroundRender(project.id, episodeNumber, payload)
+    log('render_retry_queued', { priorJobId, jobId, attempt: session.jobRetries })
+    patchActiveProject((p) => withRenderStarted({ ...p, renderJobId: jobId }))
+    schedulePoll(jobId, episodeNumber, session.jobRetries, session.queueRetries)
+    return true
+  } catch (e) {
+    const msg = serializePipelineError(e, 'Video render retry failed')
+    log('render_retry_queue_error', { message: msg })
+    return false
+  }
+}
+
+function clearRenderBusyState() {
+  const st = useStudioStore.getState()
+  const ix = st.activeWorkspaceSlotIndex
+  st.setWorkspaceBusy(ix, null)
+  st.setBusy(null)
+  st.setJob(null)
+}
+
+function schedulePoll(
+  jobId: string,
+  episodeNumber: number,
+  jobRetries = 0,
+  queueRetries = 0
+) {
   stopPolling(jobId)
+  pollStartedAt.set(jobId, Date.now())
+  pollSessions.set(jobId, {
+    episodeNumber,
+    queueRetries,
+    jobRetries,
+    pollMisses: 0,
+    lastProgress: -1,
+    lastProgressTicks: 0
+  })
+
   const tick = async () => {
+    const session = pollSessions.get(jobId)
+    if (!session) return
+
+    const started = pollStartedAt.get(jobId) ?? Date.now()
+    if (Date.now() - started > RENDER_POLL_TIMEOUT_MS) {
+      logCheckpoint(jobId, 'failed', { reason: 'timeout' })
+      const retried = await requeueRenderAfterFailure(jobId, episodeNumber, 'Render timed out')
+      if (retried) return
+      stopPolling(jobId)
+      removePipelineJob(jobId)
+      const msg = 'Video render timed out — try again or check the worker.'
+      useStudioStore.getState().setWorkspaceError(useStudioStore.getState().activeWorkspaceSlotIndex, msg)
+      clearRenderBusyState()
+      patchActiveProject((p) => ({ ...p, renderJobId: undefined, updatedAt: new Date().toISOString() }))
+      return
+    }
+
     let row: RenderStatusRow | null = await fetchRenderStatus(jobId)
     if (!row) {
       const polled = await pollBackgroundRenderJob(jobId)
@@ -213,19 +374,40 @@ function schedulePoll(jobId: string, episodeNumber: number) {
         }
       }
     }
+
     if (!row) {
-      log('poll_miss', { jobId })
+      session.pollMisses += 1
+      if (session.pollMisses === RENDER_POLL_MISS_WARN) {
+        log('poll_miss_warn', { jobId, misses: session.pollMisses })
+      }
+      log('poll_miss', { jobId, misses: session.pollMisses })
       activePolls.set(jobId, setTimeout(tick, 2000))
       return
     }
 
+    session.pollMisses = 0
     const status = normalizeRenderStatus(row.status)
     const videoUrl = row.video_url
+    const progress = typeof row.progress === 'number' ? row.progress : 0
+    const checkpoint = inferCheckpointFromStage(row.stage || '', status)
+    logCheckpoint(jobId, checkpoint, { progress, stage: row.stage, status })
+
+    if (status === 'processing' || status === 'queued') {
+      if (progress === session.lastProgress) {
+        session.lastProgressTicks += 1
+        if (session.lastProgressTicks >= RENDER_STUCK_PROGRESS_TICKS) {
+          logCheckpoint(jobId, 'stalled', { progress, stage: row.stage, ticks: session.lastProgressTicks })
+        }
+      } else {
+        session.lastProgress = progress
+        session.lastProgressTicks = 0
+      }
+    }
 
     applyRenderProgress(jobId, row)
 
     if (status === 'complete' && videoUrl) {
-      log('render_complete', { jobId, videoUrl })
+      logCheckpoint(jobId, 'complete', { videoUrl })
       log('video_url_created', { jobId, videoUrl })
       stopPolling(jobId)
       removePipelineJob(jobId)
@@ -247,25 +429,22 @@ function schedulePoll(jobId: string, episodeNumber: number) {
         return next
       })
 
-      const st = useStudioStore.getState()
-      st.setWorkspaceBusy(st.activeWorkspaceSlotIndex, null)
-      if (st.activeWorkspaceSlotIndex === st.activeWorkspaceSlotIndex) {
-        st.setBusy(null)
-        st.setJob(null)
-      }
+      clearRenderBusyState()
       return
     }
 
     if (status === 'failed') {
-      log('render_failed', { jobId, error: row.error })
+      const errText = String(row.error || 'Video render failed')
+      log('render_failed', { jobId, error: errText })
+      if (isRetryableRenderError(errText)) {
+        const retried = await requeueRenderAfterFailure(jobId, episodeNumber, errText)
+        if (retried) return
+      }
       stopPolling(jobId)
       removePipelineJob(jobId)
-      const msg = row.error || 'Video render failed'
-      const st = useStudioStore.getState()
-      st.setWorkspaceError(st.activeWorkspaceSlotIndex, msg)
-      st.setWorkspaceBusy(st.activeWorkspaceSlotIndex, null)
-      st.setBusy(null)
-      st.setJob(null)
+      const msg = formatApiError(row.error, 'Video render failed')
+      useStudioStore.getState().setWorkspaceError(useStudioStore.getState().activeWorkspaceSlotIndex, msg)
+      clearRenderBusyState()
       patchActiveProject((p) => ({ ...p, renderJobId: undefined, updatedAt: new Date().toISOString() }))
       return
     }
@@ -303,6 +482,16 @@ export async function queueEpisodeVideoRender(opts: QueueEpisodeVideoRenderOpts 
     return null
   }
 
+  const precheck = validateRenderPayload(payload)
+  if (!precheck.ok) {
+    log('render_precheck_failed', { reason: precheck.reason, episodeNumber })
+    const st = useStudioStore.getState()
+    st.setWorkspaceError(st.activeWorkspaceSlotIndex, precheck.reason)
+    clearRenderBusyState()
+    return null
+  }
+  log('render_precheck_ok', { imageCount: precheck.imageCount, episodeNumber })
+
   if (project.renderJobId && !opts.force) {
     log('queue_resume', { jobId: project.renderJobId })
     schedulePoll(project.renderJobId, episodeNumber)
@@ -319,22 +508,30 @@ export async function queueEpisodeVideoRender(opts: QueueEpisodeVideoRenderOpts 
     st.setError(null)
   }
 
-  try {
-    const { jobId } = await queueBackgroundRender(project.id, episodeNumber, payload)
-    log('render_queued', { jobId })
+  let queueAttempt = 0
+  let lastQueueError = 'Video render queue failed'
 
-    patchActiveProject((p) => withRenderStarted({ ...p, renderJobId: jobId }))
+  while (queueAttempt <= RENDER_MAX_QUEUE_RETRIES) {
+    try {
+      const { jobId } = await queueBackgroundRender(project.id, episodeNumber, payload)
+      logCheckpoint(jobId, 'queued', { queueAttempt, imageCount: payload.images.length })
 
-    schedulePoll(jobId, episodeNumber)
-    return jobId
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    log('render_queue_error', { message: msg })
-    st.setWorkspaceError(ix, msg)
-    st.setWorkspaceBusy(ix, null)
-    st.setBusy(null)
-    return null
+      patchActiveProject((p) => withRenderStarted({ ...p, renderJobId: jobId }))
+
+      schedulePoll(jobId, episodeNumber, 0, queueAttempt)
+      return jobId
+    } catch (e) {
+      lastQueueError = serializePipelineError(e, 'Video render queue failed')
+      log('render_queue_error', { message: lastQueueError, queueAttempt })
+      queueAttempt += 1
+      if (queueAttempt > RENDER_MAX_QUEUE_RETRIES || !isRetryableRenderError(lastQueueError)) break
+      await new Promise((r) => setTimeout(r, 1200 * queueAttempt))
+    }
   }
+
+  st.setWorkspaceError(ix, lastQueueError)
+  clearRenderBusyState()
+  return null
 }
 
 /** Resume polling when a project was saved mid-render (e.g. refresh). */

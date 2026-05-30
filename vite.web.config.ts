@@ -11,10 +11,17 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiProxy = (env.KATHA_DEV_API_PROXY || env.DEV_API_PROXY || '').replace(/\/+$/, '')
 
+  const uiBuild =
+    process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 10) ||
+    `local-${new Date().toISOString().replace(/[:.]/g, '').slice(0, 14)}`
+
   return {
     root: 'web',
     plugins: [react()],
     base: '/',
+    define: {
+      __KATHA_UI_BUILD__: JSON.stringify(uiBuild)
+    },
     server: {
       port: 4173,
       /** If 4173 is taken, Vite picks the next port — watch the terminal for the real URL. */

@@ -54,7 +54,9 @@ export function storyboardSubtitlePositionClass(
       return 'storyboard-subtitle-overlay--top'
     case 'center':
       return 'storyboard-subtitle-overlay--middle'
+    case 'floating_adaptive':
+      return 'storyboard-subtitle-overlay--bottom storyboard-subtitle-overlay--safe-lower-third'
     default:
-      return 'storyboard-subtitle-overlay--bottom'
+      return 'storyboard-subtitle-overlay--bottom storyboard-subtitle-overlay--safe-lower-third'
   }
 }

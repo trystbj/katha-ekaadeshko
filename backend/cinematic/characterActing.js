@@ -60,9 +60,10 @@ export function inferCharacterActing(ctx, expression, styleId) {
     gestureIntensity = Math.min(1, gestureIntensity * 1.25)
     idleMotion = ctx.actionLevel > 0.3 ? 'energetic' : idleMotion
   }
-  if (sid === 'dark_anime' && ctx.tension > 0.5) {
-    stillnessMoment = ctx.suspenseLevel > 0.6
-    reactionDelayMs += 80
+  if (sid === 'cinematic_realistic' && ctx.tension > 0.5) {
+    stillnessMoment = ctx.suspenseLevel > 0.55
+    gestureIntensity = Math.min(1, gestureIntensity * 0.92)
+    reactionDelayMs += 40
   }
 
   return {

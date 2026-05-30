@@ -8,7 +8,7 @@ export type VisualStyleId =
   | 'cozy_storybook'
   | 'cinematic_anime'
   | 'comic_panel'
-  | 'dark_anime'
+  | 'cinematic_realistic'
   | 'custom'
 
 /** Studio may have no style chosen until the user picks one. */
@@ -234,6 +234,21 @@ export interface AssetRef {
   createdAt: string
 }
 
+/** Cross-scene Leonardo identity lock from visual pipeline. */
+export interface CharacterVisualLock {
+  characterId: string
+  label: string
+  gender?: string
+  basePortrait?: string
+  faceReference?: string
+  outfitReference?: string
+  styleReference?: string
+  visualIdentity?: string
+  baseImagePrompt?: string
+  emotionVariants?: string[]
+  poseVariants?: string[]
+}
+
 /** Internal scene production snapshot (pipeline stages). */
 export interface SceneProductionState {
   story: string
@@ -346,12 +361,23 @@ export interface ProjectState {
   /** Step 1 complete — user may review script before visuals. */
   scriptReviewReady?: boolean
   scriptReviewReadyAt?: string
+  /** User clicked Next / Generate assets — parallel scene images may run. */
+  assetsGenerationApproved?: boolean
+  assetsGenerationApprovedAt?: string
+  /** Leonardo cross-scene character identity locks from visual pipeline. */
+  characterVisualLocks?: CharacterVisualLock[]
   /** Structured AI production directives from intent analyzer. */
   productionDirectives?: ProductionDirectives
   /** Per-scene pipeline state for regeneration and review gates. */
   sceneProductionStates?: SceneProductionState[]
   /** Unified character/story/visual/animation memory snapshot. */
   productionMemory?: Record<string, unknown>
+  /** Master story context for character locks and scene continuity. */
+  masterStoryContext?: Record<string, unknown>
+  /** Visible script language (always English in studio). */
+  outputLanguage?: string
+  /** Regional atmosphere from language picker (e.g. Nepali culture in English prose). */
+  regionalContext?: string
 }
 
 export const STYLE_PRESETS: Record<
@@ -388,13 +414,13 @@ export const STYLE_PRESETS: Record<
     promptSuffix:
       'motion comic aesthetic, stylized panels and framing, dynamic transitions, comic-style dramatic posing, bold ink lines, strong visual storytelling, consistent character likeness'
   },
-  dark_anime: {
-    labelKey: 'style.darkAnime',
+  cinematic_realistic: {
+    labelKey: 'style.cinematicRealistic',
     previewGradient:
-      'linear-gradient(180deg, rgba(88,40,120,0.15) 0%, rgba(12,8,28,0.55) 45%, rgba(0,0,0,0.88) 100%)',
-    previewImageUrl: '/style-previews/dark.png',
+      'linear-gradient(180deg, transparent 0%, transparent 72%, rgba(0, 0, 0, 0.32) 100%)',
+    previewImageUrl: '/style-previews/cinematic-realistic.png?v=1',
     promptSuffix:
-      'atmospheric dark fantasy anime, intense shadows and fog, emotional tension, cinematic darkness, dramatic environments, mystery and suspense mood, consistent character'
+      'cinematic photorealistic realism, photorealistic human characters, natural facial anatomy, realistic skin texture and eyes, film-quality lighting, cinematic depth of field, real-world environment detail, natural color grading, preserve character identity across scenes, consistent hairstyle clothing and facial features, realistic villages cities and interiors, natural weather, cinematic atmosphere, physically believable lighting, human-like movement, natural blinking and breathing, emotional body language, realistic gestures, mood-based lighting, emotion-driven closeups medium shots and wide shots, realistic cinematic framing'
   },
   custom: {
     labelKey: 'styleCustomVisual',

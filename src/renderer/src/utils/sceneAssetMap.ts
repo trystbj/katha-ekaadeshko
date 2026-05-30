@@ -104,12 +104,31 @@ export function sceneUrlForIndex(project: ProjectState | null, sceneIndex: numbe
   return hit?.url
 }
 
+/** Drop repeated non-empty URLs (thumbnail strips only — keeps scene row order). */
+export function dedupeScenePreviewUrls(urls: string[]): string[] {
+  const seen = new Set<string>()
+  return urls.map((u) => {
+    const key = String(u || '').trim()
+    if (!key) return ''
+    if (seen.has(key)) return ''
+    seen.add(key)
+    return u
+  })
+}
+
 /** Scene still URLs ordered to match episode `scenes[]` row order (by each row's `index`). */
 export function sceneStillUrlsForEpisode(
   project: ProjectState | null,
   episodeScenes: StoryScene[] = []
 ): string[] {
-  return episodeScenes.map((s) => sceneUrlForIndex(project, s.index) ?? '')
+  const seenIndex = new Set<number>()
+  const urls: string[] = []
+  for (const s of episodeScenes) {
+    if (seenIndex.has(s.index)) continue
+    seenIndex.add(s.index)
+    urls.push(sceneUrlForIndex(project, s.index) ?? '')
+  }
+  return urls
 }
 
 /** Ordered scene image URLs for preview carousel (falls back to any scene assets). */
@@ -125,13 +144,13 @@ export function orderedSceneImageUrls(
     if (m) byIndex.set(Number(m[1]), a.url)
   }
   if (episodeScenes?.length) {
-    const ordered = episodeScenes
-      .map((s) => byIndex.get(s.index))
-      .filter((u): u is string => typeof u === 'string' && u.length > 0)
-    if (ordered.length) {
-      console.info('[katha:preview]', 'ordered_scene_urls', { count: ordered.length, mode: 'episode' })
-      return ordered
-    }
+    const ordered = episodeScenes.map((s) => byIndex.get(s.index) ?? '')
+    console.info('[katha:preview]', 'ordered_scene_urls', {
+      count: ordered.length,
+      withImage: ordered.filter(Boolean).length,
+      mode: 'episode_aligned'
+    })
+    return ordered
   }
   const fallback = [...byIndex.entries()]
     .sort((a, b) => a[0] - b[0])

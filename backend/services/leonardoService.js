@@ -5,8 +5,23 @@ import {
   leonardoIdentityBlockForScriptRow
 } from '../character/characterIdentityMemory.js'
 import { isServerlessRuntime } from '../utils/runtime.js'
+import {
+  buildSceneVisualBlueprint,
+  leonardoPromptFromBlueprint
+} from './cinematic/cinematicVisualBlueprint.js'
+import {
+  tryAcquireSceneGenerationLock,
+  markSceneGenerationComplete,
+  releaseSceneGenerationLock
+} from '../utils/sceneGenerationLock.js'
+import { validateSceneImage, validationFailureReason } from '../cinematic/sceneImageValidation.js'
+import { TEXT_FREE_NEGATIVE } from '../cinematic/masterStoryContext.js'
+import {
+  serverlessLeonardoParallelLimit,
+  serverlessLeonardoSceneCooldownMs
+} from '../utils/serverlessSceneLimits.js'
 
-const SCENE_IMAGE_MAX_ATTEMPTS = 2
+const SCENE_IMAGE_MAX_ATTEMPTS = 3
 
 async function generateOneWithRetry(args) {
   let lastErr = null
@@ -43,7 +58,14 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-export async function leonardoGenerateForScript({ script, input, onProgress, characters }) {
+export async function leonardoGenerateForScript({
+  script,
+  input,
+  onProgress,
+  characters,
+  sceneBlueprints,
+  projectId
+}) {
   // Serverless-safe: Leonardo returns hosted URLs; no local storage required.
   // You can disable explicitly if desired.
   if (process.env.KATHA_DISABLE_LEONARDO === '1') return []
@@ -61,20 +83,93 @@ export async function leonardoGenerateForScript({ script, input, onProgress, cha
     : input
   const out = []
   const failures = []
-  for (let i = 0; i < script.length; i++) {
-    const s = script[i]
+  const total = script.length
+  const parallelLimit = Math.min(total, serverlessLeonardoParallelLimit())
+  const sceneCooldownMs = serverlessLeonardoSceneCooldownMs()
+
+  if (onProgress) {
+    onProgress({
+      stage: 'images_queued',
+      progress: 0,
+      total,
+      message: `Queued ${total} scenes for parallel generation…`
+    })
+  }
+
+  let completed = 0
+  let cursor = 0
+
+  async function generateSceneRow(s, i) {
     const sceneNum = Number(s.scene)
     const sceneKey = Number.isFinite(sceneNum) && sceneNum > 0 ? sceneNum : i + 1
+    const lockId = projectId || input.projectId || 'studio'
+    if (!tryAcquireSceneGenerationLock(lockId, sceneKey)) {
+      console.info('[katha:leonardo]', 'scene_skip_duplicate_lock', { scene: sceneKey })
+      return null
+    }
+    if (onProgress) {
+      onProgress({
+        stage: 'scene_generating',
+        scene: sceneKey,
+        progress: Math.round((completed / Math.max(1, total)) * 100),
+        total,
+        message: `Generating scene ${sceneKey}…`
+      })
+    }
     try {
       const identityBlock = leonardoIdentityBlockForScriptRow(s, castMemory)
-      const prompt = buildLeonardoScenePrompt(s, inputWithRefs, identityBlock)
-      const { imageUrl, seed, leonardoImageId, leonardoGenerationId } = await generateOneWithRetry({
-        prompt,
-        modelId,
-        width,
-        height
-      })
-      out.push({
+      const bp =
+        Array.isArray(sceneBlueprints) && sceneBlueprints[i]
+          ? sceneBlueprints[i]
+          : buildSceneVisualBlueprint(s, inputWithRefs, {
+              index: i,
+              castMemory,
+              directives: inputWithRefs.__productionDirectives,
+              continuityPack: inputWithRefs.__continuityPack
+            })
+      const sceneCtxBlock = Array.isArray(inputWithRefs.__sceneMasterContextBlocks)
+        ? String(inputWithRefs.__sceneMasterContextBlocks[i] || '').trim()
+        : ''
+      let prompt = sceneBlueprints?.length
+        ? leonardoPromptFromBlueprint(bp, inputWithRefs, identityBlock)
+        : buildLeonardoScenePrompt(s, inputWithRefs, identityBlock)
+      if (sceneCtxBlock) prompt = `${prompt} ${sceneCtxBlock}`.trim()
+      prompt = `${prompt} FORBIDDEN: ${TEXT_FREE_NEGATIVE}.`
+
+      let imageUrl = ''
+      let seed
+      let leonardoImageId
+      let leonardoGenerationId
+      let lastValidation = null
+      for (let attempt = 1; attempt <= SCENE_IMAGE_MAX_ATTEMPTS; attempt++) {
+        const gen = await generateOneWithRetry({
+          prompt,
+          modelId,
+          width,
+          height
+        })
+        imageUrl = gen.imageUrl
+        seed = gen.seed
+        leonardoImageId = gen.leonardoImageId
+        leonardoGenerationId = gen.leonardoGenerationId
+        lastValidation = validateSceneImage({
+          scriptRow: s,
+          prompt,
+          imageUrl,
+          castMemory
+        })
+        if (lastValidation.ok) break
+        if (!lastValidation.shouldRegenerate || attempt >= SCENE_IMAGE_MAX_ATTEMPTS) break
+        console.warn('[katha:leonardo]', 'scene_validation_regen', {
+          scene: sceneKey,
+          attempt,
+          issues: lastValidation.issues
+        })
+      }
+      if (!imageUrl || (lastValidation && !lastValidation.ok && lastValidation.shouldRegenerate)) {
+        throw new Error(validationFailureReason(lastValidation) || 'Scene image validation failed')
+      }
+      const row = {
         scene: sceneKey,
         image_url: imageUrl,
         prompt,
@@ -82,23 +177,63 @@ export async function leonardoGenerateForScript({ script, input, onProgress, cha
         leonardoImageId,
         leonardoGenerationId,
         status: 'complete'
-      })
+      }
       console.info('[katha:character]', 'leonardo_scene', {
         scene: sceneKey,
         castSlots: castMemory.map((m) => `${m.label}:${m.gender}`).join(', ')
       })
+      completed += 1
+      markSceneGenerationComplete(lockId, sceneKey)
+      if (onProgress) {
+        onProgress({
+          stage: 'scene_complete',
+          scene: sceneKey,
+          image: row,
+          blueprint: bp,
+          progress: Math.round((completed / Math.max(1, total)) * 100),
+          total,
+          message: `Scene ${sceneKey} complete (${completed}/${total})`
+        })
+      }
+      return row
     } catch (e) {
+      releaseSceneGenerationLock(lockId, sceneKey)
       const message = e instanceof Error ? e.message : String(e)
       failures.push({ scene: sceneKey, message })
       console.warn('[katha:leonardo]', 'scene_failed', { scene: sceneKey, message })
+      completed += 1
+      if (onProgress) {
+        onProgress({
+          stage: 'scene_failed',
+          scene: sceneKey,
+          progress: Math.round((completed / Math.max(1, total)) * 100),
+          total,
+          message: `Scene ${sceneKey} failed`
+        })
+      }
+      return null
     }
-    if (onProgress) {
-      onProgress({
-        stage: 'images',
-        progress: Math.round(((i + 1) / Math.max(1, script.length)) * 100),
-        message: `Image ${i + 1}/${script.length}${failures.length ? ` (${failures.length} retry later)` : ''}`
-      })
+  }
+
+  async function worker() {
+    while (cursor < script.length) {
+      const i = cursor
+      cursor += 1
+      if (sceneCooldownMs > 0 && i > 0) await sleep(sceneCooldownMs)
+      const row = await generateSceneRow(script[i], i)
+      if (row) out.push(row)
     }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(parallelLimit, total) }, () => worker()))
+
+  if (onProgress) {
+    onProgress({
+      stage: 'images',
+      progress: 100,
+      total,
+      message: `Images complete (${out.length}/${total})${failures.length ? ` — ${failures.length} failed` : ''}`
+    })
   }
   if (failures.length) {
     console.warn('[katha:leonardo]', 'batch_partial', {
@@ -143,6 +278,7 @@ async function generateOne({ prompt, modelId, width, height, seed }) {
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt,
+        negative_prompt: TEXT_FREE_NEGATIVE,
         modelId,
         num_images: 1,
         width,

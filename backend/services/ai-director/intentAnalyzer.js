@@ -12,6 +12,10 @@ import {
   productionDirectivesPromptBlock
 } from './productionDirectives.js'
 import { runMultiAgentCouncil } from './multiAgentCouncil.js'
+import {
+  englishOutputEnforcementBlock,
+  regionalCultureContextLine
+} from '../../../shared/outputLanguageLock.js'
 
 const PROVIDERS = [
   { id: 'openai', hasKey: () => Boolean(process.env.OPENAI_API_KEY), fn: openaiJson },
@@ -40,8 +44,12 @@ async function aiJsonIntent({ prompt }) {
 
 function buildIntentPrompt(input, blueprintSnippet = '') {
   const seed = String(input.seedLine || input.theme || '').trim().slice(0, 2000)
-  return `You are the AI Intent Analyzer for a cinematic storytelling studio.
+  const regional = regionalCultureContextLine(input.storyLanguage, input.country)
+  return `${englishOutputEnforcementBlock(regional)}
+
+You are the AI Intent Analyzer for a cinematic storytelling studio.
 Analyze the user's creative intent BEFORE any story is written.
+All JSON string values you return must be written in English.
 
 USER SEED / IDEA:
 ${seed}
@@ -53,7 +61,7 @@ STUDIO LOCKS:
 - Story tone: ${input.storyTone || 'unspecified'}
 - Visual style id: ${input.styleId || 'unspecified'}
 - Aspect: ${input.aspectMode || 'vertical_9_16'}
-- Language: ${input.storyLanguage || 'en'}
+- Regional cultural atmosphere (NOT output language): ${regional}
 ${blueprintSnippet ? `\n${blueprintSnippet.slice(0, 1200)}\n` : ''}
 
 Return JSON ONLY:

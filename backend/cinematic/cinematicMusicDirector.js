@@ -48,7 +48,7 @@ export function inferSceneMusic(ctx, phase, styleId) {
   }
 
   const sid = String(styleId || '')
-  if (sid === 'dark_anime' && theme === 'neutral') theme = 'horror_drone'
+  if (sid === 'cinematic_realistic' && theme === 'neutral') theme = 'emotional_piano'
   if (sid === 'cozy_storybook') theme = theme === 'battle' ? theme : 'peaceful'
   if (sid === 'cinematic_anime' && phase === 'reveal') {
     theme = 'climax'

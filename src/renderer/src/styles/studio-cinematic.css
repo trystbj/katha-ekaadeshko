@@ -487,6 +487,44 @@
   }
 }
 
+.preview-stage__nav {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-between;
+  padding: 0 6px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.preview-stage__nav-btn {
+  pointer-events: auto;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  background: rgba(4, 12, 18, 0.72);
+  color: rgba(255, 248, 232, 0.95);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.preview-stage__nav-btn:hover {
+  background: rgba(212, 175, 55, 0.22);
+  border-color: rgba(212, 175, 55, 0.85);
+}
+
 .preview-stage__thumb-strip {
   position: absolute;
   bottom: 54px;
@@ -542,11 +580,22 @@
   transform: translateX(-50%);
   z-index: 6;
   pointer-events: none;
-  max-width: 92%;
+  max-width: min(88%, 22rem);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
+  backdrop-filter: blur(6px);
 }
 
 .storyboard-subtitle-overlay--bottom {
   bottom: 14%;
+}
+
+.storyboard-subtitle-overlay--safe-lower-third {
+  bottom: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(86%, 20rem);
 }
 
 .storyboard-subtitle-overlay--middle {
@@ -608,7 +657,12 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 4px 2px 0;
+  padding: 4px 2px 8px;
+  min-height: 0;
+  max-height: min(36vh, 280px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .storyboard-workspace__hint {
@@ -630,8 +684,17 @@
 .storyboard-workspace__subtitle-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
+  row-gap: 6px;
+  max-width: 100%;
+}
+
+.storyboard-workspace__subtitle-row .storyboard-workspace__color-label,
+.storyboard-workspace__subtitle-row .storyboard-workspace__size-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .storyboard-workspace__sub-toggle {
@@ -685,6 +748,87 @@
   box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.75);
 }
 
+.storyboard-workspace__tl-chip--pending,
+.storyboard-workspace__tl-chip--queued {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
+.storyboard-workspace__tl-chip--generating {
+  animation: storyboard-tl-pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 0 2px rgba(120, 200, 255, 0.55);
+}
+
+.storyboard-workspace__tl-chip--failed {
+  box-shadow: 0 0 0 2px rgba(255, 100, 100, 0.65);
+}
+
+.storyboard-workspace__tl-chip--completed:not(.storyboard-workspace__tl-chip--on) {
+  opacity: 0.92;
+}
+
+@keyframes storyboard-tl-pulse {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.preview-stage__cast-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.preview-stage__cast-portrait {
+  position: absolute;
+  width: 28%;
+  max-width: 108px;
+  aspect-ratio: 3 / 4;
+  border-radius: 10px;
+  background-size: cover;
+  background-position: center top;
+  border: 2px solid rgba(212, 175, 55, 0.55);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+.preview-stage__cast-portrait--0 {
+  left: 6%;
+  bottom: 18%;
+  z-index: 2;
+}
+
+.preview-stage__cast-portrait--1 {
+  right: 6%;
+  bottom: 20%;
+  z-index: 3;
+}
+
+.preview-stage__cast-portrait--2 {
+  left: 22%;
+  bottom: 8%;
+  width: 22%;
+  z-index: 1;
+  opacity: 0.92;
+}
+
+.preview-stage__cast-portrait--3 {
+  right: 20%;
+  bottom: 10%;
+  width: 22%;
+  z-index: 1;
+  opacity: 0.88;
+}
+
+.preview-stage__thumb-tile--empty {
+  background: rgba(0, 0, 0, 0.45);
+  border-style: dashed;
+}
+
 .storyboard-workspace__tl-num {
   position: absolute;
   left: 4px;
@@ -696,12 +840,13 @@
 }
 
 .storyboard-workspace__line {
-  margin: 0;
-  font-size: 0.7rem;
-  color: var(--muted);
-  line-height: 1.4;
-  max-height: 3.2em;
-  overflow: hidden;
+  display: none;
+}
+
+.storyboard-subtitle-overlay--anim-fade,
+.storyboard-subtitle-overlay--anim-slide,
+.storyboard-subtitle-overlay--anim-pop {
+  will-change: opacity, transform;
 }
 
 .storyboard-workspace__missing-hint {

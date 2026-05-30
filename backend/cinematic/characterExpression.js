@@ -9,7 +9,8 @@
 export function inferCharacterExpression(ctx, styleId) {
   const sid = String(styleId || '').trim()
   const isComic = sid === 'comic_panel'
-  const isAnime = sid === 'cinematic_anime' || sid === 'soft_anime_fantasy' || sid === 'dark_anime'
+  const isAnime = sid === 'cinematic_anime' || sid === 'soft_anime_fantasy'
+  const isRealistic = sid === 'cinematic_realistic'
 
   let mood = 'neutral'
   let intensity = 0.45
@@ -77,6 +78,11 @@ export function inferCharacterExpression(ctx, styleId) {
     if (ctx.emotion === 'surprise' || ctx.emotion === 'joy') mood = 'comic_wide'
   } else if (isAnime) {
     exaggeration = ctx.emotion === 'surprise' || ctx.emotion === 'fear' ? 'high' : 'normal'
+  } else if (isRealistic) {
+    exaggeration = 'subtle'
+    breathVisible = breathVisible || ctx.emotion === 'sadness' || ctx.emotion === 'fear' || ctx.emotion === 'joy'
+    blinkRate = blinkRate === 'fast' ? 'normal' : blinkRate
+    eyeMotion = ctx.emotion === 'fear' ? 'dart' : 'steady'
   } else if (sid === 'cozy_storybook') {
     exaggeration = 'subtle'
     intensity *= 0.9

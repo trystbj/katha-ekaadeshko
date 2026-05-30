@@ -47,6 +47,10 @@
   box-shadow: none;
 }
 
+.app-shell--resume-dock .studio-mock-resume-hint {
+  display: none;
+}
+
 .app-shell.studio-mock-layout--fullscreen .studio-mock-nav-strip {
   padding: 4px 8px 5px;
 }
@@ -1158,6 +1162,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
+  overflow: hidden;
 }
 
 .studio-mock-col--preview .studio-mock-preview-slot .studio-mock-preview-wrap {
@@ -1666,8 +1671,9 @@
 
 .studio-mock-section-title--split {
   justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .studio-mock-section-title__pickers {
@@ -1676,7 +1682,9 @@
   gap: 6px;
   flex-shrink: 1;
   min-width: 0;
-  max-width: 56%;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .studio-mock-section-title__pickers > .studio-mock-locale-picker {
@@ -2746,6 +2754,11 @@
   margin-top: 8px !important;
   margin-bottom: 0 !important;
   font-size: 0.78rem !important;
+}
+
+.studio-mock-resume-hint {
+  line-height: 1.45;
+  color: rgba(255, 248, 232, 0.88);
 }
 
 .studio-mock-foot {
@@ -4088,18 +4101,57 @@
   transform-origin: top left;
 }
 
+.studio-mock-col--story > .studio-mock-panel:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.studio-mock-col--story .studio-mock-idea-wrap {
+  flex-shrink: 0;
+  padding-bottom: 44px;
+  min-height: 0;
+}
+
+.studio-mock-col--story .studio-mock-voice-fab {
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+}
+
+#studio-story-actions.studio-mock-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 8px 10px;
+  margin-top: 10px !important;
+  padding-top: 4px;
+  clear: both;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .studio-mock-col--story .studio-mock-actions-row {
-  flex-wrap: nowrap !important;
+  flex-wrap: wrap !important;
+  align-items: stretch;
 }
 
 .studio-mock-col--story .studio-mock-actions-row .btn {
-  flex: 1 1 0;
-  min-width: 0;
-  font-size: clamp(0.48rem, 0.58vw + 0.38rem, 0.65rem);
+  flex: 1 1 calc(50% - 6px);
+  min-width: min(100%, 8.5rem);
+  max-width: 100%;
+  font-size: clamp(0.52rem, 0.62vw + 0.4rem, 0.72rem);
   font-weight: 700;
   letter-spacing: 0.03em;
-  white-space: nowrap;
-  padding-inline: 5px;
+  white-space: normal;
+  line-height: 1.25;
+  padding-inline: 6px;
+  overflow-wrap: anywhere;
 }
 
 .preview-stage--blank-idle .preview-stage__caption {
@@ -4182,25 +4234,34 @@
   pointer-events: none;
 }
 
-.app-shell.studio-mock-layout .studio-mock-main > .studio-mock-banner-row .error-banner {
-  position: fixed;
-  /* Right of app title, anchored above column 2 (preview) — no layout shift */
+/* Studio error: beside app title, above column 2 (preview) — never over one-line story */
+.studio-mock-brand-corner .studio-mock-brand-error {
+  position: absolute;
   left: max(
-    calc(var(--studio-mock-brand-band-max) + 10px),
-    calc(var(--studio-mock-col1-width) + 6px)
+    calc(var(--studio-mock-brand-band-max) + 8px),
+    calc(var(--studio-mock-col1-width) + 4px)
   );
-  right: auto;
-  top: calc(var(--studio-mock-style-col-offset-top) - 1.5mm);
-  transform: translateY(calc(-100% - 4px));
-  margin: 0 !important;
-  max-width: min(420px, calc(100vw - var(--studio-mock-col1-width) - 28px));
+  top: 0;
+  max-width: min(440px, calc(100vw - var(--studio-mock-col1-width) - 32px));
   width: max-content;
+  min-width: min(100%, 12rem);
+  margin: 0 !important;
+  padding: 8px 12px !important;
+  font-size: 0.78rem !important;
+  line-height: 1.4 !important;
   text-align: left;
   pointer-events: auto;
-  z-index: 221;
+  z-index: 12;
   box-shadow:
     0 10px 32px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(201, 76, 76, 0.25);
+    0 0 0 1px rgba(201, 76, 76, 0.35);
+  word-break: break-word;
+}
+
+.studio-mock-col--story .error-banner,
+.studio-mock-idea-wrap .error-banner,
+.studio-mock-idea-panel .error-banner {
+  display: none !important;
 }
 
 .studio-mock-frame .idea-input--cinematic {

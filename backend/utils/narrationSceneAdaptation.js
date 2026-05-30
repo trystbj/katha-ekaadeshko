@@ -89,14 +89,9 @@ export function narrationSceneAdaptationInstructions(ctx) {
   const genreLine = genreStyleBaseline(ctx?.genre)
 
   const toneHints = []
-  const isNe = String(ctx?.storyLanguage || '')
-    .toLowerCase()
-    .startsWith('ne')
   if (storyTone === 'tense') {
     toneHints.push(
-      isNe
-        ? 'Story tone tense: Nepali suspense — patient pause, hushed consonants, no Hindi thriller cadence.'
-        : 'Overall scene coloring from story tone: lean suspense—controlled breath, narrower vowels, patient pacing.'
+      'Overall scene coloring from story tone: lean suspense—controlled breath, narrower vowels, patient pacing.'
     )
   } else if (storyTone === 'epic') {
     toneHints.push(

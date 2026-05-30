@@ -20,6 +20,7 @@ import { uiTextGlobal } from '../i18n/uiTextGlobal'
 import { normalizeNarratorId } from '../constants/narrators'
 import { normalizeUiLanguageCode } from '../i18n/resources'
 import { clampStoryIdea } from '../constants/storyIdeaLimits'
+import { normalizeStudioErrorMessage } from '../utils/formatStudioError'
 import {
   composeCustomVisualPrompt,
   parseCustomVisualPrompt,
@@ -477,10 +478,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set({ busy, workspaceRuntime: rt })
   },
   setError: (lastError) => {
+    const normalized = normalizeStudioErrorMessage(lastError)
     const ix = get().activeWorkspaceSlotIndex
     const rt = [...get().workspaceRuntime]
-    rt[ix] = { ...rt[ix], lastError }
-    set({ lastError, workspaceRuntime: rt })
+    rt[ix] = { ...rt[ix], lastError: normalized }
+    set({ lastError: normalized, workspaceRuntime: rt })
   },
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setProjectPickerOpen: (projectPickerOpen) => set({ projectPickerOpen }),
@@ -503,10 +505,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setWorkspaceError: (ix, lastError) => {
     const i = normalizeWorkspaceIndex(ix)
     if (i == null) return
+    const normalized = normalizeStudioErrorMessage(lastError)
     const rt = [...get().workspaceRuntime]
-    rt[i] = { ...rt[i], lastError }
+    rt[i] = { ...rt[i], lastError: normalized }
     set({ workspaceRuntime: rt })
-    if (i === get().activeWorkspaceSlotIndex) set({ lastError })
+    if (i === get().activeWorkspaceSlotIndex) set({ lastError: normalized })
   },
   setWorkspaceJob: (ix, job) => {
     const i = normalizeWorkspaceIndex(ix)
@@ -594,6 +597,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   hydrateStudioFromBible: (bible) => {
     if (!bible) return
     const prev = get()
+    const concept = bible.concept?.trim()
+    if (concept && !prev.idea.trim()) {
+      set({ idea: clampStoryIdea(concept) })
+    }
+    if (bible.title?.trim() && !prev.workingTitle.trim()) {
+      set({ workingTitle: bible.title.trim().slice(0, 120) })
+    }
     const styleId = resolveVisualStyleId(bible.styleId)
     if (bible.styleId === 'custom' && bible.customVisualPrompt?.trim()) {
       syncComposedCustomPrompt(set, get, parseCustomVisualPrompt(bible.customVisualPrompt))

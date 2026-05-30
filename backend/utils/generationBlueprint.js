@@ -12,51 +12,15 @@ import { creatorPreferencesBlueprintBlock } from '../cinematic/creatorPreference
 import { compactSeedLineForPipeline } from '../../shared/storyIdeaLimits.js'
 import { analyzeNamingPolicy } from '../../shared/characterNamingPolicy.js'
 import { cinematicWritingBlueprintSection } from '../cinematic/cinematicStoryWriting.js'
+import {
+  OUTPUT_LANGUAGE,
+  englishOutputEnforcementBlock,
+  languageDisplayName,
+  regionalCultureLabel,
+  regionalCultureContextLine
+} from '../../shared/outputLanguageLock.js'
 
-/** Base language code → human label for prompts */
-const LANG_LABEL = {
-  ne: 'Nepali (नेपाली)',
-  en: 'English',
-  hi: 'Hindi',
-  bn: 'Bengali',
-  es: 'Spanish',
-  fr: 'French',
-  de: 'German',
-  it: 'Italian',
-  pt: 'Portuguese',
-  ru: 'Russian',
-  ja: 'Japanese',
-  ko: 'Korean',
-  zh: 'Chinese',
-  'zh-cn': 'Chinese (Simplified)',
-  id: 'Indonesian',
-  ms: 'Malay',
-  th: 'Thai',
-  vi: 'Vietnamese',
-  tl: 'Filipino',
-  fil: 'Filipino',
-  ar: 'Arabic',
-  fa: 'Persian',
-  he: 'Hebrew',
-  el: 'Greek',
-  cs: 'Czech',
-  nl: 'Dutch',
-  pl: 'Polish',
-  tr: 'Turkish',
-  uk: 'Ukrainian',
-  ur: 'Urdu',
-  ta: 'Tamil',
-  te: 'Telugu',
-  mr: 'Marathi',
-  pa: 'Punjabi'
-}
-
-export function languageDisplayName(code) {
-  const raw = String(code || 'en').trim()
-  const base = raw.split(/[-_]/)[0].toLowerCase()
-  const compound = raw.toLowerCase()
-  return LANG_LABEL[compound] || LANG_LABEL[base] || raw || 'English'
-}
+export { languageDisplayName, OUTPUT_LANGUAGE, regionalCultureLabel }
 
 export function normalizePipelineInput(input) {
   const src = input && typeof input === 'object' ? input : {}
@@ -66,9 +30,13 @@ export function normalizePipelineInput(input) {
   const rawSeed = src.seedLine != null ? String(src.seedLine).trim() : ''
   const seedLine = rawSeed ? compactSeedLineForPipeline(rawSeed) : undefined
   const { audienceAgeCategory: _omitAge, ...rest } = src
+  const screenplayLanguage = 'en'
+  const pipelinePhase = String(src.pipelinePhase || 'full').trim() || 'full'
   return {
     ...rest,
     storyLanguage,
+    screenplayLanguage,
+    pipelinePhase,
     seedLine,
     ...(rawSeed ? { seedLineRaw: rawSeed, seedLineFullChars: rawSeed.length } : {}),
     ...(audienceAgeCategory ? { audienceAgeCategory } : {})
@@ -134,17 +102,22 @@ function regionNepalLock(country) {
 - Environment: Himalayas / middle hills / urban Nepal consistent with SCENE; do not substitute unrelated countries as the primary setting.`.trim()
 }
 
-function languageLock(langCode, langDisplay) {
-  const code = String(langCode || 'en').trim().toLowerCase()
-  const base = code.split(/[-_]/)[0]
-  let extra = ''
-  if (base === 'ne') {
-    extra =
-      '\nNepali output lock: prose, narration voice, and dialogue must read as natural Nepali; avoid English lines except brief loanwords where culturally normal for the chosen setting.'
-  }
-  return `Primary story language: ${langDisplay} (code ${code}).
-All story prose, script narration, and spoken dialogue MUST be written in this language end-to-end unless the USER SEED explicitly requests bilingual framing (if bilingual, still keep ${langDisplay} dominant).
-Do not mix unrelated lingua franca chunks.${extra}`
+function languageLock(_screenplayCode, storyLangCode, country) {
+  const outputLanguage = OUTPUT_LANGUAGE
+  const regionalAtmosphere = regionalCultureContextLine(storyLangCode, country)
+  const region = String(country || '').trim()
+  const culturalBlock = region
+    ? `STORY CULTURE / SETTING (locked): ${region} — names, customs, geography, architecture, emotional etiquette, and environmental detail must reflect this culture. This is NOT a UI language switch.`
+    : 'STORY CULTURE: follow USER SEED and region locks for cultural flavor.'
+
+  return `${englishOutputEnforcementBlock(regionalAtmosphere)}
+OUTPUT LANGUAGE (locked): ${outputLanguage}
+- HARD RULE: All visible story script fields (title, narration, dialogue, visual_description, staging, scene labels, subtitle source strings, voice script) MUST be written in ${outputLanguage} only — never Devanagari, CJK, Arabic script, Hangul, or other regional writing systems in JSON.
+- REGIONAL CONTEXT (locked): ${regionalAtmosphere} — preserve cultural traditions, local names, atmosphere, clothing, architecture, behaviors, and environmental identity while all prose stays ${outputLanguage}.
+- ${culturalBlock}
+NARRATION & TTS: narration text, dialogue lines, and subtitle source text remain ${outputLanguage}; TTS delivery uses natural ${outputLanguage} cinematic audiobook prosody (regional culture colors names and setting only).
+Never embed subtitles, captions, or UI text inside visual_description (images must stay text-free).
+Do not translate UI chrome; only the story world uses regional culture.`
 }
 
 function memoryContinuityLock(input) {
@@ -191,7 +164,9 @@ export function buildGenerationBlueprint(input) {
   const genre = String(normalized.genre || '').trim()
   const country = String(normalized.country || '').trim()
   const storyLanguage = normalized.storyLanguage
-  const langDisplay = languageDisplayName(storyLanguage)
+  const screenplayLanguage = 'en'
+  const langDisplay = OUTPUT_LANGUAGE
+  const regionalCultureDisplay = regionalCultureLabel(storyLanguage)
   const storyTone = normalized.storyTone ? String(normalized.storyTone).trim() : ''
   const length = String(normalized.length || '').trim()
   const narratorId = String(normalized.narratorId || '').trim()
@@ -229,7 +204,9 @@ export function buildGenerationBlueprint(input) {
   })
   const cinematicWritingBlock = cinematicWritingLine ? `\n\n${cinematicWritingLine}` : ''
 
-  const blueprintBlock = `GENERATION BLUEPRINT — USER LOCKS (non-negotiable)
+  const blueprintBlock = `${englishOutputEnforcementBlock(regionalCultureDisplay)}
+
+GENERATION BLUEPRINT — USER LOCKS (non-negotiable)
 
 INTERNAL CONFIRMATION STEP (silent): Before returning JSON, verify every section below is honored. If anything fights the USER SEED, obey the priority order.
 
@@ -238,12 +215,13 @@ PRIORITY WHEN INSTRUCTIONS CONFLICT (highest wins):
 2) Locked GENRE: ${genre || '(unspecified)'}
 3) Story-type / theme bundle (subgenre hooks live here): ${theme || '(unspecified)'}
 4) Locked REGION anchor: ${country || '(unspecified)'}
-5) Locked OUTPUT LANGUAGE: ${langDisplay}
-${languageLock(storyLanguage, langDisplay)}
-6) Locked NARRATOR delivery intent: ${summarizeNarrator(narratorId)}
-7) Locked VISUAL STYLE card (also enforced again in visual sections): ${visualLockSummary(normalized)}
-8) Locked MOOD / pacing tag: ${storyTone || '(neutral — follow genre default pacing)'}
-9) Locked LENGTH bucket: ${length || '(studio default)'}
+5) Locked SCREENPLAY LANGUAGE (editor): ${langDisplay}
+6) Regional cultural atmosphere (NOT output language): ${regionalCultureDisplay}
+${languageLock(screenplayLanguage, storyLanguage, country)}
+7) Locked NARRATOR delivery intent: ${summarizeNarrator(narratorId)}
+8) Locked VISUAL STYLE card (also enforced again in visual sections): ${visualLockSummary(normalized)}
+9) Locked MOOD / pacing tag: ${storyTone || '(neutral — follow genre default pacing)'}
+10) Locked LENGTH bucket: ${length || '(studio default)'}
 ${audienceLine}
 ${namingBlock}
 ${cinematicWritingBlock}
@@ -269,7 +247,7 @@ SCENE & SCRIPT FIDELITY (mandatory):
 - Maintain narrative continuity: costumes, relationships, and emotional arc carry forward unless the seed says otherwise.
 
 ABSOLUTE TABOOS:
-- Mixing primary prose/dialogue language away from lock ${langDisplay} without explicit bilingual permission in the SEED.
+- Mixing screenplay JSON away from lock ${langDisplay} without explicit bilingual permission in the SEED.
 - Relocating the core setting to a different nation/culture than ${country || 'the locked region'} unless the USER SEED explicitly demands that relocation.
 - Injecting tonal additives from unrelated genres (e.g., comedy hijinks inside a straight mystery/horror lock) unless GENRE or SEED explicitly blends them.${memoryBlock}${evolutionBlock}${voiceDirectorBlock}`
 
@@ -280,6 +258,7 @@ ABSOLUTE TABOOS:
       genre,
       country,
       storyLanguage,
+      screenplayLanguage,
       storyTone: storyTone || undefined,
       narratorId: narratorId || undefined,
       styleId: normalized.styleId,

@@ -15,6 +15,7 @@ import {
 } from '../utils/productionWorkflow'
 import type { ProductionDirectives } from '../types/story'
 import { inferCountryFromLanguageCode } from '../utils/inferCountryFromLanguage'
+import { formatApiError, readHttpErrorResponse } from '../utils/formatApiError'
 
 type VideoGenResult = {
   videos: { scene?: string | number; video_url?: string }[]
@@ -106,7 +107,7 @@ export function useVideoGeneration() {
             }))
           })
         })
-        if (!res.ok) throw new Error(await res.text())
+        if (!res.ok) throw new Error(await readHttpErrorResponse(res, uiText('videoGenMissingImages')))
         if (!res.body) throw new Error('No response body')
 
         const reader = res.body.getReader()
@@ -125,15 +126,19 @@ export function useVideoGeneration() {
           buf = drained.rest
           for (const evt of drained.events) {
             if (evt.type === 'result') out = evt.result as VideoGenResult
-            if (evt.type === 'error') throw new Error(String(evt.error || 'Video generation failed'))
+            if (evt.type === 'error') throw new Error(formatApiError(evt.error, 'Video generation failed'))
           }
         }
         const tail = drainSseBuffer(buf)
         for (const evt of tail.events) {
           if (evt.type === 'result') out = evt.result as VideoGenResult
-          if (evt.type === 'error') throw new Error(String(evt.error || 'Video generation failed'))
+          if (evt.type === 'error') throw new Error(formatApiError(evt.error, 'Video generation failed'))
         }
         if (!out?.videos?.length) {
+          const partial = opts?.sceneIndices?.length
+          if (partial) {
+            throw new Error(uiText('videoGenPartialFailed') || 'Video generation failed for selected scenes.')
+          }
           console.info('[katha:video]', 'no_leonardo_clips', { note: 'render may use stills' })
         }
 
@@ -154,7 +159,7 @@ export function useVideoGeneration() {
           })
         })
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
+        const msg = formatApiError(e, 'Video generation failed')
         if (!(e instanceof Error && e.name === 'AbortError')) setError(msg)
       } finally {
         useStudioStore.getState().setWorkspaceGenerationAbort(workspaceIx, null)

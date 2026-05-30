@@ -60,7 +60,7 @@ export const VISUAL_THEME_PACKS: Record<VisualThemePackId, VisualThemePack> = {
     category: 'seasons',
     labelKey: 'packSeasonMonsoonMist',
     moodKey: 'packMoodMonsoonMist',
-    mapsToStyleId: 'dark_anime',
+    mapsToStyleId: 'cinematic_realistic',
     extraPrompt:
       'monsoon mist in Nepal valleys, teal shadows, rain ribbons, distant peaks, cinematic humidity',
     previewGradient: 'linear-gradient(180deg, rgba(10,50,45,0.35), rgba(0,0,0,0.88))',
@@ -172,7 +172,7 @@ export const VISUAL_THEME_PACKS: Record<VisualThemePackId, VisualThemePack> = {
     category: 'nature',
     labelKey: 'packNatureLangtangSnow',
     moodKey: 'packMoodLangtang',
-    mapsToStyleId: 'dark_anime',
+    mapsToStyleId: 'cinematic_realistic',
     extraPrompt:
       'Langtang snowfall, whiteout streaks, teal shadows, survival intimacy, cold breath light',
     previewGradient: 'linear-gradient(180deg, rgba(40,55,70,0.4), rgba(0,0,0,0.9))',
@@ -196,7 +196,7 @@ export const VISUAL_THEME_PACKS: Record<VisualThemePackId, VisualThemePack> = {
     category: 'nature',
     labelKey: 'packNatureNightSky',
     moodKey: 'packMoodNightSky',
-    mapsToStyleId: 'dark_anime',
+    mapsToStyleId: 'cinematic_realistic',
     extraPrompt:
       'Himalayan night sky, dense stars, milky way arc, monastery rim light, cosmic awe',
     previewGradient: 'linear-gradient(180deg, rgba(15,10,40,0.45), rgba(0,0,0,0.92))',
@@ -257,7 +257,7 @@ export const VISUAL_THEME_PACKS: Record<VisualThemePackId, VisualThemePack> = {
     category: 'style_packs',
     labelKey: 'packStyleDarkMystery',
     moodKey: 'packMoodDarkMystery',
-    mapsToStyleId: 'dark_anime',
+    mapsToStyleId: 'cinematic_realistic',
     extraPrompt:
       'dark Himalayan mystery, fog-choked trails, lantern spill, psychological tension',
     previewGradient: 'linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.92))',

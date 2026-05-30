@@ -17,7 +17,7 @@ export function learnCreatorPreferences(input, priorPrefs, directorPersonality) 
   if (tone === 'tender' || tone === 'warm') pacingBias = 'slow'
 
   let cinematicIntensity = prior?.cinematicIntensity ?? 0.55
-  if (input?.styleId === 'cinematic_anime' || input?.styleId === 'dark_anime') {
+  if (input?.styleId === 'cinematic_anime' || input?.styleId === 'cinematic_realistic') {
     cinematicIntensity = Math.min(1, cinematicIntensity + 0.05)
   }
   if (input?.performancePreferLow) cinematicIntensity = Math.max(0.35, cinematicIntensity - 0.1)

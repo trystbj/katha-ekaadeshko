@@ -5,10 +5,7 @@ import { getNarratorPreset } from '../utils/narratorPresets.js'
 import { getCinematicPreviewScript } from '../voice/narratorPreviewScripts.js'
 import { resolvePreviewLanguage } from '../../core/voice/previewLanguage.js'
 import { getLanguageDeliveryBlock } from '../voice/languageDeliveryProfiles.js'
-import {
-  isNepaliLanguage,
-  nepaliDeliveryInstructionBlock
-} from '../voice/nepaliPronunciationEngine.js'
+import { resolveOutputLanguageCode } from '../../shared/outputLanguageLock.js'
 import { withTimeout } from '../../api/_lib/http.js'
 import { safeLog } from '../../api/_lib/log.js'
 
@@ -44,9 +41,7 @@ export async function generateNarratorPreviewMp3(narratorId, options = {}) {
   })
   const text = getCinematicPreviewScript(narratorId, previewLang, { forApi: true })
 
-  const langBlock = isNepaliLanguage(previewLang)
-    ? nepaliDeliveryInstructionBlock({ extendedPreview: true }, { narratorId })
-    : getLanguageDeliveryBlock(previewLang, { extendedPreview: true })
+  const langBlock = getLanguageDeliveryBlock(resolveOutputLanguageCode(), { extendedPreview: true })
 
   const instructions = [preset.instructions, langBlock]
     .filter(Boolean)

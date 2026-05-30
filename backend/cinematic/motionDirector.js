@@ -34,7 +34,7 @@ export function inferSceneMotion(ctx, styleId, phase) {
   if (phase === 'intro' || phase === 'ending') {
     return { preset: 'pull_out' }
   }
-  if (sid === 'cinematic_anime' || sid === 'dark_anime') {
+  if (sid === 'cinematic_anime' || sid === 'cinematic_realistic') {
     return { preset: 'cinematic_push' }
   }
   if (sid === 'cozy_storybook') {

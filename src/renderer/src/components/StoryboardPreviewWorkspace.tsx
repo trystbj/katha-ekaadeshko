@@ -14,7 +14,8 @@ import {
   type SubtitlePlaybackPresetId
 } from '../constants/subtitlePlaybackPresets'
 import { useStudioStore } from '../store/useStudioStore'
-import { normalizeSubtitleStudio } from '../types/subtitleStudio'
+import { normalizeSubtitleStudio, type SubtitleStudioState } from '../types/subtitleStudio'
+import { deriveCinematicProductionGate, sceneImageStateForIndex } from '../utils/cinematicProductionGate'
 
 type Props = {
   project: ProjectState
@@ -30,6 +31,7 @@ type Props = {
   celebrateTitleKey?: string
   onGenerateFinalVideo: () => void
   onRegenerateMissingSceneImages?: () => void
+  onGenerateVisuals?: (opts?: { sceneIndices?: number[] }) => void
   patchProject: (fn: (p: ProjectState) => ProjectState) => void
 }
 
@@ -47,22 +49,32 @@ export function StoryboardPreviewWorkspace({
   celebrateTitleKey = 'previewCelebrateStoryboard',
   onGenerateFinalVideo,
   onRegenerateMissingSceneImages,
+  onGenerateVisuals,
   patchProject
 }: Props) {
   const uiText = useUiText()
   const vs = ensureVideoStudio(project)
   const studio = vs.subtitleStudio
 
-  const safeIx = sceneUrls.length
-    ? Math.min(Math.max(0, carouselIndex), sceneUrls.length - 1)
-    : 0
-  const activeScene: StoryScene | undefined = episode.scenes[safeIx] ?? episode.scenes.find((s) => s.index === safeIx + 1)
+  const sceneCount = episode.scenes.length
+  const safeIx = sceneCount ? Math.min(Math.max(0, carouselIndex), sceneCount - 1) : 0
+  const activeScene: StoryScene | undefined = episode.scenes[safeIx]
+  const activeSceneUrl = activeScene ? sceneUrlForIndex(project, activeScene.index) || sceneUrls[safeIx] : ''
 
   const castSummary = useMemo(() => {
     const mem = project.characterIdentityMemory ?? []
     if (!mem.length) return null
     return mem.map((m) => `${m.label} (${m.gender})`).join(' · ')
   }, [project.characterIdentityMemory])
+
+  const castPortraits = useMemo(
+    () =>
+      (project?.bible?.characters ?? [])
+        .filter((c) => c.baseImageUrl)
+        .slice(0, 4)
+        .map((c) => ({ name: c.name, url: String(c.baseImageUrl), role: c.role })),
+    [project?.bible?.characters]
+  )
 
   const patchSubtitle = useCallback(
     (partial: Parameters<typeof normalizeSubtitleStudio>[0]) => {
@@ -99,7 +111,11 @@ export function StoryboardPreviewWorkspace({
     () => episodeSceneImageCoverage(project, episode.number),
     [project, episode.number]
   )
-  const allSceneImagesReady = coverage.total > 0 && coverage.missing.length === 0
+  const productionGate = useMemo(
+    () => deriveCinematicProductionGate(project, episode.number),
+    [project, episode.number]
+  )
+  const allSceneImagesReady = productionGate.canRenderFinalVideo
 
   return (
     <div className="storyboard-workspace studio-mock-preview-wrap workspace-premium__stage">
@@ -108,17 +124,20 @@ export function StoryboardPreviewWorkspace({
           sectionClassName="storyboard-workspace__preview-stage"
           seasonId={seasonId}
           sceneUrls={sceneUrls}
-          heroUrl={heroUrl}
+          heroUrl={heroUrl || activeSceneUrl || null}
           carouselIndex={carouselIndex}
           onCarouselIndexChange={onCarouselIndexChange}
           busy={generating}
           jobProgress={jobProgress}
           celebrateComplete={celebrateComplete}
           celebrateTitleKey={celebrateTitleKey}
-          pipelineThumbUrls={sceneUrls}
+          pipelineThumbUrls={[]}
+          hideIdleThumbStrip
+          castPortraits={castPortraits}
+          sceneCount={sceneCount}
           hideHeading
-          idleBlank
-          useWireframeExplanation={!sceneUrls.length}
+          idleBlank={!activeSceneUrl && !heroUrl}
+          useWireframeExplanation={!sceneUrls.some(Boolean) && !heroUrl}
         />
         <StoryboardSubtitleLiveOverlay scene={activeScene} studio={studio} visible={!rendering} />
       </div>
@@ -207,12 +226,13 @@ export function StoryboardPreviewWorkspace({
           {episode.scenes.map((sc, i) => {
             const url = sceneUrlForIndex(project, sc.index) || sceneUrls[i]
             const on = i === safeIx
+            const imgState = sceneImageStateForIndex(project, sc.index, generating)
             return (
               <button
                 key={sc.index}
                 type="button"
                 role="listitem"
-                className={`storyboard-workspace__tl-chip${on ? ' storyboard-workspace__tl-chip--on' : ''}`}
+                className={`storyboard-workspace__tl-chip storyboard-workspace__tl-chip--${imgState}${on ? ' storyboard-workspace__tl-chip--on' : ''}`}
                 style={url ? { backgroundImage: `url(${url})` } : undefined}
                 onClick={() => {
                   console.info('[katha:scene-map]', 'timeline_select', { sceneIndex: sc.index, row: i })
@@ -226,12 +246,6 @@ export function StoryboardPreviewWorkspace({
           })}
         </div>
 
-        {activeScene ? (
-          <p className="storyboard-workspace__line">
-            {activeScene.text.slice(0, 280)}
-            {activeScene.text.length > 280 ? '…' : ''}
-          </p>
-        ) : null}
 
         {coverage.missing.length > 0 ? (
           <p className="storyboard-workspace__missing-hint" role="status">
@@ -261,10 +275,8 @@ export function StoryboardPreviewWorkspace({
         <button
           type="button"
           className="btn btn-generate-cta storyboard-workspace__render-btn"
-          disabled={rendering || regenBusy || !allSceneImagesReady}
-          title={
-            !allSceneImagesReady ? uiText('storyboardVideoDisabledHint') : undefined
-          }
+          disabled={rendering || regenBusy || generating || !allSceneImagesReady}
+          title={!allSceneImagesReady ? uiText('storyboardVideoDisabledHint') : undefined}
           onClick={() => {
             console.info('[katha:render]', 'manual_final_video_requested', { projectId: project.id })
             onGenerateFinalVideo()

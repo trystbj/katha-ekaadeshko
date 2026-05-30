@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { StoryScene } from '../types/story'
 import type { SubtitleStudioState } from '../types/subtitleStudio'
+import { cinematicSubtitleLineForScene } from '../utils/cinematicSubtitleLine'
 import {
   storyboardSubtitleOverlayStyle,
   storyboardSubtitlePositionClass
@@ -13,14 +14,7 @@ type Props = {
 }
 
 export function StoryboardSubtitleLiveOverlay({ scene, studio, visible }: Props) {
-  const line = useMemo(() => {
-    if (!scene) return ''
-    const body = String(scene.text || '').trim()
-    if (!body) return ''
-    return scene.character && scene.character.toLowerCase() !== 'narration'
-      ? `${scene.character}: ${body}`
-      : body
-  }, [scene])
+  const line = useMemo(() => cinematicSubtitleLineForScene(scene), [scene])
 
   if (!visible || !studio.subtitlesOn || !line) return null
 

@@ -3,6 +3,8 @@
  * Mirrors studio style IDs in `src/renderer/src/types/story.ts` (UI unchanged).
  */
 
+import { imagePromptEnglishLockLine } from '../../shared/outputLanguageLock.js'
+
 const STORYBOOK_HINT =
   /\b(storybook|hand-?drawn|cozy\s+cartoon|watercolor\s+wash|children'?s\s+book|folktale\s+illustration)\b/i
 
@@ -55,16 +57,16 @@ export const STYLE_DNA = {
     scriptGuidance:
       'Storyboard each beat like a polished comic panel — inked contours, dynamic silhouettes, comic color fills — avoid mismatched painterly anime softness.'
   },
-  dark_anime: {
-    shortLabel: 'atmospheric dark fantasy anime',
+  cinematic_realistic: {
+    shortLabel: 'cinematic photorealistic realism',
     storyHint:
-      'dark fantasy anime — intense shadows, fog, mystery and suspense; single anime dialect',
+      'cinematic photorealistic realism — natural human anatomy, film lighting, real-world environments, emotion-driven camera; single photoreal dialect',
     leonardoCore:
-      'STYLE LOCK — dark fantasy anime ONLY: intense shadows and fog, crushed blacks, selective rim highlights, emotional tension, cinematic darkness, dramatic environments, brooding atmosphere',
+      'STYLE LOCK — cinematic photorealistic realism ONLY: photorealistic human characters, natural facial anatomy, realistic skin texture and eyes, film-quality lighting, cinematic depth of field, real-world environment detail, natural color grading, consistent character identity, hairstyle and wardrobe continuity, realistic villages cities and interiors, natural weather, physically believable lighting',
     leonardoForbidden:
-      'FORBIDDEN unless hybrid mode: bright pastel cheer, flat vector corporate art, photoreal actors, cozy storybook softness as dominant finish',
+      'FORBIDDEN unless hybrid mode: anime cel shading, flat cartoon, sticker emoji art, exaggerated toon proportions, unrelated watercolor impressionism as dominant finish',
     scriptGuidance:
-      'Keep scenes in noir-anime vocabulary — silhouette reads, dramatic backlight, moody environments — no contradictory bright gag-cartoon cues.'
+      'Describe photoreal film beats — motivated lighting, shallow depth of field, natural skin and wardrobe continuity, closeups medium shots and wide shots chosen by scene emotion — no contradictory illustrated-anime or flat cartoon language.'
   },
 }
 
@@ -77,7 +79,7 @@ export function detectStyleHybridRequested(input = {}) {
 
 /** Mood keywords → secondary style dialect for hybrid blending. */
 function inferSecondaryStyleKey(blob) {
-  if (/\b(horror|dark|noir|dread)\b/i.test(blob)) return 'dark_anime'
+  if (/\b(horror|dark|noir|dread|photoreal|documentary|realistic)\b/i.test(blob)) return 'cinematic_realistic'
   if (/\b(storybook|watercolor|cozy|folk)\b/i.test(blob)) return 'cozy_storybook'
   if (/\b(comic|panel|ink)\b/i.test(blob)) return 'comic_panel'
   if (/\b(cinematic anime|anime film)\b/i.test(blob)) return 'cinematic_anime'
@@ -184,7 +186,6 @@ VISUAL STYLE — STRICT LOCK (NON-NEGOTIABLE):
  */
 function sceneVisualCues(scene = {}) {
   const visual = String(scene.visual_description || '').trim()
-  const narration = String(scene.narration || '').trim().slice(0, 280)
   const mood = String(scene.mood || scene.emotional_tone || '').trim()
   const chars = Array.isArray(scene.characters_in_shot)
     ? scene.characters_in_shot.map((c) => String(c).trim()).filter(Boolean).join(', ')
@@ -205,7 +206,7 @@ function sceneVisualCues(scene = {}) {
     lighting ? `Lighting: ${lighting}` : '',
     camera ? `Camera: ${camera}` : '',
     mood ? `Emotion/mood: ${mood}` : '',
-    narration ? `Narration beat (match tone): ${narration}` : ''
+    'Same exact characters from previous scenes — identical faces, hair, wardrobe, and proportions.'
   ]
     .filter(Boolean)
     .join(' ')
@@ -239,6 +240,7 @@ export function buildLeonardoScenePrompt(scene, input = {}, identityBlock = '') 
   const crefBlock = String(input.__characterReferencePrompt || '').trim()
 
   return [
+    imagePromptEnglishLockLine(),
     core,
     identityBlock ? String(identityBlock).trim() : '',
     crefBlock,

@@ -3,13 +3,20 @@ import { sceneUrlForIndex } from './sceneAssetMap'
 
 export type { ProductionStage, SceneProductionStatus }
 
-export function hasEpisodeSceneImages(project: ProjectState | null | undefined): boolean {
-  if (!project?.episodes?.[0]?.scenes?.length) return false
-  return project.episodes[0].scenes.some((s) => Boolean(sceneUrlForIndex(project, s.index)))
+export function hasEpisodeSceneImages(
+  project: ProjectState | null | undefined,
+  episodeNumber?: number
+): boolean {
+  if (!project?.episodes?.length) return false
+  const epn = episodeNumber ?? project.episodes.find((e) => e.scenes?.length)?.number ?? project.episodes[0]?.number
+  const ep = project.episodes.find((e) => e.number === epn) ?? project.episodes[0]
+  if (!ep?.scenes?.length) return false
+  return ep.scenes.some((s) => Boolean(sceneUrlForIndex(project, s.index)))
 }
 
 export function showScriptReviewWorkspace(project: ProjectState | null | undefined): boolean {
   if (!project?.bible || project.lastRenderVideoUrl) return false
+  if (project.assetsGenerationApproved || project.storyboardReady) return false
   const stage = project.productionStage
   if (stage === 'visual_generation' || stage === 'narration_motion' || stage === 'video_assembly') {
     return false
@@ -62,6 +69,23 @@ export function sceneStatusLabelKey(status: SceneProductionStatus | undefined): 
   }
 }
 
+/** Re-open script review after storyboard was activated (saved / legacy projects). */
+export function withScriptReviewReopened(project: ProjectState): ProjectState {
+  const now = new Date().toISOString()
+  return {
+    ...project,
+    productionStage: 'script_review',
+    scriptReviewReady: true,
+    storyboardReady: false,
+    storyboardPartial: undefined,
+    workflowPhase: 'idle',
+    assetsGenerationApproved: false,
+    assetsGenerationApprovedAt: undefined,
+    missingSceneImageIndices: undefined,
+    updatedAt: now
+  }
+}
+
 export function withScriptReviewReady(project: ProjectState): ProjectState {
   const now = new Date().toISOString()
   const ep = project.episodes[0]
@@ -76,8 +100,9 @@ export function withScriptReviewReady(project: ProjectState): ProjectState {
     scriptReviewReadyAt: now,
     storyboardReady: false,
     storyboardPartial: undefined,
-    missingSceneImageIndices: undefined,
     workflowPhase: 'idle',
+    assetsGenerationApproved: false,
+    missingSceneImageIndices: undefined,
     episodes: ep ? [{ ...ep, scenes }] : project.episodes,
     updatedAt: now
   }

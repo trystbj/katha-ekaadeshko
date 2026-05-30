@@ -10,11 +10,10 @@ import { getLanguageDeliveryBlock } from './languageDeliveryProfiles.js'
 import { preprocessNarrationForTts } from './pronunciationPreprocessor.js'
 import { buildVoiceProfile } from './voiceProfile.js'
 import {
-  isNepaliLanguage,
-  nepaliDeliveryInstructionBlock,
-  nepaliDialogueFlowHints,
-  nepaliStoryRhythmBlock
-} from './nepaliPronunciationEngine.js'
+  OUTPUT_LANGUAGE,
+  regionalCultureContextLine,
+  resolveOutputLanguageCode
+} from '../../shared/outputLanguageLock.js'
 
 function genderDeliveryHints(gender, narratorId) {
   const id = String(narratorId || '').trim()
@@ -48,8 +47,8 @@ function stylePresetDeliveryHints(styleId, customVisualPrompt) {
       return 'Style: soft anime fantasy — warm emotional tone, gentle magical lift.'
     case 'cinematic_anime':
       return 'Style: cinematic anime — dramatic pauses, emotional peaks, directed suspense timing.'
-    case 'dark_anime':
-      return 'Style: dark anime — suspense pacing, emotional heaviness, mysterious atmosphere.'
+    case 'cinematic_realistic':
+      return 'Style: cinematic realistic — grounded film narration, natural pacing, photoreal emotional delivery, motivated pauses for closeups and wide shots.'
     case 'comic_panel':
       return 'Style: comic — energetic punchy timing, dynamic emphasis.'
     case 'custom':
@@ -84,19 +83,23 @@ export function buildGlobalNarrationPlan(ctx, opts = {}) {
   const autoDirector = ctx?.autoVoiceDirector !== false
   const profile = buildVoiceProfile(ctx)
   const storyLanguage = ctx?.storyLanguage || profile.language
+  const outputLangCode = resolveOutputLanguageCode()
+  const regionalCulture = regionalCultureContextLine(storyLanguage, ctx?.country)
 
   const emotion = analyzeSceneEmotion(ctx, profile)
   const rawNarration =
     String(ctx?.composedNarration || ctx?.composed_narration || '').trim() ||
     String(ctx?.narration || '').trim()
-  const preprocessed = preprocessNarrationForTts(rawNarration, storyLanguage)
+  const preprocessed = preprocessNarrationForTts(rawNarration, outputLangCode)
   const structuredDialogue = analyzeStructuredDialogue(ctx?.dialogue)
   const dialogue = analyzeDialogueInNarration(preprocessed.text || rawNarration, structuredDialogue)
-  const isNe = isNepaliLanguage(storyLanguage)
 
-  const languageBlock = getLanguageDeliveryBlock(storyLanguage, {
-    extendedPreview: Boolean(opts.extendedPreview)
-  })
+  const languageBlock = [
+    getLanguageDeliveryBlock(outputLangCode, {
+      extendedPreview: Boolean(opts.extendedPreview)
+    }),
+    `Script and TTS source text lock: ${OUTPUT_LANGUAGE} only. Regional cultural coloring (names, etiquette, setting): ${regionalCulture}.`
+  ].join(' ')
 
   const sceneAdapt =
     autoDirector && !opts.skipSceneAdapt
@@ -106,12 +109,10 @@ export function buildGlobalNarrationPlan(ctx, opts = {}) {
           genre: ctx?.genre,
           theme: ctx?.theme,
           storyTone: ctx?.storyTone,
-          storyLanguage
+          storyLanguage: outputLangCode,
+          country: ctx?.country
         })
       : ''
-
-  const nepaliRhythm = isNe ? nepaliStoryRhythmBlock(ctx, emotion) : ''
-  const nepaliDialogue = isNe ? nepaliDialogueFlowHints(preprocessed.text || ctx?.narration) : ''
 
   const instructionParts = [
     genderDeliveryHints(profile.gender, ctx?.narratorId),
@@ -119,10 +120,8 @@ export function buildGlobalNarrationPlan(ctx, opts = {}) {
     languageBlock,
     humanSpeechRealismBlock(ctx, emotion),
     cinematicTimingHints(emotion),
-    nepaliRhythm,
     ...emotion.instructionParts,
     dialogue.instruction,
-    nepaliDialogue,
     preprocessed.hints,
     sceneAdapt
   ].filter(Boolean)

@@ -56,6 +56,18 @@ export interface JobsStreamGenerateResult {
       pacingProfile?: string
     }
     serverlessFastPath?: boolean
+    pipelineCheckpoint?: string
+    pipelineResumable?: boolean
+    pipelineYielded?: boolean
+    masterStoryContext?: Record<string, unknown>
+    outputLanguage?: string
+    regionalContext?: string
+    productionStage?: string
+    scriptOnlyComplete?: boolean
+    productionDirectives?: Record<string, unknown>
+    sceneProductionStates?: unknown[]
+    productionMemory?: Record<string, unknown>
+    visualBatch?: { batchSize?: number; remainingSceneIndices?: number[] }
     cinematicDirectorDegraded?: boolean
     renderAssemblyPlan?: Record<string, unknown>
     sceneOrchestration?: Record<string, unknown>
