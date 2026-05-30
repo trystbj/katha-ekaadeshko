@@ -415,7 +415,7 @@ export const STYLE_PRESETS: Record<
       'motion comic aesthetic, stylized panels and framing, dynamic transitions, comic-style dramatic posing, bold ink lines, strong visual storytelling, consistent character likeness'
   },
   cinematic_realistic: {
-    labelKey: 'style.cinematicRealistic',
+    labelKey: 'styleRealistic',
     previewGradient:
       'linear-gradient(180deg, transparent 0%, transparent 72%, rgba(0, 0, 0, 0.32) 100%)',
     previewImageUrl: '/style-previews/cinematic-realistic.png?v=1',

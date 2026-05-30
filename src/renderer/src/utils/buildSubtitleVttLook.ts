@@ -1,6 +1,7 @@
 import type { SubtitleVttRenderOptions } from '../constants/subtitlePlaybackPresets'
 import { subtitleVttOptionsForPreset } from '../constants/subtitlePlaybackPresets'
 import type { SubtitlePositionPreset, SubtitleStudioState } from '../types/subtitleStudio'
+import { freePositionToVttLayout, resolveSubtitleFreePosition } from './subtitleFreePosition'
 
 const FONT_STACKS: Record<SubtitleStudioState['advanced']['fontCategory'], string> = {
   serif: 'Georgia, "Noto Serif Nepali", "Times New Roman", serif',
@@ -89,7 +90,8 @@ export function positionToVttLayout(
 /** Compose WebVTT cue styling from playback preset + studio typography/color controls. */
 export function buildSubtitleVttLook(studio: SubtitleStudioState): SubtitleVttRenderOptions {
   const base = subtitleVttOptionsForPreset(studio.playbackPresetId)
-  const pos = positionToVttLayout(studio.positionPreset, studio.advanced.customLinePct, base.align)
+  const free = resolveSubtitleFreePosition(studio)
+  const pos = freePositionToVttLayout(free, base.align)
   const adv = studio.advanced
 
   const fill = adv.textColor
@@ -140,7 +142,8 @@ export function buildSubtitleVttLook(studio: SubtitleStudioState): SubtitleVttRe
 
   return {
     linePct: pos.linePct,
-    align: pos.align,
+    positionPct: pos.positionPct,
+    align: adv.textAlign ?? pos.align,
     sizePct,
     cueStyleLines
   }

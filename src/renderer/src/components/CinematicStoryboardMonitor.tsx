@@ -15,6 +15,8 @@ type Props = {
   activeTileIndex: number
   onActiveTileIndexChange: (index: number) => void
   busyLabel: string | null
+  onRegenerateScene?: (sceneIndex: number) => void
+  onReplaceSceneImage?: (sceneIndex: number) => void
 }
 
 export function CinematicStoryboardMonitor({
@@ -22,7 +24,9 @@ export function CinematicStoryboardMonitor({
   episode,
   activeTileIndex,
   onActiveTileIndexChange,
-  busyLabel
+  busyLabel,
+  onRegenerateScene,
+  onReplaceSceneImage
 }: Props) {
   const uiText = useUiText()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -115,6 +119,13 @@ export function CinematicStoryboardMonitor({
               }}
               onToggleExpand={() =>
                 setExpandedIndex((cur) => (cur === model.rowIndex ? null : model.rowIndex))
+              }
+              busy={Boolean(busyLabel)}
+              onRegenerateScene={
+                onRegenerateScene ? () => onRegenerateScene(model.scene.index) : undefined
+              }
+              onReplaceImage={
+                onReplaceSceneImage ? () => onReplaceSceneImage(model.scene.index) : undefined
               }
             />
           </div>

@@ -3,7 +3,7 @@ import { useUiText } from '../i18n/useAppI18n'
 import { Glyphs } from '../i18n/uiGlyphs'
 import type { CinematicStoryboardTileModel } from '../utils/cinematicStoryboardSceneModel'
 import type { SubtitleStudioState } from '../types/subtitleStudio'
-import { storyboardSubtitleOverlayStyle, storyboardSubtitlePositionClass } from '../utils/storyboardSubtitleOverlay'
+import { storyboardSubtitleOverlayStyle } from '../utils/storyboardSubtitleOverlay'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 type ViewMode = 'compact' | 'cinematic'
 
@@ -16,6 +16,9 @@ type Props = {
   narratorLabel: string
   onSelect: () => void
   onToggleExpand: () => void
+  onRegenerateScene?: () => void
+  onReplaceImage?: () => void
+  busy?: boolean
 }
 
 const STATUS_I18N: Record<string, string> = {
@@ -49,7 +52,10 @@ export function CinematicStoryboardTile({
   subtitleStudio,
   narratorLabel,
   onSelect,
-  onToggleExpand
+  onToggleExpand,
+  onRegenerateScene,
+  onReplaceImage,
+  busy = false
 }: Props) {
   const uiText = useUiText()
   const reduced = usePrefersReducedMotion()
@@ -87,10 +93,7 @@ export function CinematicStoryboardTile({
             {uiText('cineSceneNum', { n: scene.index })}
           </span>
           {subtitleLine && subtitleStudio.subtitlesOn ? (
-            <div
-              className={`cine-sb-tile__sub-overlay ${storyboardSubtitlePositionClass(subtitleStudio.positionPreset)}`}
-              style={storyboardSubtitleOverlayStyle(subtitleStudio)}
-            >
+            <div className="cine-sb-tile__sub-overlay" style={storyboardSubtitleOverlayStyle(subtitleStudio)}>
               {subtitleLine.slice(0, viewMode === 'compact' ? 72 : 140)}
               {subtitleLine.length > 140 ? '…' : ''}
             </div>
@@ -171,17 +174,45 @@ export function CinematicStoryboardTile({
         </div>
       </button>
 
-      <button
-        type="button"
-        className="cine-sb-tile__expand btn btn-ghost btn-small"
-        aria-expanded={expanded}
-        onClick={(e) => {
-          e.stopPropagation()
-          onToggleExpand()
-        }}
-      >
-        {expanded ? uiText('cineTileCollapse') : uiText('cineTileExpand')}
-      </button>
+      <div className="cine-sb-tile__actions">
+        <button
+          type="button"
+          className="btn btn-ghost btn-small"
+          aria-expanded={expanded}
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleExpand()
+          }}
+        >
+          {expanded ? uiText('cineTileCollapse') : uiText('cineTileExpand')}
+        </button>
+        {onRegenerateScene ? (
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation()
+              onRegenerateScene()
+            }}
+          >
+            {uiText('cineActionRegenerate')}
+          </button>
+        ) : null}
+        {onReplaceImage ? (
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation()
+              onReplaceImage()
+            }}
+          >
+            {uiText('cineActionReplaceImage')}
+          </button>
+        ) : null}
+      </div>
     </article>
   )
 }

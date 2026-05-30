@@ -1,6 +1,6 @@
 import type { VisualStyleId } from '../types/story'
 
-/** Wireframe: Soft, Cozy Storybook, Cinematic, Cinematic Realistic, Comic, Custom */
+/** Wireframe: Soft, Cozy Storybook, Cinematic, Realistic, Comic, Custom */
 export const STYLE_WIREFRAME_ORDER: VisualStyleId[] = [
   'soft_anime_fantasy',
   'cozy_storybook',
@@ -18,7 +18,7 @@ export const STYLE_WIREFRAME_LABEL_KEY: Record<VisualStyleId, string> = {
   soft_anime_fantasy: 'wireframeStyleSoft',
   cozy_storybook: 'wireframeStyleCartoon',
   cinematic_anime: 'wireframeStyleCinematic',
-  cinematic_realistic: 'wireframeStyleCinematicRealistic',
+  cinematic_realistic: 'wireframeStyleRealistic',
   comic_panel: 'wireframeStyleComic',
   custom: 'wireframeStyleCustom'
 }

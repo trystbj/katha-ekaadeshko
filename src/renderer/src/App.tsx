@@ -32,8 +32,8 @@ import { PreviewStage } from './components/PreviewStage'
 import { StoryboardPreviewWorkspace } from './components/StoryboardPreviewWorkspace'
 import { ScriptReviewWorkspace } from './components/ScriptReviewWorkspace'
 import { showScriptReviewWorkspace, withScriptReviewReopened } from './utils/productionWorkflow'
-import { deriveProductionResume } from './utils/productionResume'
-import { ProductionResumeDock } from './components/ProductionResumeDock'
+import { PreviewWorkspaceBackButton } from './components/PreviewWorkspaceBackButton'
+import { StudioScriptWorkspaceTabs } from './components/StudioScriptWorkspaceTabs'
 import { useVisualGeneration } from './hooks/useVisualGeneration'
 import { useVideoGeneration } from './hooks/useVideoGeneration'
 import { episodeNeedsMotionGeneration } from './utils/sceneAssetMap'
@@ -73,7 +73,6 @@ const MonitorUserGuide = lazy(() =>
 import { namesMatch } from './utils/characterNameMatch'
 import { pushStoryToHistory } from './utils/storyHistory'
 import { STUDIO_BROADCAST_CHANNEL } from './constants/studioSync'
-import { StoryGenerationDefaultsPicker } from './components/StoryGenerationDefaultsPicker'
 import { StorySubtitleStylePicker } from './components/StorySubtitleStylePicker'
 import { StudioMonitorLabelIcon } from './components/StudioMonitorLabelIcon'
 import { StudioStyleLabelIcon } from './components/StudioStyleLabelIcon'
@@ -154,7 +153,7 @@ export default function App() {
   const setSelectedEpisode = useStudioStore((s) => s.setSelectedEpisode)
   const setAuthEmail = useStudioStore((s) => s.setAuthEmail)
 
-  const { generateEpisode } = useStoryGeneration()
+  const { generateEpisode, regenerateScene } = useStoryGeneration()
   const { generateCharacterBase } = useLeonardo()
   const { generate: backendGenerate } = useBackendGenerate()
   const { generateVisuals } = useVisualGeneration()
@@ -505,30 +504,39 @@ export default function App() {
     return () => obs.disconnect()
   }, [idea, project?.bible])
 
+  const [dismissedExportPreview, setDismissedExportPreview] = useState(false)
+
+  useEffect(() => {
+    setDismissedExportPreview(false)
+  }, [project?.lastRenderVideoUrl])
+
+  const showPostExportPreview = Boolean(project?.lastRenderVideoUrl && !dismissedExportPreview)
+
   const showScriptReview = useMemo(
-    () => Boolean(project?.bible && !project.lastRenderVideoUrl && !streamReveal && showScriptReviewWorkspace(project)),
-    [project, streamReveal]
+    () =>
+      Boolean(
+        project?.bible &&
+          !showPostExportPreview &&
+          !streamReveal &&
+          showScriptReviewWorkspace(project)
+      ),
+    [project, streamReveal, showPostExportPreview]
   )
 
   const showStoryboardPreview = useMemo(
     () =>
       Boolean(
         project?.bible &&
-          !project.lastRenderVideoUrl &&
+          !showPostExportPreview &&
           !streamReveal &&
           !showScriptReview &&
           (canShowStoryboardWorkspace(project, activeEpisode?.number) || project.storyboardReady)
       ),
-    [project, streamReveal, showScriptReview]
+    [project, streamReveal, showScriptReview, showPostExportPreview, activeEpisode?.number]
   )
 
   const activeWorkspaceSlotIndex = useStudioStore((s) => s.activeWorkspaceSlotIndex)
   const clearWorkspaceSlot = useStudioStore((s) => s.clearWorkspaceSlot)
-
-  const productionResume = useMemo(
-    () => deriveProductionResume(project, selectedEpisode ?? activeEpisode?.number ?? undefined),
-    [project, selectedEpisode, activeEpisode?.number]
-  )
 
   useEffect(() => {
     const concept = project?.bible?.concept?.trim()
@@ -541,6 +549,41 @@ export default function App() {
   const onReopenScriptReview = useCallback(() => {
     patchProject((p) => withScriptReviewReopened(p))
   }, [patchProject])
+
+  const showPreviewBack = Boolean(
+    project?.bible && (showPostExportPreview || showStoryboardPreview || showScriptReview)
+  )
+
+  const onPreviewWorkspaceBack = useCallback(() => {
+    if (showPostExportPreview) {
+      setDismissedExportPreview(true)
+      return
+    }
+    if (showStoryboardPreview) {
+      onReopenScriptReview()
+      return
+    }
+    if (showScriptReview) {
+      document.getElementById('studio-story-seed')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      document.getElementById('studio-story-seed')?.focus()
+    }
+  }, [showPostExportPreview, showStoryboardPreview, showScriptReview, onReopenScriptReview])
+
+  const onMonitorRegenerateScene = useCallback(
+    (sceneIndex: number) => {
+      const epn = selectedEpisode ?? activeEpisode?.number ?? 1
+      void regenerateScene(epn, sceneIndex)
+    },
+    [activeEpisode?.number, regenerateScene, selectedEpisode]
+  )
+
+  const onMonitorReplaceSceneImage = useCallback(
+    (sceneIndex: number) => {
+      const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(project)
+      void generateVisuals({ episodeNumber: epn, sceneIndices: [sceneIndex] })
+    },
+    [activeEpisode?.number, generateVisuals, project, selectedEpisode]
+  )
 
   const onStartNewStory = useCallback(() => {
     if (!window.confirm(uiText('startNewStoryConfirm'))) return
@@ -593,41 +636,6 @@ export default function App() {
       void queueEpisodeVideoRender({ project: latest, episodeNumber: epn, force: true })
     })()
   }, [generateSceneVideos, selectedEpisode])
-
-  const onProductionResume = useCallback(() => {
-    if (!productionResume || !project) return
-    console.info('[katha:production]', 'resume_action', { kind: productionResume.kind })
-    switch (productionResume.kind) {
-      case 'review_script':
-        patchProject((p) => withScriptReviewReopened(p))
-        break
-      case 'generate_scene_images':
-        approveAndGenerateAllSceneImages()
-        break
-      case 'finish_scene_images':
-        if (project.assetsGenerationApproved) {
-          void onRegenerateMissingSceneImages()
-        } else {
-          approveAndGenerateAllSceneImages()
-        }
-        break
-      case 'create_final_video':
-        onGenerateFinalVideo()
-        break
-      case 'watch_export':
-        document.getElementById('studio-preview-column')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-        break
-      default:
-        break
-    }
-  }, [
-    approveAndGenerateAllSceneImages,
-    onGenerateFinalVideo,
-    onRegenerateMissingSceneImages,
-    patchProject,
-    productionResume,
-    project
-  ])
 
   useEffect(() => {
     const prev = prevBusyCelebrateRef.current
@@ -776,34 +784,10 @@ export default function App() {
   const [helpCenterOpen, setHelpCenterOpen] = useState(false)
   /** Script column body: preview + optional story-defaults overlay (overlay does not replace preview in layout). */
   const scriptGenDefaultsPortalRef = useRef<HTMLDivElement | null>(null)
-  const storyDefaultsOverlayRef = useRef<HTMLDivElement | null>(null)
-  const storyDefaultsHeaderPickersRef = useRef<HTMLSpanElement | null>(null)
-  const [storyDefaultsDialogOpen, setStoryDefaultsDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!settingsOpen) setHelpCenterOpen(false)
   }, [settingsOpen])
-
-  useEffect(() => {
-    if (!storyDefaultsDialogOpen) return
-    const onDoc = (e: MouseEvent) => {
-      const node = e.target as Node
-      if (storyDefaultsOverlayRef.current?.contains(node)) return
-      if (storyDefaultsHeaderPickersRef.current?.contains(node)) return
-      setStoryDefaultsDialogOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [storyDefaultsDialogOpen])
-
-  useEffect(() => {
-    if (!storyDefaultsDialogOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setStoryDefaultsDialogOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [storyDefaultsDialogOpen])
 
   useEffect(() => {
     setFocusedSceneSpeaker(null)
@@ -1005,7 +989,7 @@ export default function App() {
       <StudioAmbientBackdrop referenceTheme />
       <StreamRevealDriver />
       <div
-        className={`app-shell app-shell--premium studio-mock-layout studio-mock-layout--fullscreen${project?.bible && productionResume ? ' app-shell--resume-dock' : ''}`}
+        className="app-shell app-shell--premium studio-mock-layout studio-mock-layout--fullscreen"
       >
       <div className="studio-mock-frame">
       <div className="studio-mock-brand-corner" role="banner">
@@ -1121,6 +1105,7 @@ export default function App() {
             <div
               className={`studio-mock-preview-slot${busy ? ' studio-mock-preview-slot--generating' : ''}`}
             >
+              <PreviewWorkspaceBackButton visible={showPreviewBack} onBack={onPreviewWorkspaceBack} />
               <StudioGenerationBanner
                 visible={Boolean(busy)}
                 busyLabel={busy}
@@ -1129,7 +1114,7 @@ export default function App() {
                 sceneTotalEstimate={pipelineSceneTotalEstimate}
                 onCancelPipeline={abortPipelineGenerate}
               />
-              {project?.lastRenderVideoUrl ? (
+              {showPostExportPreview ? (
                 <Suspense fallback={<div className="studio-mock-preview-wrap workspace-premium__stage" aria-busy="true" />}>
                   <PostExportVideoWorkspace
                     videoUrl={project.lastRenderVideoUrl}
@@ -1234,18 +1219,6 @@ export default function App() {
                   placeholder=""
                   aria-label={uiText('ideaSeedTitleWireframe')}
                 />
-                {project?.bible ? (
-                  <button
-                    type="button"
-                    className={`studio-mock-voice-fab btn btn-small icon-btn ${voiceFabTone}`}
-                    disabled={Boolean(busy) || !canUseSpeech}
-                    onClick={() => void toggleVoiceToIdea()}
-                    title={voiceMicTitle}
-                    aria-label={uiText('voiceFabAria')}
-                  >
-                    <VoiceMicGlyph className="voice-mic-glyph voice-mic-glyph--fab" />
-                  </button>
-                ) : null}
               </div>
               {!project?.bible ? (
                 <div className="studio-mock-generate-strip">
@@ -1289,45 +1262,7 @@ export default function App() {
               {project?.bible && totalEpisodes > 1 ? (
                 <EpisodeSequentialBanner flashEpisodeDone={episodeExportFlash} totalEpisodes={totalEpisodes} />
               ) : null}
-              {project?.bible && productionResume ? (
-                <p className="studio-mock-resume-hint studio-mock-series-note" role="status">
-                  {uiText(productionResume.hintKey, {
-                    missing: String(productionResume.coverage.missing.length),
-                    total: String(productionResume.coverage.total)
-                  })}
-                </p>
-              ) : null}
               <div id="studio-story-actions" className="row studio-mock-actions-row">
-                {project?.bible && productionResume && !showStoryboardPreview ? (
-                  <button
-                    type="button"
-                    className="btn btn-generate-cta"
-                    disabled={Boolean(busy)}
-                    onClick={() => onProductionResume()}
-                  >
-                    {busy ? uiText('storyboardRegeneratingImages') : uiText(productionResume.labelKey)}
-                  </button>
-                ) : null}
-                {project?.bible && !showScriptReview ? (
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    disabled={Boolean(busy)}
-                    onClick={() => onReopenScriptReview()}
-                  >
-                    {uiText('reopenScriptReview')}
-                  </button>
-                ) : null}
-                {project?.bible ? (
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    disabled={Boolean(busy)}
-                    onClick={() => onStartNewStory()}
-                  >
-                    {uiText('startNewStory')}
-                  </button>
-                ) : null}
                 {project?.bible && wantsContinueEpisode ? (
                   <>
                     <button
@@ -1427,35 +1362,19 @@ export default function App() {
               ) : null}
             </div>
             <div className="panel studio-mock-panel studio-mock-script-panel">
-              <h3 className="studio-mock-section-title">
-                <span className="studio-mock-section-title__lead">
-                  <span
-                    className="studio-mock-section-title__ic studio-mock-section-title__ic--script-panel"
-                    aria-hidden
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden focusable="false">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                    </svg>
-                  </span>
-                  <span className="studio-mock-section-title__label-text">{uiText('studioGeneratedScriptTitle')}</span>
-                </span>
-                <span ref={storyDefaultsHeaderPickersRef} className="studio-mock-section-title__pickers">
-                  <StoryGenerationDefaultsPicker
-                    onRequestOpenInGeneratedDialog={() =>
-                      setStoryDefaultsDialogOpen((o) => !o)
-                    }
-                  />
-                </span>
-              </h3>
               <div ref={scriptGenDefaultsPortalRef} className="studio-mock-script-panel__portal-host">
-                <LiveScriptPreview
-                  scriptVoicePanel
+                <StudioScriptWorkspaceTabs
                   scenes={scriptPanelScenes}
                   rawStructured={activeEpisode?.rawStructured}
                   busy={Boolean(busy)}
                   streamLines={job?.log?.slice(-20) ?? []}
                   streamReveal={streamReveal}
                   focusedSpeaker={focusedSceneSpeaker}
+                  activeSceneIndex={activeEpisode?.scenes[embeddedPreviewIndex]?.index}
+                  onActiveSceneIndex={(sceneIndex) => {
+                    const ix = activeEpisode?.scenes.findIndex((s) => s.index === sceneIndex) ?? -1
+                    if (ix >= 0) setEmbeddedPreviewIndex(ix)
+                  }}
                   onSceneFocus={(speaker, sceneIndex) => {
                     setFocusedSceneSpeaker(speaker.trim())
                     const url = sceneUrlForIndex(project, sceneIndex)
@@ -1473,19 +1392,8 @@ export default function App() {
                     }
                     console.info('[katha:preview]', 'script_scene_focus', { sceneIndex, ix })
                   }}
-                  emptyHint={storyDefaultsDialogOpen ? '' : uiText('studioScriptPlaceholder')}
+                  emptyHint={uiText('studioScriptPlaceholder')}
                 />
-                {storyDefaultsDialogOpen ? (
-                  <div
-                    ref={storyDefaultsOverlayRef}
-                    className="studio-generated-dialog studio-generated-dialog--overlay"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label={uiText('storyGenDefaultsAria')}
-                  >
-                    <StoryGenerationDefaultsPicker embeddedInGeneratedDialog />
-                  </div>
-                ) : null}
               </div>
             </div>
         </div>
@@ -1720,6 +1628,10 @@ export default function App() {
                 setAuthModalOpen(true)
               }}
               onSignOut={() => void signOut()}
+              onStartNewStory={() => {
+                setSettingsOpen(false)
+                onStartNewStory()
+              }}
             />
           ) : !project ? (
             <p className="studio-mock-monitor-placeholder">
@@ -1740,6 +1652,8 @@ export default function App() {
                     activeTileIndex={embeddedPreviewIndex}
                     onActiveTileIndexChange={onMonitorSceneSelect}
                     busyLabel={busy}
+                    onRegenerateScene={onMonitorRegenerateScene}
+                    onReplaceSceneImage={onMonitorReplaceSceneImage}
                   />
                 </section>
               ) : null}
@@ -1914,16 +1828,6 @@ export default function App() {
           </div>
         </div>
       ) : null}
-
-      <ProductionResumeDock
-        visible={Boolean(project?.bible)}
-        busy={Boolean(busy)}
-        productionResume={productionResume}
-        showScriptReview={showScriptReview}
-        onResume={onProductionResume}
-        onReopenScriptReview={onReopenScriptReview}
-        onStartNewStory={onStartNewStory}
-      />
 
     </div>
     </>

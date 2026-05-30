@@ -7,6 +7,8 @@ import type { ProjectState, StoryEpisode } from '../types/story'
 import { pushStoryToCloudIfSignedIn, pushStoryToHistory } from './storyHistory'
 import { collectRenderImageUrls } from './collectRenderImageUrls'
 import { SECONDS_PER_RENDER_SCENE, cuesFromStudioPrimary } from './scenesWebVtt'
+import { buildAssFromCues } from './subtitleAssExport'
+import { subtitleExportPlayRes } from './subtitleFreePosition'
 import { resolveCinematicExportPreset } from '@shared/cinematicExportPresets.js'
 import { timingOverridesFromPlan } from '../engines/timelineSync'
 import { ensureVideoStudio } from './ensureVideoStudio'
@@ -210,7 +212,18 @@ function buildRenderRequest(project: ProjectState, episode: StoryEpisode | undef
     endMs: c.endMs,
     text: c.body
   }))
-  log('subtitle_render', { subtitlesOn, cueCount: subtitles.length, exportPresetId, renderMode })
+  const { playResX, playResY } = subtitleExportPlayRes(project.bible?.aspectMode)
+  const subtitleAss =
+    subtitles.length > 0
+      ? buildAssFromCues(cues, vs.subtitleStudio, playResX, playResY)
+      : undefined
+  log('subtitle_render', {
+    subtitlesOn,
+    cueCount: subtitles.length,
+    exportPresetId,
+    renderMode,
+    subtitleAss: Boolean(subtitleAss)
+  })
 
   const narrRel = episode?.narrationAudioUrl?.trim()
   const audio = narrRel ? resolvePipelineAssetUrl(narrRel) : undefined
@@ -224,6 +237,7 @@ function buildRenderRequest(project: ProjectState, episode: StoryEpisode | undef
     ...(backgroundMusic ? { backgroundMusic } : {}),
     ...(episode?.storyAudioPlan ? { storyAudioPlan: episode.storyAudioPlan } : {}),
     subtitles,
+    ...(subtitleAss ? { subtitleAss } : {}),
     fps: preset.fps,
     secondsPerImage,
     ...(renderAssemblyPlan ? { renderAssemblyPlan } : {}),

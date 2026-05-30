@@ -38,6 +38,8 @@ type Props = {
   sceneCount?: number
   /** Hide bottom thumbnail strip (e.g. storyboard timeline owns navigation). */
   hideIdleThumbStrip?: boolean
+  /** Hide bottom scene caption (e.g. storyboard dock owns scene context). */
+  hideSceneCaption?: boolean
 }
 
 /** Center cinematic viewport — idle seasonal art, scene rotator, or generating shimmer. */
@@ -58,7 +60,8 @@ export function PreviewStage({
   onCarouselIndexChange,
   castPortraits = [],
   sceneCount,
-  hideIdleThumbStrip = false
+  hideIdleThumbStrip = false,
+  hideSceneCaption = false
 }: Props) {
   const uiText = useUiText()
   const reduced = usePrefersReducedMotion()
@@ -199,7 +202,7 @@ export function PreviewStage({
             </div>
           ) : null}
 
-          {busy || hero || !blankIdle || useWireframeExplanation ? (
+          {!hideSceneCaption && (busy || hero || !blankIdle || useWireframeExplanation) ? (
             <div className="preview-stage__caption">
               {busy
                 ? uiText('previewStageGenerating')

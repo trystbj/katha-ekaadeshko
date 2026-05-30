@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { buildSubtitleVttLook } from './buildSubtitleVttLook'
 import type { SubtitleStudioState } from '../types/subtitleStudio'
+import { resolveSubtitleFreePosition, storyboardSubtitlePositionStyle } from './subtitleFreePosition'
 
 const FONT_STACKS: Record<SubtitleStudioState['advanced']['fontCategory'], string> = {
   serif: 'Georgia, "Noto Serif Nepali", serif',
@@ -20,11 +21,14 @@ export function storyboardSubtitleOverlayStyle(studio: SubtitleStudioState): CSS
   const look = buildSubtitleVttLook(studio)
   const adv = studio.advanced
   const fontSizeRem = Math.min(2.2, Math.max(0.75, (look.sizePct / 100) * 1.05 * (adv.fontSizePct / 100)))
+  const pos = resolveSubtitleFreePosition(studio)
 
   return {
+    ...storyboardSubtitlePositionStyle(pos),
     fontFamily: FONT_STACKS[adv.fontCategory],
     fontSize: `${fontSizeRem}rem`,
     fontWeight: adv.fontWeight,
+    fontStyle: adv.fontStyle === 'italic' ? 'italic' : undefined,
     letterSpacing: `${adv.letterSpacingEm}em`,
     lineHeight: adv.lineHeight,
     color: adv.textColor,
@@ -40,23 +44,7 @@ export function storyboardSubtitleOverlayStyle(studio: SubtitleStudioState): CSS
     borderRadius: adv.roundedBoxPx > 0 ? `${adv.roundedBoxPx}px` : undefined,
     padding: '0.35em 0.65em',
     maxWidth: '92%',
-    textAlign: look.align === 'start' ? 'left' : look.align === 'end' ? 'right' : 'center'
-  }
-}
-
-export function storyboardSubtitlePositionClass(
-  preset: SubtitleStudioState['positionPreset']
-): string {
-  switch (preset) {
-    case 'top_center':
-    case 'top_left':
-    case 'top_right':
-      return 'storyboard-subtitle-overlay--top'
-    case 'center':
-      return 'storyboard-subtitle-overlay--middle'
-    case 'floating_adaptive':
-      return 'storyboard-subtitle-overlay--bottom storyboard-subtitle-overlay--safe-lower-third'
-    default:
-      return 'storyboard-subtitle-overlay--bottom storyboard-subtitle-overlay--safe-lower-third'
+    textAlign:
+      adv.textAlign === 'start' ? 'left' : adv.textAlign === 'end' ? 'right' : ('center' as const)
   }
 }

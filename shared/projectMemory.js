@@ -17,7 +17,8 @@ export function buildProjectMemoryPatch(project, episode, pipelineMeta = {}) {
     updatedAt: new Date().toISOString(),
     subtitlePreferences: vs?.subtitleStudio
       ? {
-          positionPreset: vs.subtitleStudio.positionPreset,
+          positionXPct: vs.subtitleStudio.positionXPct,
+          positionYPct: vs.subtitleStudio.positionYPct,
           playbackPresetId: vs.subtitleStudio.playbackPresetId,
           karaokeMode: vs.subtitleStudio.karaokeMode
         }

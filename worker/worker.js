@@ -398,7 +398,15 @@ async function processJob(job) {
   }
 
   const srtFile = path.join(tmp, 'captions.srt')
-  if (subtitles.length) writeSrt(srtFile, subtitles)
+  const assFile = path.join(tmp, 'captions.ass')
+  const assPayload =
+    typeof p.subtitleAss === 'string' && p.subtitleAss.trim() ? p.subtitleAss.trim() : ''
+  const burnAss = subtitles.length > 0 && Boolean(assPayload)
+  if (burnAss) {
+    fs.writeFileSync(assFile, assPayload, 'utf8')
+  } else if (subtitles.length) {
+    writeSrt(srtFile, subtitles)
+  }
 
   const out1080 = path.join(tmp, 'out_1080.mp4')
   const out4k = path.join(tmp, 'out_4k.mp4')
@@ -416,7 +424,7 @@ async function processJob(job) {
     'scale=1920:1080:force_original_aspect_ratio=decrease',
     'pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black',
     `fps=${fps}`,
-    subtitles.length ? `subtitles=${path.basename(srtFile)}` : null
+    subtitles.length ? `subtitles=${path.basename(burnAss ? assFile : srtFile)}` : null
   ]
     .filter(Boolean)
     .join(',')

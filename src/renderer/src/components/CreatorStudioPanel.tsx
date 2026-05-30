@@ -17,6 +17,7 @@ import { analyzeLiveCinematicFeedback } from '../../../../core/realtime/liveFeed
 import { LiveEmotionVisualizer } from './LiveEmotionVisualizer'
 import { LiveFeedbackStrip } from './LiveFeedbackStrip'
 import { useProductionPipelineStore } from '../store/useProductionPipelineStore'
+import { useStudioStore } from '../store/useStudioStore'
 import '../styles/creator-studio.css'
 
 type Tab = 'storyboard' | 'scene' | 'timeline' | 'live' | 'copilot' | 'quality' | 'export'
@@ -192,10 +193,15 @@ export function CreatorStudioPanel({ project, episode, episodeNumber, patchProje
     { id: 'export', label: uiText('creatorTabExport') }
   ]
 
+  const timelineTracks = [
+    { id: 'narr' as const, labelKey: 'creatorLayerNarration' as const },
+    { id: 'sub' as const, labelKey: 'creatorLayerSubtitles' as const },
+    { id: 'music' as const, labelKey: 'creatorLayerMusic' as const }
+  ]
+
   return (
     <section className="creator-studio" aria-label={uiText('creatorStudioTitle')}>
       <header className="creator-studio__head">
-        <h3 className="studio-mock-wireframe-monitor-h">{uiText('creatorStudioTitle')}</h3>
         <p className="creator-studio__blurb">{uiText('creatorStudioBlurb')}</p>
         <div className="creator-studio__history">
           <button
@@ -303,20 +309,39 @@ export function CreatorStudioPanel({ project, episode, episodeNumber, patchProje
       )}
 
       {tab === 'timeline' && (
-        <div className="creator-studio__timeline">
-          {timeline.boundaries.map((b) => (
-            <div key={b.sceneIndex} className="creator-studio__tl-row">
-              <span className="creator-studio__tl-label">{uiText('creatorSceneLabel', { n: b.sceneIndex })}</span>
-              <div className="creator-studio__tl-track">
-                <span className="creator-studio__tl-bar creator-studio__tl-bar--narr" title={uiText('creatorLayerNarration')} />
-                <span className="creator-studio__tl-bar creator-studio__tl-bar--sub" title={uiText('creatorLayerSubtitles')} />
-                <span className="creator-studio__tl-bar creator-studio__tl-bar--music" title={uiText('creatorLayerMusic')} />
-              </div>
-              <span className="creator-studio__tl-dur">
-                {uiText('creatorSecondsUnit', { n: Math.round((b.endMs - b.startMs) / 1000) })}
-              </span>
+        <div
+          className="creator-studio__timeline"
+          role="region"
+          aria-label={uiText('creatorTabTimeline')}
+        >
+          <div
+            className="creator-studio__tl-grid"
+            style={{
+              ['--creator-tl-cols' as string]: String(Math.max(1, timeline.boundaries.length))
+            }}
+          >
+            <div className="creator-studio__tl-scenes">
+              <span className="creator-studio__tl-corner" aria-hidden />
+              {timeline.boundaries.map((b) => (
+                <div key={`scene-h-${b.sceneIndex}`} className="creator-studio__tl-scene-h">
+                  <span className="creator-studio__tl-scene-n">{uiText('creatorSceneLabel', { n: b.sceneIndex })}</span>
+                  <span className="creator-studio__tl-dur">
+                    {uiText('creatorSecondsUnit', { n: Math.round((b.endMs - b.startMs) / 1000) })}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
+            {timelineTracks.map((track) => (
+              <div key={track.id} className="creator-studio__tl-track-row">
+                <span className="creator-studio__tl-track-label">{uiText(track.labelKey)}</span>
+                {timeline.boundaries.map((b) => (
+                  <div key={`${track.id}-${b.sceneIndex}`} className="creator-studio__tl-cell">
+                    <span className={`creator-studio__tl-bar creator-studio__tl-bar--${track.id}`} aria-hidden />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

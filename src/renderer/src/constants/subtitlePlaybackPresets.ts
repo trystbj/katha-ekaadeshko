@@ -25,6 +25,8 @@ export type SubtitlePlaybackPresetId =
 
 export type SubtitleVttRenderOptions = {
   linePct: number
+  /** WebVTT horizontal anchor (%); set by `buildSubtitleVttLook`. */
+  positionPct?: number
   align: 'start' | 'center' | 'end'
   sizePct: number
   cueStyleLines: string[]

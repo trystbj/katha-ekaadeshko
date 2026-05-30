@@ -17,6 +17,7 @@ const BodySchema = z.object({
       })
     )
     .optional(),
+  subtitleAss: z.string().max(2_000_000).optional(),
   fps: z.number().int().min(24).max(60).optional(),
   secondsPerImage: z.number().min(1).max(15).optional(),
   renderAssemblyPlan: z.record(z.unknown()).optional(),

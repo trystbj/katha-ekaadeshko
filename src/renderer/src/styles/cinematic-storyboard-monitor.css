@@ -255,24 +255,11 @@
 
 .cine-sb-tile__sub-overlay {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 8%;
   z-index: 3;
   max-width: 94%;
   font-size: 0.62rem;
   line-height: 1.25;
   pointer-events: none;
-}
-
-.cine-sb-tile__sub-overlay.storyboard-subtitle-overlay--middle {
-  bottom: auto;
-  top: 42%;
-}
-
-.cine-sb-tile__sub-overlay.storyboard-subtitle-overlay--top {
-  bottom: auto;
-  top: 10%;
 }
 
 .cine-sb-tile__body {
@@ -405,6 +392,14 @@
 
 .cine-sb-tile__status--rendered {
   color: rgba(212, 175, 55, 0.95);
+}
+
+.cine-sb-tile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem 0.5rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 8%, transparent);
 }
 
 .cine-sb-tile__expand {

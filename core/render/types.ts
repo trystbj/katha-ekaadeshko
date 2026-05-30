@@ -15,6 +15,8 @@ export type RenderRequest = {
   backgroundMusic?: string
   storyAudioPlan?: unknown
   subtitles?: Array<{ startMs: number; endMs: number; text: string }>
+  /** ASS burn-in with free X/Y (preferred over SRT when set). */
+  subtitleAss?: string
   fps?: number
   secondsPerImage?: number
   /** Per-scene timing from cinematic director assembly plan. */

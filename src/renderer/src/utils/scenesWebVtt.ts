@@ -98,10 +98,10 @@ function cueTailForScene(
   studio: SubtitleStudioState | null | undefined,
   sceneIndex: number
 ): string {
-  const base = ` line:${look.linePct}% align:${look.align} size:${look.sizePct}%`
-  if (!studio || studio.positionPreset !== 'smart_scene') return base
-  const linePct = sceneIndex % 2 === 0 ? 88 : 74
-  return ` line:${linePct}% align:${look.align} size:${look.sizePct}%`
+  const override = studio?.scenePositionsByIndex?.[sceneIndex]
+  const linePct = override?.positionYPct ?? look.linePct
+  const positionPct = override?.positionXPct ?? look.positionPct ?? 50
+  return ` line:${linePct}% position:${positionPct}% align:${look.align} size:${look.sizePct}%`
 }
 
 function appendWebVttStyle(lines: string[], style: SubtitleVttRenderOptions) {

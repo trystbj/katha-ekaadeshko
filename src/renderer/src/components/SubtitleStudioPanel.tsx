@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import { Glyphs } from '../i18n/uiGlyphs'
 import type { StoryScene } from '../types/story'
-import type { SubtitleFontCategory, SubtitlePositionPreset, SubtitleStudioState } from '../types/subtitleStudio'
+import type { SubtitleFontCategory, SubtitleStudioState } from '../types/subtitleStudio'
+import { SubtitleFreePositionFields } from './SubtitleFreePositionFields'
 import { subtitleOffsetsForSceneCount } from '../types/subtitleStudio'
 import {
   SUBTITLE_PLAYBACK_PRESETS,
@@ -34,19 +35,6 @@ const FONT_CATS: SubtitleFontCategory[] = [
   'traditional',
   'modern',
   'display'
-]
-
-const POSITIONS: SubtitlePositionPreset[] = [
-  'bottom_center',
-  'bottom_left',
-  'bottom_right',
-  'center',
-  'top_center',
-  'top_left',
-  'top_right',
-  'floating_adaptive',
-  'smart_scene',
-  'custom_line'
 ]
 
 function newPresetId(): string {
@@ -350,36 +338,12 @@ export function SubtitleStudioPanel({ scenes, studio, patchSubtitleStudio }: Pro
 
       <details className="subtitle-studio-panel__details">
         <summary>{uiText('subtitleStudioPositionMotion')}</summary>
-        <label className="post-export-dock__field">
-          <span>{uiText('subtitleStudioPosition')}</span>
-          <select
-            className="select"
-            value={studio.positionPreset}
-            onChange={(e) => patchSubtitleStudio({ positionPreset: e.target.value as SubtitlePositionPreset })}
-          >
-            {POSITIONS.map((pid) => (
-              <option key={pid} value={pid}>
-                {uiText(`subtitleStudioPos_${pid}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        {studio.positionPreset === 'custom_line' ? (
-          <label className="post-export-dock__field">
-            <span>{uiText('subtitleStudioCustomLinePct')}</span>
-            <input
-              type="range"
-              min={8}
-              max={92}
-              value={adv.customLinePct}
-              onChange={(e) => patchAdv({ customLinePct: Number(e.target.value) })}
-            />
-            <span className="subtitle-studio-panel__mono">
-              {adv.customLinePct}
-              {Glyphs.percent}
-            </span>
-          </label>
-        ) : null}
+        <SubtitleFreePositionFields
+          studio={studio}
+          disabled={!studio.subtitlesOn}
+          onPatch={patchSubtitleStudio}
+          showDragHint
+        />
         <label className="post-export-dock__field">
           <span>{uiText('subtitleStudioAnim')}</span>
           <select

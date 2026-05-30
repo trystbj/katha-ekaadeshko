@@ -11,9 +11,16 @@ type Props = {
   onOpenHelpCenter?: () => void
   onRequestAuth?: () => void
   onSignOut?: () => void | Promise<void>
+  onStartNewStory?: () => void
 }
 
-export function MonitorSettingsPanel({ onClose, onOpenHelpCenter, onRequestAuth, onSignOut }: Props) {
+export function MonitorSettingsPanel({
+  onClose,
+  onOpenHelpCenter,
+  onRequestAuth,
+  onSignOut,
+  onStartNewStory
+}: Props) {
   const uiText = useUiText()
   const authEmail = useStudioStore((s) => s.authEmail)
   const [mode, setMode] = useState<'online' | 'offline'>('offline')
@@ -51,6 +58,16 @@ export function MonitorSettingsPanel({ onClose, onOpenHelpCenter, onRequestAuth,
         <div className="panel monitor-settings-panel__block">
           <h3>{uiText('workspaceSlotsSectionTitle')}</h3>
           <WorkspaceSlotsDashboard />
+          {onStartNewStory ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-small"
+              style={{ marginTop: 10 }}
+              onClick={() => onStartNewStory()}
+            >
+              {uiText('startNewStory')}
+            </button>
+          ) : null}
         </div>
 
         <div className="panel monitor-settings-panel__block">

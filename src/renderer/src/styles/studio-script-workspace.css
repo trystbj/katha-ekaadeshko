@@ -1,0 +1,118 @@
+.studio-script-workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  gap: 0.35rem;
+}
+
+.studio-script-workspace__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+
+.studio-script-workspace__tab {
+  padding: 0.28rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--studio-accent, #c9a86a) 28%, transparent);
+  background: transparent;
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.studio-script-workspace__tab--on {
+  background: color-mix(in srgb, var(--studio-accent, #c9a86a) 18%, transparent);
+  border-color: color-mix(in srgb, var(--studio-accent, #c9a86a) 55%, transparent);
+}
+
+.studio-script-workspace__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.studio-script-workspace__body .live-script-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.studio-script-workspace__voice {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.studio-scene-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.studio-scene-cards__empty {
+  margin: 0;
+  font-size: 0.78rem;
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+.studio-scene-cards__card {
+  width: 100%;
+  text-align: left;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  padding: 0.5rem 0.55rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+.studio-scene-cards__card--on {
+  border-color: color-mix(in srgb, var(--studio-accent, #c9a86a) 65%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--studio-accent, #c9a86a) 35%, transparent);
+}
+
+.studio-scene-cards__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.studio-scene-cards__num {
+  font-size: 0.65rem;
+  font-weight: 800;
+  opacity: 0.85;
+}
+
+.studio-scene-cards__title {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.studio-scene-cards__narration,
+.studio-scene-cards__dialogue,
+.studio-scene-cards__visual {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  opacity: 0.92;
+}
+
+.studio-scene-cards__speaker {
+  font-weight: 700;
+}

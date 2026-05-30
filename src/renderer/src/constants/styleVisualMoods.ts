@@ -5,7 +5,7 @@ export const STYLE_VISUAL_MOOD_KEYS: Record<VisualStyleId, string> = {
   soft_anime_fantasy: 'styleMoodSoftFantasy',
   cinematic_anime: 'styleMoodCinematic',
   comic_panel: 'styleMoodDynamic',
-  cinematic_realistic: 'styleMoodCinematicRealistic',
+  cinematic_realistic: 'styleMoodRealistic',
   cozy_storybook: 'styleMoodStorybook',
   custom: 'styleMoodCustom'
 }

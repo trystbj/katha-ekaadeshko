@@ -1,6 +1,11 @@
 /**
  * Advanced subtitle/caption studio (post-render) — persisted on `VideoStudioState.subtitleStudio`.
  */
+import {
+  clampSubtitlePosition,
+  freePositionFromPreset,
+  DEFAULT_SUBTITLE_POSITION
+} from '../utils/subtitleFreePosition'
 
 export type SubtitleFontCategory =
   | 'serif'
@@ -31,6 +36,8 @@ export interface SubtitleStudioAdvanced {
   /** Scales WebVTT cue font-size % (70–160). */
   fontSizePct: number
   fontWeight: number
+  fontStyle: 'normal' | 'italic'
+  textAlign: 'start' | 'center' | 'end'
   textTransform: 'none' | 'uppercase' | 'lowercase' | 'capitalize'
   letterSpacingEm: number
   lineHeight: number
@@ -69,7 +76,14 @@ export interface SubtitleStudioState {
   karaokeMode: 'off' | 'pulse'
   /** Matches `SubtitlePlaybackPresetId` string */
   playbackPresetId: string
+  /** @deprecated Legacy preset — migrated to positionXPct/positionYPct on load. */
   positionPreset: SubtitlePositionPreset
+  /** Center anchor X (%), export-safe horizontal position. */
+  positionXPct: number
+  /** Center anchor Y (%), export-safe vertical position. */
+  positionYPct: number
+  /** Reserved: per-scene overrides (scene index → position). */
+  scenePositionsByIndex?: Partial<Record<number, { positionXPct: number; positionYPct: number }>>
   advanced: SubtitleStudioAdvanced
 }
 
@@ -78,6 +92,8 @@ export function defaultSubtitleStudioAdvanced(): SubtitleStudioAdvanced {
     fontCategory: 'sans',
     fontSizePct: 100,
     fontWeight: 650,
+    fontStyle: 'normal',
+    textAlign: 'center',
     textTransform: 'none',
     letterSpacingEm: 0.02,
     lineHeight: 1.35,
@@ -114,6 +130,9 @@ export function defaultSubtitleStudioState(): SubtitleStudioState {
     karaokeMode: 'off',
     playbackPresetId: 'cinematic_gold',
     positionPreset: 'bottom_center',
+    positionXPct: 50,
+    positionYPct: 88,
+    scenePositionsByIndex: {},
     advanced: defaultSubtitleStudioAdvanced()
   }
 }
@@ -130,15 +149,36 @@ export function normalizeSubtitleStudio(
 ): SubtitleStudioState {
   const def = defaultSubtitleStudioState()
   if (!raw) return def
-  return {
+  const advanced = { ...def.advanced, ...(raw.advanced ?? {}) }
+  const merged: SubtitleStudioState = {
     ...def,
     ...raw,
     playbackPresetId: typeof raw.playbackPresetId === 'string' ? raw.playbackPresetId : def.playbackPresetId,
-    advanced: { ...def.advanced, ...(raw.advanced ?? {}) },
+    advanced,
     sceneOffsetsMs: Array.isArray(raw.sceneOffsetsMs) ? [...raw.sceneOffsetsMs] : def.sceneOffsetsMs,
     dualLinesBySceneIndex:
       raw.dualLinesBySceneIndex && typeof raw.dualLinesBySceneIndex === 'object'
         ? { ...raw.dualLinesBySceneIndex }
-        : {}
+        : {},
+    scenePositionsByIndex:
+      raw.scenePositionsByIndex && typeof raw.scenePositionsByIndex === 'object'
+        ? { ...raw.scenePositionsByIndex }
+        : def.scenePositionsByIndex
   }
+  const hasX = Number.isFinite(merged.positionXPct)
+  const hasY = Number.isFinite(merged.positionYPct)
+  if (!hasX || !hasY) {
+    const migrated = freePositionFromPreset(merged.positionPreset, advanced.customLinePct)
+    merged.positionXPct = migrated.positionXPct
+    merged.positionYPct = migrated.positionYPct
+  } else {
+    const clamped = clampSubtitlePosition(merged.positionXPct, merged.positionYPct)
+    merged.positionXPct = clamped.positionXPct
+    merged.positionYPct = clamped.positionYPct
+  }
+  return merged
+}
+
+export function resetSubtitleFreePosition(): Pick<SubtitleStudioState, 'positionXPct' | 'positionYPct'> {
+  return { ...DEFAULT_SUBTITLE_POSITION }
 }

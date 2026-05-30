@@ -205,7 +205,14 @@ Duration policy (pick estimated duration accordingly):
 - Action → shorter (40-70s)
 - Normal → medium (60-90s)
 
-Structure EVERY episode with 4-10 scenes. Use ONLY this template (no extra paragraphs):
+Writing quality bar (non-negotiable):
+- Each scene must feel like a short-film beat: 4–8 sentences of narration OR rich dialogue exchange — never one-line summaries.
+- Dialogue: subtext, interruptions, humor or tension where natural; characters must sound distinct (vocabulary, rhythm, age).
+- Narration: storyteller cadence — sensory detail, emotional turns, silence beats; avoid generic AI transitions ("Meanwhile", "Little did they know").
+- Scene staging lines must describe environment, blocking, light, and character action for the illustrator.
+- Cliffhanger must be specific and visual, not abstract.
+
+Structure EVERY episode with 5–10 scenes (prefer longer episodes when the beat allows). Use ONLY this template (no extra paragraphs):
 
 Episode: ${episodeNumber}
 Type: <Action|Emotional|Normal|Climax>

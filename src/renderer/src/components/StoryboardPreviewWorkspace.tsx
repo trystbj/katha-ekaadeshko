@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import type { ProjectState, StoryEpisode, StoryScene } from '../types/story'
 import type { StudioSeasonId } from '../constants/studioSeasonThemes'
@@ -7,14 +7,10 @@ import { StoryboardSubtitleLiveOverlay } from './StoryboardSubtitleLiveOverlay'
 import { ensureVideoStudio } from '../utils/ensureVideoStudio'
 import { sceneUrlForIndex } from '../utils/sceneAssetMap'
 import { episodeSceneImageCoverage } from '../utils/storyboardWorkflow'
-import {
-  SUBTITLE_PLAYBACK_PRESETS,
-  SUBTITLE_PLAYBACK_PRESET_ORDER,
-  isSubtitlePlaybackPresetId,
-  type SubtitlePlaybackPresetId
-} from '../constants/subtitlePlaybackPresets'
 import { useStudioStore } from '../store/useStudioStore'
-import { normalizeSubtitleStudio, type SubtitleStudioState } from '../types/subtitleStudio'
+import { normalizeSubtitleStudio } from '../types/subtitleStudio'
+import { StoryboardSubtitleToolbar } from './StoryboardSubtitleToolbar'
+import type { SubtitleFreePosition } from '../utils/subtitleFreePosition'
 import { deriveCinematicProductionGate, sceneImageStateForIndex } from '../utils/cinematicProductionGate'
 
 type Props = {
@@ -53,6 +49,7 @@ export function StoryboardPreviewWorkspace({
   patchProject
 }: Props) {
   const uiText = useUiText()
+  const stageWrapRef = useRef<HTMLDivElement>(null)
   const vs = ensureVideoStudio(project)
   const studio = vs.subtitleStudio
 
@@ -100,9 +97,12 @@ export function StoryboardPreviewWorkspace({
     [patchProject]
   )
 
-  const setPreset = (id: SubtitlePlaybackPresetId) => {
-    patchSubtitle({ playbackPresetId: id })
-  }
+  const onSubtitlePositionChange = useCallback(
+    (pos: SubtitleFreePosition) => {
+      patchSubtitle({ positionXPct: pos.positionXPct, positionYPct: pos.positionYPct })
+    },
+    [patchSubtitle]
+  )
 
   const generating = busyLabel === 'generating'
   const rendering = busyLabel === 'rendering'
@@ -119,7 +119,7 @@ export function StoryboardPreviewWorkspace({
 
   return (
     <div className="storyboard-workspace studio-mock-preview-wrap workspace-premium__stage">
-      <div className="storyboard-workspace__stage-wrap">
+      <div className="storyboard-workspace__stage-wrap" ref={stageWrapRef}>
         <PreviewStage
           sectionClassName="storyboard-workspace__preview-stage"
           seasonId={seasonId}
@@ -133,13 +133,20 @@ export function StoryboardPreviewWorkspace({
           celebrateTitleKey={celebrateTitleKey}
           pipelineThumbUrls={[]}
           hideIdleThumbStrip
+          hideSceneCaption
           castPortraits={castPortraits}
           sceneCount={sceneCount}
           hideHeading
           idleBlank={!activeSceneUrl && !heroUrl}
           useWireframeExplanation={!sceneUrls.some(Boolean) && !heroUrl}
         />
-        <StoryboardSubtitleLiveOverlay scene={activeScene} studio={studio} visible={!rendering} />
+        <StoryboardSubtitleLiveOverlay
+          scene={activeScene}
+          studio={studio}
+          visible={!rendering}
+          containerRef={stageWrapRef}
+          onPositionChange={onSubtitlePositionChange}
+        />
       </div>
 
       <div className="storyboard-workspace__dock">
@@ -151,76 +158,11 @@ export function StoryboardPreviewWorkspace({
           </p>
         ) : null}
 
-        <div className="storyboard-workspace__subtitle-row">
-          <label className="storyboard-workspace__sub-toggle">
-            <input
-              type="checkbox"
-              checked={studio.subtitlesOn}
-              onChange={(e) => patchSubtitle({ subtitlesOn: e.target.checked })}
-            />
-            {studio.subtitlesOn ? uiText('storyboardSubtitlesOn') : uiText('storyboardSubtitlesOff')}
-          </label>
-          <select
-            className="select storyboard-workspace__preset-select"
-            value={studio.playbackPresetId}
-            disabled={!studio.subtitlesOn}
-            onChange={(e) => {
-              const v = e.target.value
-              if (isSubtitlePlaybackPresetId(v)) setPreset(v)
-            }}
-            aria-label={uiText('storyboardSubtitleStyle')}
-          >
-            {SUBTITLE_PLAYBACK_PRESET_ORDER.map((id) => (
-              <option key={id} value={id}>
-                {uiText(SUBTITLE_PLAYBACK_PRESETS[id].labelKey)}
-              </option>
-            ))}
-          </select>
-          <label className="storyboard-workspace__size-label">
-            <span>{uiText('storyboardSubtitleSize')}</span>
-            <input
-              type="range"
-              min={70}
-              max={160}
-              value={studio.advanced.fontSizePct}
-              disabled={!studio.subtitlesOn}
-              onChange={(e) =>
-                patchSubtitle({
-                  advanced: { ...studio.advanced, fontSizePct: Number(e.target.value) }
-                })
-              }
-            />
-          </label>
-          <label className="storyboard-workspace__color-label">
-            <span>{uiText('storyboardSubtitleColor')}</span>
-            <input
-              type="color"
-              value={studio.advanced.textColor}
-              disabled={!studio.subtitlesOn}
-              onChange={(e) =>
-                patchSubtitle({
-                  advanced: { ...studio.advanced, textColor: e.target.value }
-                })
-              }
-            />
-          </label>
-          <select
-            className="select storyboard-workspace__position-select"
-            value={studio.positionPreset}
-            disabled={!studio.subtitlesOn}
-            onChange={(e) =>
-              patchSubtitle({
-                positionPreset: e.target.value as SubtitleStudioState['positionPreset']
-              })
-            }
-            aria-label={uiText('storyboardSubtitlePosition')}
-          >
-            <option value="bottom_center">{uiText('storyboardSubPosBottom')}</option>
-            <option value="floating_adaptive">{uiText('storyboardSubPosLowerThird')}</option>
-            <option value="center">{uiText('storyboardSubPosMiddle')}</option>
-            <option value="top_center">{uiText('storyboardSubPosTop')}</option>
-          </select>
-        </div>
+        <StoryboardSubtitleToolbar
+          studio={studio}
+          disabled={rendering}
+          onPatch={patchSubtitle}
+        />
 
         <div className="storyboard-workspace__timeline" role="list" aria-label={uiText('storyboardTimeline')}>
           {episode.scenes.map((sc, i) => {

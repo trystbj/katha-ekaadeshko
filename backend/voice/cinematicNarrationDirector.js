@@ -48,7 +48,7 @@ function stylePresetDeliveryHints(styleId, customVisualPrompt) {
     case 'cinematic_anime':
       return 'Style: cinematic anime — dramatic pauses, emotional peaks, directed suspense timing.'
     case 'cinematic_realistic':
-      return 'Style: cinematic realistic — grounded film narration, natural pacing, photoreal emotional delivery, motivated pauses for closeups and wide shots.'
+      return 'Style: realistic — grounded film narration, natural pacing, photoreal emotional delivery, motivated pauses for closeups and wide shots.'
     case 'comic_panel':
       return 'Style: comic — energetic punchy timing, dynamic emphasis.'
     case 'custom':

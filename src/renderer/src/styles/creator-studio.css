@@ -110,30 +110,82 @@
 }
 
 .creator-studio__timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.creator-studio__tl-row {
+.creator-studio__tl-grid {
+  --creator-tl-cols: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: min(100%, calc(5rem + var(--creator-tl-cols) * 2.5rem));
+}
+
+.creator-studio__tl-scenes {
   display: grid;
-  grid-template-columns: 3.5rem 1fr 2rem;
-  align-items: center;
-  gap: 0.35rem;
+  grid-template-columns: minmax(4.2rem, 5rem) repeat(var(--creator-tl-cols), minmax(2.4rem, 1fr));
+  gap: 0.25rem 0.35rem;
+  align-items: end;
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
 }
 
-.creator-studio__tl-track {
+.creator-studio__tl-corner {
+  display: block;
+  min-height: 1px;
+}
+
+.creator-studio__tl-scene-h {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  height: 1.1rem;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 0;
+  text-align: center;
+}
+
+.creator-studio__tl-scene-n {
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.creator-studio__tl-track-row {
+  display: grid;
+  grid-template-columns: minmax(4.2rem, 5rem) repeat(var(--creator-tl-cols), minmax(2.4rem, 1fr));
+  gap: 0.25rem 0.35rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.creator-studio__tl-track-label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1.25;
+  opacity: 0.88;
+  padding-right: 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.creator-studio__tl-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0.85rem;
 }
 
 .creator-studio__tl-bar {
   display: block;
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
-  width: 72%;
+  width: 78%;
+  max-width: 100%;
 }
 
 .creator-studio__tl-bar--narr {
@@ -142,18 +194,27 @@
 
 .creator-studio__tl-bar--sub {
   background: color-mix(in srgb, #b8e986 65%, transparent);
-  width: 58%;
+  width: 62%;
 }
 
 .creator-studio__tl-bar--music {
   background: color-mix(in srgb, #e8a0ff 60%, transparent);
-  width: 85%;
+  width: 88%;
 }
 
 .creator-studio__tl-dur {
-  font-size: 0.68rem;
-  opacity: 0.8;
-  text-align: right;
+  font-size: 0.62rem;
+  opacity: 0.75;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.creator-studio-panel-wrap .creator-studio__head {
+  gap: 0.35rem;
+}
+
+.creator-studio-panel-wrap .creator-studio__blurb {
+  margin-top: 0;
 }
 
 .creator-studio__copilot {
