@@ -17,19 +17,29 @@
 .studio-script-workspace__tab {
   padding: 0.28rem 0.65rem;
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--studio-accent, #c9a86a) 28%, transparent);
-  background: transparent;
-  color: inherit;
+  border: 1px solid color-mix(in srgb, var(--studio-accent, #c9a86a) 22%, transparent);
+  background: color-mix(in srgb, var(--studio-readable-surface, rgba(0, 0, 0, 0.28)) 55%, transparent);
+  color: rgba(255, 246, 236, 0.72);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.studio-script-workspace__tab:hover:not(.studio-script-workspace__tab--on) {
+  color: rgba(255, 250, 244, 0.88);
+  background: color-mix(in srgb, var(--studio-readable-surface, rgba(0, 0, 0, 0.28)) 72%, transparent);
 }
 
 .studio-script-workspace__tab--on {
   background: color-mix(in srgb, var(--studio-accent, #c9a86a) 18%, transparent);
   border-color: color-mix(in srgb, var(--studio-accent, #c9a86a) 55%, transparent);
+  color: rgba(255, 236, 200, 0.98);
 }
 
 .studio-script-workspace__body {
