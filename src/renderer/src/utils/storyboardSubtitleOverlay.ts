@@ -15,13 +15,11 @@ const FONT_STACKS: Record<SubtitleStudioState['advanced']['fontCategory'], strin
   display: 'system-ui, sans-serif'
 }
 
-function boxScales(adv: SubtitleStudioState['advanced']) {
-  const x = adv.boxScaleXPct ?? 100
-  const y = adv.boxScaleYPct ?? 100
-  return {
-    boxScaleXPct: Math.min(200, Math.max(50, x)),
-    boxScaleYPct: Math.min(200, Math.max(50, y))
-  }
+function boxMetrics(adv: SubtitleStudioState['advanced'], containerWidth: number) {
+  const widthPct = Math.min(92, Math.max(24, adv.boxWidthPct ?? adv.boxScaleXPct ?? 72))
+  const scaleY = Math.min(200, Math.max(50, adv.boxScaleYPct ?? 100))
+  const widthPx = Math.max(140, Math.round((containerWidth * widthPct) / 100))
+  return { widthPx, scaleY: scaleY / 100 }
 }
 
 function cinematicTextShadow(adv: SubtitleStudioState['advanced']): string | undefined {
@@ -38,11 +36,17 @@ export function storyboardSubtitleOuterStyle(studio: SubtitleStudioState): CSSPr
   return storyboardSubtitlePositionStyle(resolveSubtitleFreePosition(studio))
 }
 
-/** Single subtitle box — text + optional subtle background plate. */
-export function storyboardSubtitleBoxStyle(studio: SubtitleStudioState): CSSProperties {
-  const { boxScaleXPct, boxScaleYPct } = boxScales(studio.advanced)
+/** Single subtitle box — fixed horizontal width; vertical scale via handles only. */
+export function storyboardSubtitleBoxStyle(
+  studio: SubtitleStudioState,
+  containerWidth: number
+): CSSProperties {
+  const { widthPx, scaleY } = boxMetrics(studio.advanced, containerWidth)
   return {
-    transform: `scale(${boxScaleXPct / 100}, ${boxScaleYPct / 100})`,
+    width: `${widthPx}px`,
+    minWidth: `${widthPx}px`,
+    maxWidth: `${widthPx}px`,
+    transform: scaleY !== 1 ? `scaleY(${scaleY})` : undefined,
     transformOrigin: 'center center'
   }
 }
@@ -65,7 +69,11 @@ export function storyboardSubtitleTextStyle(studio: SubtitleStudioState): CSSPro
       adv.textAlign === 'start' ? 'left' : adv.textAlign === 'end' ? 'right' : ('center' as const),
     background: 'transparent',
     padding: 0,
-    margin: 0
+    margin: 0,
+    whiteSpace: 'normal',
+    wordBreak: 'normal',
+    overflowWrap: 'break-word',
+    writingMode: 'horizontal-tb'
   }
 }
 

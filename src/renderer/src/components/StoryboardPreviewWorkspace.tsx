@@ -86,14 +86,14 @@ export function StoryboardPreviewWorkspace({
     if (!el) return
     const syncFontPx = () => {
       const h = el.clientHeight || 720
-      const px = Math.min(34, Math.max(12, Math.round(h * 0.042 * (studio.advanced.fontSizePct / 100))))
+      const px = Math.min(30, Math.max(13, Math.round(h * 0.038)))
       el.style.setProperty('--subtitle-font-px', `${px}px`)
     }
     syncFontPx()
     const ro = new ResizeObserver(syncFontPx)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [studio.advanced.fontSizePct])
+  }, [])
 
   const generating = busyLabel === 'generating'
   const rendering = busyLabel === 'rendering'

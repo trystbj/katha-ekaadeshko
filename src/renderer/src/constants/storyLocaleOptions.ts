@@ -25,6 +25,8 @@ export const STORY_LOCALE_DEFAULT: StoryLocaleOption = {
 export const STORY_LOCALE_PINNED_COUNTRIES = [
   'Nepal',
   'India',
+  'United States',
+  'United Kingdom',
   'South Korea',
   'China',
   'Japan',
@@ -208,8 +210,8 @@ const LOCALE_DISPLAY_NAME: Record<string, string> = {
   'Timor-Leste': 'Timor-Leste',
   Turkey: 'Turkey',
   Ukraine: 'Ukraine',
-  'United Kingdom': 'U.K.',
-  'United States': 'USA',
+  'United Kingdom': 'English · U.K.',
+  'United States': 'English · U.S.',
   Vietnam: 'Vietnam'
 }
 

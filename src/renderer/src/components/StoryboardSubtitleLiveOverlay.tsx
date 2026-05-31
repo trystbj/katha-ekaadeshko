@@ -21,7 +21,7 @@ type ResizeSession = {
   handle: ResizeHandle
   startX: number
   startY: number
-  startScaleX: number
+  startWidthPct: number
   startScaleY: number
 }
 
@@ -49,13 +49,37 @@ export function StoryboardSubtitleLiveOverlay({
     () => resolveSubtitleFreePosition(studio),
     [studio.positionXPct, studio.positionYPct, studio.positionPreset, studio.advanced.customLinePct]
   )
+  const [selected, setSelected] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [resizing, setResizing] = useState(false)
+  const [containerWidth, setContainerWidth] = useState(480)
   const dragRef = useRef(false)
   const resizeRef = useRef<ResizeSession | null>(null)
   const dragOffsetRef = useRef<{ dx: number; dy: number } | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
 
-  const showChrome = dragging || resizing
+  const showChrome = selected || dragging || resizing
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const sync = () => setContainerWidth(Math.max(1, el.clientWidth))
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [containerRef])
+
+  useEffect(() => {
+    if (!selected) return
+    const onDoc = (e: MouseEvent) => {
+      const node = e.target as Node
+      if (rootRef.current?.contains(node)) return
+      setSelected(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [selected])
 
   const animClass =
     studio.advanced.animation === 'fade_in'
@@ -91,6 +115,7 @@ export function StoryboardSubtitleLiveOverlay({
       if (!box) return
       e.stopPropagation()
       e.preventDefault()
+      setSelected(true)
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
       const anchorX = (pos.positionXPct / 100) * box.width
       const anchorY = (pos.positionYPct / 100) * box.height
@@ -107,20 +132,20 @@ export function StoryboardSubtitleLiveOverlay({
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       const session = resizeRef.current
-      if (session && onBoxChange) {
+      if (session && onBoxChange && containerWidth > 0) {
         const dx = e.clientX - session.startX
         const dy = e.clientY - session.startY
         const h = session.handle
-        let scaleX = session.startScaleX
+        let widthPct = session.startWidthPct
         let scaleY = session.startScaleY
 
-        if (h.includes('e')) scaleX = session.startScaleX + dx * 0.1
-        if (h.includes('w')) scaleX = session.startScaleX - dx * 0.1
+        if (h.includes('e')) widthPct = session.startWidthPct + (dx / containerWidth) * 100
+        if (h.includes('w')) widthPct = session.startWidthPct - (dx / containerWidth) * 100
         if (h.includes('s')) scaleY = session.startScaleY + dy * 0.1
         if (h.includes('n')) scaleY = session.startScaleY - dy * 0.1
 
         onBoxChange({
-          boxScaleXPct: Math.min(200, Math.max(50, Math.round(scaleX))),
+          boxWidthPct: Math.min(92, Math.max(24, Math.round(widthPct))),
           boxScaleYPct: Math.min(200, Math.max(50, Math.round(scaleY)))
         })
         return
@@ -129,7 +154,7 @@ export function StoryboardSubtitleLiveOverlay({
       const next = positionFromPointer(e.clientX, e.clientY)
       if (next) onPositionChange(next)
     },
-    [onBoxChange, onPositionChange, positionFromPointer]
+    [containerWidth, onBoxChange, onPositionChange, positionFromPointer]
   )
 
   const endPointer = useCallback((e: React.PointerEvent) => {
@@ -156,13 +181,14 @@ export function StoryboardSubtitleLiveOverlay({
       if (!studio.subtitlesOn || !onBoxChange) return
       e.stopPropagation()
       e.preventDefault()
+      setSelected(true)
       e.currentTarget.setPointerCapture(e.pointerId)
       const adv = studio.advanced
       resizeRef.current = {
         handle,
         startX: e.clientX,
         startY: e.clientY,
-        startScaleX: adv.boxScaleXPct ?? 100,
+        startWidthPct: adv.boxWidthPct ?? adv.boxScaleXPct ?? 72,
         startScaleY: adv.boxScaleYPct ?? 100
       }
       setResizing(true)
@@ -204,11 +230,13 @@ export function StoryboardSubtitleLiveOverlay({
 
   return (
     <div
+      ref={rootRef}
       className={`storyboard-subtitle-overlay${dragging ? ' storyboard-subtitle-overlay--dragging' : ''}${resizing ? ' storyboard-subtitle-overlay--resizing' : ''}${showChrome ? ' storyboard-subtitle-overlay--edit' : ''} ${animClass}`}
       role="group"
       aria-label="Subtitle"
       tabIndex={0}
       onKeyDown={onKeyDown}
+      onPointerDown={() => setSelected(true)}
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}
       onPointerCancel={endPointer}
@@ -216,7 +244,7 @@ export function StoryboardSubtitleLiveOverlay({
     >
       <div
         className="storyboard-subtitle-overlay__box"
-        style={storyboardSubtitleBoxStyle(studio)}
+        style={storyboardSubtitleBoxStyle(studio, containerWidth)}
         onPointerDown={onDragPointerDown}
       >
         {showChrome ? (

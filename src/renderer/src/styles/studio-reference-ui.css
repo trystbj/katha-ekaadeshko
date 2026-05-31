@@ -278,9 +278,10 @@
 
 .cine-sb-tile__summary {
   margin: 0;
-  font-size: 0.76rem;
-  line-height: 1.5;
-  color: rgba(220, 228, 238, 0.88);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: rgba(190, 202, 218, 0.58);
+  font-weight: 400;
 }
 
 .cine-sb-tile__facts {

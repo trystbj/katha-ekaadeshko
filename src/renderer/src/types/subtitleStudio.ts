@@ -52,9 +52,11 @@ export interface SubtitleStudioAdvanced {
   glowBlurPx: number
   bgColor: string
   bgOpacity: number
-  /** Box width scale % (50–200) — resize handles. */
-  boxScaleXPct: number
-  /** Box height scale % (50–200) — resize handles. */
+  /** Subtitle box width (% of preview width, 24–92) — horizontal resize handles. */
+  boxWidthPct: number
+  /** @deprecated Migrated to boxWidthPct — kept for older saves. */
+  boxScaleXPct?: number
+  /** Box height scale % (50–200) — vertical resize handles. */
   boxScaleYPct: number
   roundedBoxPx: number
   backdropBlurPx: number
@@ -111,7 +113,7 @@ export function defaultSubtitleStudioAdvanced(): SubtitleStudioAdvanced {
     glowBlurPx: 12,
     bgColor: '#060810',
     bgOpacity: 0,
-    boxScaleXPct: 100,
+    boxWidthPct: 72,
     boxScaleYPct: 100,
     roundedBoxPx: 10,
     backdropBlurPx: 0,
@@ -155,7 +157,17 @@ export function normalizeSubtitleStudio(
 ): SubtitleStudioState {
   const def = defaultSubtitleStudioState()
   if (!raw) return def
-  const advanced = { ...def.advanced, ...(raw.advanced ?? {}) }
+  const advancedRaw = { ...def.advanced, ...(raw.advanced ?? {}) }
+  const boxWidthPct = Math.min(
+    92,
+    Math.max(
+      24,
+      Number.isFinite(advancedRaw.boxWidthPct)
+        ? advancedRaw.boxWidthPct
+        : advancedRaw.boxScaleXPct ?? def.advanced.boxWidthPct
+    )
+  )
+  const advanced = { ...advancedRaw, boxWidthPct, boxScaleXPct: undefined }
   const merged: SubtitleStudioState = {
     ...def,
     ...raw,

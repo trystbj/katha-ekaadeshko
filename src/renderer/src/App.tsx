@@ -1623,37 +1623,6 @@ export default function App() {
               >
                 {Glyphs.gear}
               </button>
-              {showStoryboardPreview && project?.bible ? (
-                <span className="studio-mock-monitor-title__production">
-                  <button
-                    type="button"
-                    className="studio-mock-monitor-action-btn studio-mock-monitor-action-btn--text"
-                    title={uiText('studioBarAdvancedEditor')}
-                    disabled={Boolean(busy)}
-                    onClick={onAdvancedEditor}
-                  >
-                    {uiText('studioBarAdvancedEditorShort')}
-                  </button>
-                  <button
-                    type="button"
-                    className="studio-mock-monitor-action-btn"
-                    title={uiText('studioBarExportProject')}
-                    disabled={Boolean(busy)}
-                    onClick={onExportProject}
-                  >
-                    {Glyphs.download}
-                  </button>
-                  <button
-                    type="button"
-                    className="studio-mock-monitor-action-btn"
-                    title={uiText('studioBarGenerateVideo')}
-                    disabled={Boolean(busy)}
-                    onClick={onGenerateFinalVideo}
-                  >
-                    {Glyphs.playTriangle}
-                  </button>
-                </span>
-              ) : null}
             </div>
             <div className="studio-mock-monitor-title__fill" aria-hidden />
             <div className="studio-mock-monitor-title__locale" aria-hidden />

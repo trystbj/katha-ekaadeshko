@@ -637,7 +637,8 @@
   z-index: 6;
   pointer-events: auto;
   touch-action: none;
-  max-width: 92%;
+  max-width: none;
+  width: auto;
   outline: none;
   background: transparent;
   border: none;
@@ -1064,10 +1065,11 @@
 .storyboard-subtitle-overlay--edit .storyboard-subtitle-overlay__frame {
   display: block;
   position: absolute;
-  inset: -8px;
-  border: 1px dashed rgba(200, 220, 255, 0.55);
+  inset: -10px;
+  border: 1px solid rgba(200, 220, 255, 0.72);
   border-radius: 4px;
   pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 .storyboard-subtitle-overlay__handle {

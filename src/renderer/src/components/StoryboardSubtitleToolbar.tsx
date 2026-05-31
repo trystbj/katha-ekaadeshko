@@ -53,20 +53,6 @@ export function StoryboardSubtitleToolbar({
         <span>{uiText('storyboardSubtitlesOn')}</span>
       </label>
 
-      <label className="storyboard-subtitle-rail__field storyboard-subtitle-rail__field--size">
-        <span>{uiText('subtitleStudioFontSize')}</span>
-        <input
-          type="range"
-          min={70}
-          max={160}
-          disabled={off}
-          value={adv.fontSizePct}
-          onChange={(e) => patchAdv({ fontSizePct: Number(e.target.value) })}
-          aria-label={uiText('subtitleStudioFontSize')}
-        />
-        <span className="storyboard-subtitle-rail__size-val">{adv.fontSizePct}%</span>
-      </label>
-
       <label className="storyboard-subtitle-rail__field">
         <span className="sr-only">{uiText('subtitleStudioFontCategory')}</span>
         <select
