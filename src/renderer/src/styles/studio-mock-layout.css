@@ -4200,6 +4200,13 @@
   overflow-wrap: anywhere;
 }
 
+/* Continue next episode, Unlock without export, Edit story — visual nudge only */
+#studio-story-actions.studio-mock-actions-row > .btn:not(.btn-ghost),
+#studio-story-actions.studio-mock-actions-row > .btn.btn-small,
+#studio-story-actions.studio-mock-actions-row > .btn.btn-ghost:not(.btn-small) {
+  transform: translateY(3mm);
+}
+
 .preview-stage--blank-idle .preview-stage__caption {
   font-size: 0.54rem !important;
   line-height: 1.38 !important;
