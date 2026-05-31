@@ -5,23 +5,23 @@
 }
 
 .studio-mock-col--preview .studio-mock-preview-wrap,
-.storyboard-workspace--preview-focus,
-.cinematic-main-preview {
+.studio-mock-col--preview .storyboard-workspace--preview-focus,
+.studio-mock-col--preview .cinematic-main-preview {
   padding: 0;
   border: none;
   box-shadow: none;
-  background: #060a0e;
+  background: transparent;
 }
 
-.cinematic-main-preview__stage,
-.storyboard-workspace__stage-wrap {
+.studio-mock-col--preview .cinematic-main-preview__stage,
+.studio-mock-col--preview .storyboard-workspace__stage-wrap {
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
   border: none;
   border-radius: 0;
   box-shadow: none;
-  background: #060a0e;
+  background: transparent;
 }
 
 .cinematic-main-preview__preview-stage,

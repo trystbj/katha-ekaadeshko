@@ -6,7 +6,7 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  background: #060a0e;
+  background: transparent;
   border-radius: 0;
   overflow: hidden;
 }
@@ -18,7 +18,12 @@
   border-radius: 0;
   overflow: hidden;
   border: none;
-  background: #060a0e;
+  background: transparent;
+}
+
+.studio-mock-col--preview .storyboard-workspace--preview-focus,
+.studio-mock-col--preview .storyboard-workspace--preview-focus .storyboard-workspace__stage-wrap {
+  background: transparent;
 }
 
 .preview-stage--maximize .preview-stage__inner,
