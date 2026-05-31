@@ -3,11 +3,8 @@ import { useUiText } from '../i18n/useAppI18n'
 import { useStudioStore } from '../store/useStudioStore'
 import { drainSseBuffer } from '../utils/parseSseStream'
 import { buildSceneAssetsFromPipeline, mergeProjectAssets } from '../utils/sceneAssetMap'
-import {
-  parsePipelinePayloadFromEpisode,
-  withVisualGenerationComplete,
-  withVisualGenerationStarted
-} from '../utils/productionWorkflow'
+import { withVisualGenerationComplete, withVisualGenerationStarted } from '../utils/productionWorkflow'
+import { buildVisualPipelinePayload } from '../utils/buildVisualPipelinePayload'
 import { withStoryboardReady } from '../utils/storyboardWorkflow'
 import { episodeSceneImageCoverage } from '../utils/storyboardWorkflow'
 import { attachSceneGenerationStatuses } from '../utils/scenePipelineStatus'
@@ -42,11 +39,16 @@ export function useVisualGeneration() {
       const ep = p.episodes.find((e) => e.number === epn) ?? p.episodes[0]
       if (!ep) return
 
-      const payload = parsePipelinePayloadFromEpisode(ep)
+      const payload = buildVisualPipelinePayload(p, epn)
       if (!payload) {
         setError(uiText('visualGenMissingScript'))
         return
       }
+
+      const targetScenes =
+        opts?.sceneIndices?.length && opts.sceneIndices.length > 0
+          ? opts.sceneIndices
+          : ep.scenes.map((s) => s.index)
 
       setBusy('generating')
       setError(null)
@@ -153,7 +155,7 @@ export function useVisualGeneration() {
         const baseBody = {
           story: payload.story,
           script: payload.script,
-          ...(opts?.sceneIndices?.length ? { sceneIndices: opts.sceneIndices } : {}),
+          sceneIndices: targetScenes,
           aspectMode: p.bible.aspectMode,
           styleId: p.bible.styleId,
           ...(p.bible.styleId === 'custom' ? { customVisualPrompt: p.bible.customVisualPrompt } : {}),

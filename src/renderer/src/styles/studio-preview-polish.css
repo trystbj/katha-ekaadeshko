@@ -183,37 +183,7 @@
   justify-content: center;
 }
 
-/* Subtitle — drag text, resize handles, bg-only opacity */
-.storyboard-subtitle-overlay__text {
-  position: relative;
-  display: inline-block;
-  cursor: grab;
-  touch-action: none;
-  padding: 0.35em 0.65em;
-  background: transparent;
-}
-
-.storyboard-subtitle-overlay--dragging .storyboard-subtitle-overlay__text {
-  cursor: grabbing;
-}
-
-.storyboard-subtitle-overlay__bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.storyboard-subtitle-overlay__line {
-  position: relative;
-  z-index: 1;
-  display: block;
-}
-
-.storyboard-subtitle-overlay__frame {
-  pointer-events: none;
-}
-
+/* Subtitle handles — pointer events on resize only */
 .storyboard-subtitle-overlay__handle {
   pointer-events: auto;
 }

@@ -25,17 +25,33 @@ function boxScales(adv: SubtitleStudioState['advanced']) {
   }
 }
 
-/** Outer anchor — position only (drag moves this). */
-export function storyboardSubtitleOuterStyle(studio: SubtitleStudioState): CSSProperties {
-  const pos = resolveSubtitleFreePosition(studio)
-  return storyboardSubtitlePositionStyle(pos)
+function cinematicTextShadow(adv: SubtitleStudioState['advanced']): string | undefined {
+  const parts = [
+    adv.outlinePx > 0 ? `0 0 ${adv.outlinePx}px ${adv.outlineColor}` : '',
+    adv.shadowBlurPx > 0 ? `0 2px ${adv.shadowBlurPx}px rgba(0,0,0,0.72)` : '',
+    '0 1px 3px rgba(0,0,0,0.55)'
+  ].filter(Boolean)
+  return parts.length ? parts.join(', ') : undefined
 }
 
-/** Text layer — always full opacity; not affected by background opacity slider. */
+/** Outer anchor — position only. */
+export function storyboardSubtitleOuterStyle(studio: SubtitleStudioState): CSSProperties {
+  return storyboardSubtitlePositionStyle(resolveSubtitleFreePosition(studio))
+}
+
+/** Single subtitle box — text + optional subtle background plate. */
+export function storyboardSubtitleBoxStyle(studio: SubtitleStudioState): CSSProperties {
+  const { boxScaleXPct, boxScaleYPct } = boxScales(studio.advanced)
+  return {
+    transform: `scale(${boxScaleXPct / 100}, ${boxScaleYPct / 100})`,
+    transformOrigin: 'center center'
+  }
+}
+
+/** Cinematic text — always fully visible. */
 export function storyboardSubtitleTextStyle(studio: SubtitleStudioState): CSSProperties {
   const look = buildSubtitleVttLook(studio)
   const adv = studio.advanced
-  const { boxScaleXPct, boxScaleYPct } = boxScales(adv)
   const fontSizeRem = Math.min(2.2, Math.max(0.75, (look.sizePct / 100) * 1.05 * (adv.fontSizePct / 100)))
 
   return {
@@ -47,36 +63,24 @@ export function storyboardSubtitleTextStyle(studio: SubtitleStudioState): CSSPro
     lineHeight: adv.lineHeight,
     color: adv.textColor,
     textTransform: adv.textTransform === 'none' ? undefined : adv.textTransform,
-    textShadow: [
-      adv.outlinePx > 0 ? `0 0 ${adv.outlinePx}px ${adv.outlineColor}` : '',
-      adv.shadowBlurPx > 0 ? `0 2px ${adv.shadowBlurPx}px rgba(0,0,0,0.65)` : '',
-      adv.glowBlurPx > 0 ? `0 0 ${adv.glowBlurPx}px ${adv.glowColor}` : ''
-    ]
-      .filter(Boolean)
-      .join(', ') || undefined,
-    transform: `scale(${boxScaleXPct / 100}, ${boxScaleYPct / 100})`,
-    transformOrigin: 'center center',
-    maxWidth: '92%',
+    textShadow: cinematicTextShadow(adv),
     textAlign:
-      adv.textAlign === 'start' ? 'left' : adv.textAlign === 'end' ? 'right' : ('center' as const)
+      adv.textAlign === 'start' ? 'left' : adv.textAlign === 'end' ? 'right' : ('center' as const),
+    background: 'transparent',
+    padding: 0,
+    margin: 0
   }
 }
 
-/** Background plate — opacity slider affects only this layer. */
+/** Optional background — opacity slider only (0 = invisible plate). */
 export function storyboardSubtitleBgStyle(studio: SubtitleStudioState): CSSProperties {
-  const adv = studio.advanced
-  const bgAlpha = Math.min(1, Math.max(0, adv.bgOpacity))
+  const bgAlpha = Math.min(1, Math.max(0, studio.advanced.bgOpacity))
+  if (bgAlpha <= 0) {
+    return { opacity: 0, background: 'transparent' }
+  }
   return {
     opacity: bgAlpha,
-    backgroundColor: 'rgb(6, 8, 16)',
-    borderRadius: adv.roundedBoxPx > 0 ? `${adv.roundedBoxPx}px` : undefined
-  }
-}
-
-/** @deprecated Use split outer/text/bg styles */
-export function storyboardSubtitleOverlayStyle(studio: SubtitleStudioState): CSSProperties {
-  return {
-    ...storyboardSubtitleOuterStyle(studio),
-    ...storyboardSubtitleTextStyle(studio)
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderRadius: studio.advanced.roundedBoxPx > 0 ? `${studio.advanced.roundedBoxPx}px` : '4px'
   }
 }

@@ -1,0 +1,88 @@
+/* Final polish — cinematic subtitles, nav icons, scrollable monitor */
+
+.studio-mock-monitor-body--scroll-all {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.studio-mock-monitor-section {
+  flex: 0 0 auto;
+}
+
+.studio-mock-monitor-section--storyboard {
+  flex: 0 0 auto;
+  min-height: min-content;
+}
+
+.studio-mock-monitor-section--characters-collapsed .studio-mock-characters-wireframe-panel {
+  display: block;
+  max-height: none;
+}
+
+.studio-mock-monitor-section:not(.studio-mock-monitor-section--characters-collapsed)
+  .studio-mock-characters-wireframe-panel {
+  display: block;
+}
+
+.storyboard-subtitle-overlay__inner {
+  position: relative;
+  display: inline-block;
+  padding: 0.15em 0.35em;
+}
+
+.storyboard-subtitle-overlay__line {
+  position: relative;
+  z-index: 1;
+  display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.storyboard-subtitle-overlay__bg {
+  position: absolute;
+  inset: -0.15em -0.35em;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.storyboard-subtitle-overlay:not(.storyboard-subtitle-overlay--edit) .storyboard-subtitle-overlay__bg {
+  /* Cinematic default: text only unless user raised background opacity */
+}
+
+.storyboard-subtitle-rail__field--opacity span:first-child {
+  font-size: 0.68rem;
+  opacity: 0.85;
+}
+
+.studio-scene-section__complete {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: rgba(140, 220, 170, 0.95);
+}
+
+.preview-stage--cinematic .preview-stage__nav-btn {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none;
+}
+
+.storyboard-subtitle-rail__select,
+.storyboard-subtitle-rail .select,
+.storyboard-subtitle-rail select {
+  color-scheme: dark;
+  background-color: rgba(10, 16, 26, 0.98) !important;
+  color: rgba(255, 252, 246, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+.storyboard-subtitle-rail__select option,
+.storyboard-subtitle-rail select option {
+  background-color: #0c121c;
+  color: #f5f5f5;
+}

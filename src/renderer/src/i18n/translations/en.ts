@@ -1354,6 +1354,7 @@ export const en = {
   studioSceneSectionEmpty: 'No scenes in this episode yet.',
   studioSceneApproveImages: 'Generate scene images',
   studioSceneGenerateAllImages: 'Generate all scene images',
+  studioSceneImagesComplete: 'All scene images generated',
   storyboardCcDrawer: 'Subtitles (CC)',
   storyboardSubtitleRailAria: 'Subtitle formatting',
   subtitleToolbarStyle: 'Text style',

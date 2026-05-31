@@ -6,11 +6,11 @@ import {
   clampSubtitlePosition,
   resolveSubtitleFreePosition,
   nudgeSubtitlePosition,
-  storyboardSubtitlePositionStyle,
   type SubtitleFreePosition
 } from '../utils/subtitleFreePosition'
 import {
   storyboardSubtitleBgStyle,
+  storyboardSubtitleBoxStyle,
   storyboardSubtitleOuterStyle,
   storyboardSubtitleTextStyle
 } from '../utils/storyboardSubtitleOverlay'
@@ -56,6 +56,8 @@ export function StoryboardSubtitleLiveOverlay({
   const resizeRef = useRef<ResizeSession | null>(null)
   const dragOffsetRef = useRef<{ dx: number; dy: number } | null>(null)
 
+  const showChrome = dragging || resizing
+
   const animClass =
     studio.advanced.animation === 'fade_in'
       ? 'storyboard-subtitle-overlay--anim-fade'
@@ -83,14 +85,14 @@ export function StoryboardSubtitleLiveOverlay({
     [containerRef]
   )
 
-  const onTextPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLSpanElement>) => {
+  const onDragPointerDown = useCallback(
+    (e: React.PointerEvent) => {
       if (!studio.subtitlesOn || e.button !== 0 || resizing) return
       const box = containerRef.current?.getBoundingClientRect()
       if (!box) return
       e.stopPropagation()
       e.preventDefault()
-      e.currentTarget.setPointerCapture(e.pointerId)
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
       const anchorX = (pos.positionXPct / 100) * box.width
       const anchorY = (pos.positionYPct / 100) * box.height
       dragOffsetRef.current = {
@@ -114,12 +116,12 @@ export function StoryboardSubtitleLiveOverlay({
         let scaleY = session.startScaleY
         let fontSize = session.startFontSize
 
-        if (h.includes('e')) scaleX = session.startScaleX + dx * 0.12
-        if (h.includes('w')) scaleX = session.startScaleX - dx * 0.12
-        if (h.includes('s')) scaleY = session.startScaleY + dy * 0.12
-        if (h.includes('n')) scaleY = session.startScaleY - dy * 0.12
-        if (h === 'se' || h === 'nw') {
-          fontSize = session.startFontSize + Math.round((-dy + dx) * 0.08)
+        if (h.includes('e')) scaleX = session.startScaleX + dx * 0.1
+        if (h.includes('w')) scaleX = session.startScaleX - dx * 0.1
+        if (h.includes('s')) scaleY = session.startScaleY + dy * 0.1
+        if (h.includes('n')) scaleY = session.startScaleY - dy * 0.1
+        if (h === 'se' || h === 'ne' || h === 'sw' || h === 'nw') {
+          fontSize = session.startFontSize + Math.round((-dy + dx) * 0.06)
         }
 
         onBoxChange({
@@ -145,13 +147,13 @@ export function StoryboardSubtitleLiveOverlay({
       dragRef.current = false
       dragOffsetRef.current = null
       setDragging(false)
-      try {
-        if (e.currentTarget instanceof HTMLElement && 'releasePointerCapture' in e.currentTarget) {
-          e.currentTarget.releasePointerCapture(e.pointerId)
-        }
-      } catch {
-        /* already released */
+    }
+    try {
+      if (e.currentTarget instanceof HTMLElement && 'releasePointerCapture' in e.currentTarget) {
+        e.currentTarget.releasePointerCapture(e.pointerId)
       }
+    } catch {
+      /* released */
     }
   }, [])
 
@@ -204,11 +206,14 @@ export function StoryboardSubtitleLiveOverlay({
 
   if (!visible || !studio.subtitlesOn || !line) return null
 
+  const bgStyle = storyboardSubtitleBgStyle(studio)
+  const showBg = (studio.advanced.bgOpacity ?? 0) > 0.02
+
   return (
     <div
-      className={`storyboard-subtitle-overlay${dragging ? ' storyboard-subtitle-overlay--dragging' : ''}${resizing ? ' storyboard-subtitle-overlay--resizing' : ''} ${animClass}`}
+      className={`storyboard-subtitle-overlay${dragging ? ' storyboard-subtitle-overlay--dragging' : ''}${resizing ? ' storyboard-subtitle-overlay--resizing' : ''}${showChrome ? ' storyboard-subtitle-overlay--edit' : ''} ${animClass}`}
       role="group"
-      aria-label="Subtitle position"
+      aria-label="Subtitle"
       tabIndex={0}
       onKeyDown={onKeyDown}
       onPointerMove={onPointerMove}
@@ -216,27 +221,31 @@ export function StoryboardSubtitleLiveOverlay({
       onPointerCancel={endPointer}
       style={storyboardSubtitleOuterStyle(studio)}
     >
-      <span className="storyboard-subtitle-overlay__frame" aria-hidden>
-        {HANDLES.map((edge) => (
-          <span
-            key={edge}
-            className={`storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--${edge}`}
-            onPointerDown={onHandleDown(edge)}
-          />
-        ))}
-      </span>
-      <span
-        className="storyboard-subtitle-overlay__text"
-        style={storyboardSubtitleTextStyle(studio)}
-        onPointerDown={onTextPointerDown}
+      <div
+        className="storyboard-subtitle-overlay__box"
+        style={storyboardSubtitleBoxStyle(studio)}
+        onPointerDown={onDragPointerDown}
       >
-        <span
-          className="storyboard-subtitle-overlay__bg"
-          style={storyboardSubtitleBgStyle(studio)}
-          aria-hidden
-        />
-        <span className="storyboard-subtitle-overlay__line">{line}</span>
-      </span>
+        {showChrome ? (
+          <span className="storyboard-subtitle-overlay__frame" aria-hidden>
+            {HANDLES.map((edge) => (
+              <span
+                key={edge}
+                className={`storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--${edge}`}
+                onPointerDown={onHandleDown(edge)}
+              />
+            ))}
+          </span>
+        ) : null}
+        <span className="storyboard-subtitle-overlay__inner">
+          {showBg ? (
+            <span className="storyboard-subtitle-overlay__bg" style={bgStyle} aria-hidden />
+          ) : null}
+          <span className="storyboard-subtitle-overlay__line" style={storyboardSubtitleTextStyle(studio)}>
+            {line}
+          </span>
+        </span>
+      </div>
     </div>
   )
 }

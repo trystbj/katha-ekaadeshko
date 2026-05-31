@@ -628,14 +628,13 @@
   position: absolute;
   z-index: 6;
   pointer-events: auto;
-  cursor: grab;
   touch-action: none;
-  max-width: min(88%, 22rem);
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  line-height: 1.35;
-  backdrop-filter: blur(6px);
+  max-width: min(92%, 28rem);
   outline: none;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 .storyboard-subtitle-overlay:focus-visible {
@@ -1046,24 +1045,28 @@
   grid-column: 1 / -1;
 }
 
-.storyboard-subtitle-overlay {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
+.storyboard-subtitle-overlay__box {
+  position: relative;
+  display: inline-block;
+  cursor: grab;
+  max-width: 100%;
+}
+
+.storyboard-subtitle-overlay--dragging .storyboard-subtitle-overlay__box {
+  cursor: grabbing;
 }
 
 .storyboard-subtitle-overlay__frame {
-  position: absolute;
-  inset: -6px;
-  border: 1px dashed rgba(255, 255, 255, 0.55);
-  border-radius: 6px;
-  pointer-events: none;
+  display: none;
 }
 
-.storyboard-subtitle-overlay__text {
-  position: relative;
-  z-index: 1;
+.storyboard-subtitle-overlay--edit .storyboard-subtitle-overlay__frame {
+  display: block;
+  position: absolute;
+  inset: -8px;
+  border: 1px dashed rgba(200, 220, 255, 0.55);
+  border-radius: 4px;
+  pointer-events: none;
 }
 
 .storyboard-subtitle-overlay__handle {

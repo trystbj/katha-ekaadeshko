@@ -35,11 +35,9 @@ import { showScriptReviewWorkspace, withScriptReviewReopened } from './utils/pro
 import { PreviewWorkspaceBackButton } from './components/PreviewWorkspaceBackButton'
 import { StudioScriptWorkspaceTabs } from './components/StudioScriptWorkspaceTabs'
 import { CinematicCharacterPreview } from './components/CinematicCharacterPreview'
-import { CharacterConsistencyLocks } from './components/CharacterConsistencyLocks'
-import {
-  DEFAULT_CHARACTER_CONSISTENCY_LOCKS,
-  type CharacterConsistencyLocks as CharacterConsistencyLocksState
-} from './types/story'
+import { withAutoCharacterConsistency } from './utils/characterConsistencyAuto'
+import { buildVisualPipelinePayload } from './utils/buildVisualPipelinePayload'
+import { episodeSceneImageCoverage } from './utils/storyboardWorkflow'
 import type { SmartRegenAction } from './components/SmartSceneRegenMenu'
 import { useVisualGeneration } from './hooks/useVisualGeneration'
 import { useVideoGeneration } from './hooks/useVideoGeneration'
@@ -630,10 +628,34 @@ export default function App() {
     const p = useStudioStore.getState().project
     if (!p?.bible) return
     const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(p)
-    console.info('[katha:production]', 'user_approved_parallel_visuals', { episodeNumber: epn })
-    patchProject((cur) => withVisualGenerationApproved(cur, epn))
-    void generateVisuals({ episodeNumber: epn })
-  }, [activeEpisode?.number, generateVisuals, patchProject, selectedEpisode])
+    const ep = p.episodes.find((e) => e.number === epn) ?? p.episodes[0]
+    if (!ep?.scenes?.length) {
+      setError(uiText('studioSceneSectionEmpty'))
+      return
+    }
+    const cov = episodeSceneImageCoverage(p, epn)
+    const sceneIndices =
+      cov.missing.length > 0 ? cov.missing : ep.scenes.map((s) => s.index)
+    if (!buildVisualPipelinePayload(p, epn)) {
+      setError(uiText('visualGenMissingScript'))
+      return
+    }
+    console.info('[katha:production]', 'generate_all_scene_images', {
+      episodeNumber: epn,
+      sceneIndices,
+      missing: cov.missing.length
+    })
+    setError(null)
+    patchProject((cur) => withAutoCharacterConsistency(withVisualGenerationApproved(cur, epn)))
+    void generateVisuals({ episodeNumber: epn, sceneIndices })
+  }, [
+    activeEpisode?.number,
+    generateVisuals,
+    patchProject,
+    selectedEpisode,
+    setError,
+    uiText
+  ])
 
   const onRegenerateMissingSceneImages = useCallback(async () => {
     const p = useStudioStore.getState().project
@@ -1636,7 +1658,7 @@ export default function App() {
             <div className="studio-mock-monitor-title__fill" aria-hidden />
             <div className="studio-mock-monitor-title__locale" aria-hidden />
           </div>
-          <div ref={studioMonitorBodyRef} className="studio-mock-monitor-body">
+          <div ref={studioMonitorBodyRef} className="studio-mock-monitor-body studio-mock-monitor-body--scroll-all">
           {monitorSearchOpen ? (
             <div
               ref={monitorSearchPanelRef}
@@ -1803,46 +1825,7 @@ export default function App() {
               ) : null}
 
               <section
-                className="studio-mock-monitor-section studio-mock-monitor-section--episodes"
-                aria-labelledby="studio-wireframe-episodes"
-              >
-                <h3 id="studio-wireframe-episodes" className="studio-mock-wireframe-monitor-h">
-                  {uiText('episodes')}
-                </h3>
-                <MonitorEpisodeAccordion project={project} />
-              </section>
-
-              {activeEpisode?.scenes?.length ? (
-                <section className="studio-mock-monitor-section" aria-labelledby="studio-wireframe-creator">
-                  <div className="studio-mock-monitor-section__head-row">
-                    <h3 id="studio-wireframe-creator" className="studio-mock-wireframe-monitor-h">
-                      {uiText('creatorStudioTitle')}
-                    </h3>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      aria-expanded={creatorStudioOpen}
-                      onClick={() => setCreatorStudioOpen((o) => !o)}
-                    >
-                      {creatorStudioOpen ? '−' : '+'}
-                    </button>
-                  </div>
-                  {creatorStudioOpen ? (
-                    <div className="panel studio-mock-panel creator-studio-panel-wrap">
-                      <CreatorStudioPanel
-                        project={project}
-                        episode={activeEpisode}
-                        episodeNumber={selectedEpisode ?? activeEpisode.number}
-                        patchProject={patchProject}
-                        thumbnailUrl={renderSourceUrls[0] ?? null}
-                      />
-                    </div>
-                  ) : null}
-                </section>
-              ) : null}
-
-              <section
-                className={`studio-mock-monitor-section${!charactersMonitorOpen && activeEpisode?.scenes?.length ? ' studio-mock-monitor-section--characters-collapsed' : ''}`}
+                className={`studio-mock-monitor-section studio-mock-monitor-section--characters${!charactersMonitorOpen ? ' studio-mock-monitor-section--characters-collapsed' : ''}`}
                 aria-labelledby="studio-wireframe-characters"
               >
                 <div className="studio-mock-monitor-section__head-row">
@@ -1863,17 +1846,6 @@ export default function App() {
                 <div
                   className={`panel studio-mock-panel studio-mock-characters-wireframe-panel${characterPreviewChar ? ' studio-mock-characters-wireframe-panel--character-preview' : ''}`}
                 >
-                <CharacterConsistencyLocks
-                  locks={project.characterConsistencyLocks ?? DEFAULT_CHARACTER_CONSISTENCY_LOCKS}
-                  disabled={Boolean(busy) || storyMetaLocked}
-                  onChange={(locks: CharacterConsistencyLocksState) =>
-                    patchProject((p) => ({
-                      ...p,
-                      updatedAt: new Date().toISOString(),
-                      characterConsistencyLocks: locks
-                    }))
-                  }
-                />
                 {project.bible?.characters.map((c) => (
                   <MonitorCharacterCard
                     key={c.id}
@@ -1925,6 +1897,45 @@ export default function App() {
                 )) ?? null}
                 </div>
               </section>
+
+              <section
+                className="studio-mock-monitor-section studio-mock-monitor-section--episodes"
+                aria-labelledby="studio-wireframe-episodes"
+              >
+                <h3 id="studio-wireframe-episodes" className="studio-mock-wireframe-monitor-h">
+                  {uiText('episodes')}
+                </h3>
+                <MonitorEpisodeAccordion project={project} />
+              </section>
+
+              {activeEpisode?.scenes?.length ? (
+                <section className="studio-mock-monitor-section studio-mock-monitor-section--creator" aria-labelledby="studio-wireframe-creator">
+                  <div className="studio-mock-monitor-section__head-row">
+                    <h3 id="studio-wireframe-creator" className="studio-mock-wireframe-monitor-h">
+                      {uiText('creatorStudioTitle')}
+                    </h3>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      aria-expanded={creatorStudioOpen}
+                      onClick={() => setCreatorStudioOpen((o) => !o)}
+                    >
+                      {creatorStudioOpen ? '−' : '+'}
+                    </button>
+                  </div>
+                  {creatorStudioOpen ? (
+                    <div className="panel studio-mock-panel creator-studio-panel-wrap">
+                      <CreatorStudioPanel
+                        project={project}
+                        episode={activeEpisode}
+                        episodeNumber={selectedEpisode ?? activeEpisode.number}
+                        patchProject={patchProject}
+                        thumbnailUrl={renderSourceUrls[0] ?? null}
+                      />
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
             </>
           )}
           </div>

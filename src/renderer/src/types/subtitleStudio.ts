@@ -110,7 +110,7 @@ export function defaultSubtitleStudioAdvanced(): SubtitleStudioAdvanced {
     glowColor: 'rgba(251,191,36,0.45)',
     glowBlurPx: 12,
     bgColor: '#060810',
-    bgOpacity: 0.62,
+    bgOpacity: 0,
     boxScaleXPct: 100,
     boxScaleYPct: 100,
     roundedBoxPx: 10,

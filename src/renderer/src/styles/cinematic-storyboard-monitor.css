@@ -401,7 +401,13 @@
 }
 
 .studio-mock-monitor-section--characters-collapsed .studio-mock-characters-wireframe-panel {
-  display: none;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  padding: 0;
+  margin: 0;
+  border: none;
 }
 
 .studio-mock-monitor-body--storyboard {

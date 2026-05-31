@@ -44,7 +44,8 @@ export function StudioSceneSectionPanel({
     return mem.map((m) => `${m.label} (${m.gender})`).join(' · ')
   }, [project.characterIdentityMemory])
 
-  const needsBatch = !project.assetsGenerationApproved || coverage.missing.length > 0
+  const needsBatch = coverage.total > 0 && coverage.withImage < coverage.total
+  const batchBusy = generating || regenBusy
 
   if (!activeScene) {
     return <p className="studio-scene-section__empty">{uiText('studioSceneSectionEmpty')}</p>
@@ -65,13 +66,18 @@ export function StudioSceneSectionPanel({
           <button
             type="button"
             className="btn btn-generate-cta studio-scene-section__batch-btn"
-            disabled={generating || rendering || regenBusy}
+            disabled={batchBusy || rendering}
             onClick={onApproveSceneImages}
           >
-            {regenBusy || generating
+            {batchBusy
               ? uiText('storyboardRegeneratingImages')
               : uiText('studioSceneGenerateAllImages')}
           </button>
+        ) : null}
+        {!needsBatch && coverage.total > 0 ? (
+          <p className="studio-scene-section__complete" role="status">
+            {uiText('studioSceneImagesComplete')}
+          </p>
         ) : null}
       </div>
       {needsBatch && coverage.missing.length > 0 ? (
