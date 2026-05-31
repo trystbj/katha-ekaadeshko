@@ -1346,5 +1346,12 @@ export const en = {
   smartRegenNarration: 'Regenerate narration',
   smartRegenMotion: 'Regenerate motion',
   smartRegenScene: 'Regenerate entire scene',
-  cineMonitorPage: 'Scenes {{page}} / {{total}}'
+  cineMonitorPage: 'Scenes {{page}} / {{total}}',
+  studioSceneSectionPreStory:
+    'Generate your story to unlock the AI Director and scene tools. Scene thumbnails and story order will appear in the Story Monitor.',
+  studioSceneSectionLead: 'AI Director and tools for the selected scene',
+  studioSceneSectionMonitorNote: 'Scenes, narration, and dialogue are listed in the Story Monitor →',
+  studioSceneSectionEmpty: 'No scenes in this episode yet.',
+  studioSceneApproveImages: 'Generate scene images',
+  storyboardCcDrawer: 'Subtitles (CC)'
 }

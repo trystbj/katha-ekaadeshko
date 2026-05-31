@@ -1,18 +1,24 @@
 import { useState } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
-import type { StoryScene } from '../types/story'
+import type { ProjectState, StoryEpisode, StoryScene } from '../types/story'
 import { LiveScriptPreview } from './LiveScriptPreview'
-import { StudioSceneCardsTab } from './StudioSceneCardsTab'
 import { StoryGenerationDefaultsPicker } from './StoryGenerationDefaultsPicker'
+import { StudioSceneSectionPanel } from './StudioSceneSectionPanel'
+import { StudioSceneSectionPlaceholder } from './StudioSceneSectionPlaceholder'
 import type { StreamRevealState } from '../store/useStudioStore'
+import type { SmartRegenAction } from './SmartSceneRegenMenu'
 import '../styles/studio-script-workspace.css'
 
 export type StudioScriptTab = 'scenes' | 'script' | 'voice'
 
 type Props = {
+  project: ProjectState | null
+  episode: StoryEpisode | null | undefined
+  storyGenerated: boolean
   scenes: StoryScene[]
   rawStructured?: string
   busy: boolean
+  busyLabel?: string | null
   streamLines: string[]
   streamReveal?: StreamRevealState | null
   focusedSpeaker?: string | null
@@ -20,32 +26,41 @@ type Props = {
   emptyHint?: string
   activeSceneIndex?: number
   onActiveSceneIndex?: (sceneIndex: number) => void
-  sceneThumbUrl?: (scene: StoryScene) => string | undefined
-  sceneDurationSec?: (scene: StoryScene) => number | undefined
+  onSmartRegen?: (sceneIndex: number, action: SmartRegenAction) => void
+  onRegenerateMissingSceneImages?: () => void
+  onGenerateFinalVideo?: () => void
+  onApproveSceneImages?: () => void
 }
 
 export function StudioScriptWorkspaceTabs({
+  project,
+  episode,
+  storyGenerated,
   scenes,
   rawStructured,
   busy,
+  busyLabel = null,
   streamLines,
   streamReveal,
   focusedSpeaker,
   onSceneFocus,
   emptyHint,
   activeSceneIndex,
-  onActiveSceneIndex,
-  sceneThumbUrl,
-  sceneDurationSec
+  onSmartRegen,
+  onRegenerateMissingSceneImages,
+  onGenerateFinalVideo,
+  onApproveSceneImages
 }: Props) {
   const uiText = useUiText()
-  const [tab, setTab] = useState<StudioScriptTab>('scenes')
+  const [tab, setTab] = useState<StudioScriptTab>(storyGenerated ? 'scenes' : 'script')
 
   const tabs: { id: StudioScriptTab; label: string }[] = [
     { id: 'scenes', label: uiText('studioTabScenes') },
     { id: 'script', label: uiText('studioTabScript') },
     { id: 'voice', label: uiText('studioTabVoice') }
   ]
+
+  const activeIx = activeSceneIndex ?? scenes[0]?.index ?? 1
 
   return (
     <div className="studio-script-workspace">
@@ -66,18 +81,20 @@ export function StudioScriptWorkspaceTabs({
 
       <div className="studio-script-workspace__body" role="tabpanel">
         {tab === 'scenes' ? (
-          <StudioSceneCardsTab
-            scenes={scenes}
-            activeSceneIndex={activeSceneIndex}
-            onSelectScene={(sceneIndex) => {
-              const sc = scenes.find((s) => s.index === sceneIndex)
-              onActiveSceneIndex?.(sceneIndex)
-              if (sc) onSceneFocus?.(sc.character, sceneIndex)
-            }}
-            emptyHint={emptyHint}
-            sceneThumbUrl={sceneThumbUrl}
-            sceneDurationSec={sceneDurationSec}
-          />
+          storyGenerated && project && episode ? (
+            <StudioSceneSectionPanel
+              project={project}
+              episode={episode}
+              activeSceneIndex={activeIx}
+              busyLabel={busyLabel}
+              onSmartRegen={onSmartRegen}
+              onRegenerateMissingSceneImages={onRegenerateMissingSceneImages}
+              onGenerateFinalVideo={onGenerateFinalVideo}
+              onApproveSceneImages={onApproveSceneImages}
+            />
+          ) : (
+            <StudioSceneSectionPlaceholder />
+          )
         ) : null}
 
         {tab === 'script' ? (
@@ -91,7 +108,7 @@ export function StudioScriptWorkspaceTabs({
             onSceneFocus={onSceneFocus}
             emptyHint={emptyHint}
             screenplayMode
-            activeSceneIndex={activeSceneIndex}
+            activeSceneIndex={storyGenerated ? activeIx : undefined}
           />
         ) : null}
 

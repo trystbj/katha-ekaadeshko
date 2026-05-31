@@ -69,6 +69,9 @@ export function CinematicStoryboardTile({
   const sceneTitle =
     scene.sceneTitle?.trim() ||
     uiText('cineSceneNum', { n: String(scene.index) })
+  const narrationBody = (scene.narrationText ?? scene.text).trim()
+  const dialogueLines = scene.dialogueLines ?? []
+  const showStoryCopy = active || expanded
 
   const subtitleLine =
     subtitleStudio.subtitlesOn && scene.text.trim()
@@ -114,6 +117,27 @@ export function CinematicStoryboardTile({
               </span>
             ))}
           </div>
+
+          {showStoryCopy && narrationBody ? (
+            <p className="cine-sb-tile__narration">{narrationBody}</p>
+          ) : null}
+
+          {showStoryCopy && dialogueLines.length
+            ? dialogueLines.map((d, di) => (
+                <p key={`dlg-${scene.index}-${di}`} className="cine-sb-tile__dialogue">
+                  <span className="cine-sb-tile__dialogue-who">{d.character}</span>
+                  {Glyphs.colon}
+                  {Glyphs.space}
+                  {Glyphs.ldquo}
+                  {d.line}
+                  {Glyphs.rdquo}
+                </p>
+              ))
+            : null}
+
+          {showStoryCopy && scene.visualDescription?.trim() ? (
+            <p className="cine-sb-tile__visual">{scene.visualDescription.trim()}</p>
+          ) : null}
 
           <div className="cine-sb-tile__meta-row">
             <span className="cine-sb-tile__meta" title={uiText(model.motionKey)}>

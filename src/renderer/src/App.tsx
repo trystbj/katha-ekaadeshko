@@ -40,7 +40,6 @@ import {
   DEFAULT_CHARACTER_CONSISTENCY_LOCKS,
   type CharacterConsistencyLocks as CharacterConsistencyLocksState
 } from './types/story'
-import { buildStoryboardTileModels } from './utils/cinematicStoryboardSceneModel'
 import type { SmartRegenAction } from './components/SmartSceneRegenMenu'
 import { useVisualGeneration } from './hooks/useVisualGeneration'
 import { useVideoGeneration } from './hooks/useVideoGeneration'
@@ -466,15 +465,6 @@ export default function App() {
     [renderSourceUrls]
   )
 
-  const previewCastPortraits = useMemo(
-    () =>
-      (project?.bible?.characters ?? [])
-        .filter((c) => c.baseImageUrl)
-        .slice(0, 4)
-        .map((c) => ({ name: c.name, url: String(c.baseImageUrl), role: c.role })),
-    [project?.bible?.characters]
-  )
-
   const [embeddedPreviewIndex, setEmbeddedPreviewIndex] = useState(0)
   const [embeddedHeroOverride, setEmbeddedHeroOverride] = useState<string | null>(null)
   const [characterPreviewId, setCharacterPreviewId] = useState<string | null>(null)
@@ -483,18 +473,6 @@ export default function App() {
     () => project?.bible?.characters.find((c) => c.id === characterPreviewId) ?? null,
     [characterPreviewId, project?.bible?.characters]
   )
-
-  const sceneDurationByIndex = useMemo(() => {
-    if (!project || !activeEpisode) return new Map<number, number>()
-    const models = buildStoryboardTileModels({
-      project,
-      episode: activeEpisode,
-      cinematicPlan: activeEpisode.cinematicDirectorPlan ?? null,
-      busyLabel: busy,
-      narratorLabel: ''
-    })
-    return new Map(models.map((m) => [m.scene.index, m.durationSec]))
-  }, [activeEpisode, busy, project])
 
   const pipelineSceneTotalEstimate = useMemo(() => {
     const fromEpisode = activeEpisode?.scenes?.length ?? 0
@@ -1229,21 +1207,18 @@ export default function App() {
                   jobProgress={job?.progress}
                   celebrateComplete={celebratePipelineComplete}
                   celebrateTitleKey="previewCelebrateStoryboard"
-                  onGenerateFinalVideo={onGenerateFinalVideo}
-                  onRegenerateMissingSceneImages={onRegenerateMissingSceneImages}
-                  onGenerateVisuals={() => approveAndGenerateAllSceneImages()}
                   patchProject={patchProject}
                 />
               ) : (
                 <PreviewStage
-                  sectionClassName="studio-mock-preview-wrap workspace-premium__stage"
+                  sectionClassName={`studio-mock-preview-wrap workspace-premium__stage${project?.bible ? ' preview-stage--maximize' : ''}`}
                   seasonId={studioSeasonId}
                   sceneUrls={renderSourceUrls}
                   heroUrl={embeddedHeroOverride}
                   carouselIndex={embeddedPreviewIndex}
                   sceneCount={activeEpisode?.scenes?.length}
-                  castPortraits={characterPreviewChar ? [] : previewCastPortraits}
-                  hideCastLayer={Boolean(characterPreviewChar)}
+                  castPortraits={[]}
+                  hideCastLayer
                   showSceneNav={(activeEpisode?.scenes?.length ?? 0) > 1}
                   onCarouselIndexChange={(i) => {
                     setCharacterPreviewId(null)
@@ -1443,32 +1418,28 @@ export default function App() {
             <div className="panel studio-mock-panel studio-mock-script-panel">
               <div ref={scriptGenDefaultsPortalRef} className="studio-mock-script-panel__portal-host">
                 <StudioScriptWorkspaceTabs
+                  project={project}
+                  episode={activeEpisode}
+                  storyGenerated={Boolean(project?.bible)}
                   scenes={scriptPanelScenes}
                   rawStructured={activeEpisode?.rawStructured}
                   busy={Boolean(busy)}
+                  busyLabel={busy}
                   streamLines={job?.log?.slice(-20) ?? []}
                   streamReveal={streamReveal}
                   focusedSpeaker={focusedSceneSpeaker}
                   activeSceneIndex={activeEpisode?.scenes[embeddedPreviewIndex]?.index}
-                  sceneThumbUrl={(sc) => sceneUrlForIndex(project, sc.index)}
-                  sceneDurationSec={(sc) => sceneDurationByIndex.get(sc.index)}
-                  onActiveSceneIndex={(sceneIndex) => {
-                    const ix = activeEpisode?.scenes.findIndex((s) => s.index === sceneIndex) ?? -1
-                    if (ix >= 0) onMonitorSceneSelect(ix)
-                  }}
+                  onSmartRegen={onMonitorSmartRegen}
+                  onRegenerateMissingSceneImages={onRegenerateMissingSceneImages}
+                  onGenerateFinalVideo={onGenerateFinalVideo}
+                  onApproveSceneImages={approveAndGenerateAllSceneImages}
                   onSceneFocus={(speaker, sceneIndex) => {
                     setCharacterPreviewId(null)
                     setFocusedSceneSpeaker(speaker.trim())
-                    const url = sceneUrlForIndex(project, sceneIndex)
                     const ix =
-                      activeEpisode?.scenes.findIndex((s) => s.index === sceneIndex) ??
-                      renderSourceUrls.indexOf(url ?? '')
+                      activeEpisode?.scenes.findIndex((s) => s.index === sceneIndex) ?? -1
                     if (ix >= 0) {
                       onMonitorSceneSelect(ix)
-                    } else if (url) {
-                      const uix = renderSourceUrls.indexOf(url)
-                      setEmbeddedHeroOverride(null)
-                      setEmbeddedPreviewIndex(uix >= 0 ? uix : 0)
                     }
                     console.info('[katha:preview]', 'script_scene_focus', { sceneIndex, ix })
                   }}

@@ -35,7 +35,7 @@ export function CinematicStoryboardMonitor({
 }: Props) {
   const uiText = useUiText()
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [viewMode, setViewMode] = useState<StoryboardViewMode>('compact')
+  const [viewMode, setViewMode] = useState<StoryboardViewMode>('cinematic')
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [page, setPage] = useState(0)
 
@@ -79,6 +79,7 @@ export function CinematicStoryboardMonitor({
 
   useEffect(() => {
     scrollToTile(activeTileIndex)
+    setExpandedIndex(activeTileIndex)
   }, [activeTileIndex, scrollToTile])
 
   useEffect(() => {

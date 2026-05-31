@@ -160,3 +160,49 @@
 .studio-scene-cards__speaker {
   font-weight: 700;
 }
+
+.studio-scene-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior: contain;
+}
+
+.studio-scene-section__lead,
+.studio-scene-section__monitor-note,
+.studio-scene-section__hint {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  opacity: 0.82;
+}
+
+.studio-scene-section__cast {
+  margin: 0;
+  font-size: 0.68rem;
+  opacity: 0.85;
+}
+
+.studio-scene-section__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.studio-scene-section__render-btn {
+  flex: 1 1 auto;
+  min-width: 8rem;
+}
+
+.studio-scene-section__placeholder,
+.studio-scene-section__empty {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  opacity: 0.85;
+}

@@ -55,25 +55,25 @@
 }
 
 /* Dock stays below preview — never covers stage */
-.storyboard-workspace__dock {
-  flex: 0 1 auto;
-  max-height: min(42vh, 340px);
-  min-height: 0;
-  overflow-x: clip;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  display: flex;
-  flex-direction: column;
-  gap: var(--studio-layout-gap);
-  padding-top: var(--studio-panel-safe-pad);
-  border-top: 1px solid rgba(212, 175, 55, 0.22);
+.storyboard-workspace--preview-focus .storyboard-workspace__dock {
+  display: none;
 }
 
-.storyboard-workspace__timeline {
+.cine-sb-monitor__flow {
+  overflow-y: auto;
   overflow-x: clip;
-  overflow-y: visible;
-  flex-wrap: wrap;
-  max-width: 100%;
+  overscroll-behavior: contain;
+}
+
+.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active):not(.cine-sb-tile--expanded) .cine-sb-tile__body,
+.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active):not(.cine-sb-tile--expanded) .cine-sb-tile__actions {
+  display: flex;
+}
+
+.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active):not(.cine-sb-tile--expanded) .cine-sb-tile__narration,
+.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active):not(.cine-sb-tile--expanded) .cine-sb-tile__dialogue,
+.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active):not(.cine-sb-tile--expanded) .cine-sb-tile__visual {
+  display: none;
 }
 
 .storyboard-subtitle-toolbar,
@@ -156,7 +156,9 @@
   flex: 1 1 auto;
   min-height: 0;
   max-height: none;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -180,11 +182,6 @@
 
 .cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active) .cine-sb-tile__frame {
   min-height: 52px;
-}
-
-.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active):not(.cine-sb-tile--expanded) .cine-sb-tile__body,
-.cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active):not(.cine-sb-tile--expanded) .cine-sb-tile__actions {
-  display: none;
 }
 
 .cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active) {
