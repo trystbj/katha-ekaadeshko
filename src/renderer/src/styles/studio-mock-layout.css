@@ -1033,7 +1033,8 @@
   }
 
   .studio-mock-row-4 > .studio-mock-col--story > .studio-mock-panel:first-child {
-    padding-top: 0 !important;
+    padding: 0 !important;
+    gap: var(--studio-mock-label-body-gap, 4px) !important;
   }
 }
 
@@ -1048,6 +1049,7 @@
 .studio-mock-col--story {
   padding-inline: 4px;
   padding-right: 2px;
+  padding-block: 0;
 }
 
 /* Same horizontal inset as story column (3) so edges line up; border sits on inner body only — not on monitor title */
@@ -1256,7 +1258,7 @@
 .studio-mock-col--story {
   overflow-y: auto;
   overflow-x: hidden;
-  gap: 3px;
+  gap: var(--studio-mock-label-body-gap, 4px);
   display: flex;
   flex-direction: column;
 }
@@ -1611,8 +1613,13 @@
 }
 
 .studio-mock-col--story > .studio-mock-panel:first-child > .studio-mock-section-title {
-  margin-bottom: var(--studio-mock-label-body-gap, 4px) !important;
+  margin: 0 !important;
   font-size: 1.05rem !important;
+}
+
+.studio-mock-col--story > .studio-mock-panel:first-child > .studio-mock-section-title.studio-mock-section-title--split {
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 .studio-mock-col--story
@@ -4104,7 +4111,7 @@
 .studio-mock-col--story > .studio-mock-panel:first-child {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--studio-mock-label-body-gap, 4px);
   min-width: 0;
   overflow: hidden;
 }

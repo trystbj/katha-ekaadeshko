@@ -272,11 +272,23 @@
   box-shadow: none !important;
 }
 
-/* Column header alignment */
-.studio-mock-row-4 > .studio-mock-col--story > .studio-mock-panel > .studio-mock-section-title,
+/* Story column top aligns with Story Monitor — label strip + content frame */
+.app-shell.studio-mock-layout--fullscreen .studio-mock-row-4 > .studio-mock-col--story {
+  padding-top: 0;
+}
+
+.studio-mock-row-4 > .studio-mock-col--story > .studio-mock-panel:first-child > .studio-mock-section-title,
 .studio-mock-col--monitor > .studio-mock-monitor-title {
-  min-height: 2rem;
+  height: var(--studio-mock-label-bar-height, 2.65rem);
+  min-height: var(--studio-mock-label-bar-height, 2.65rem);
+  max-height: var(--studio-mock-label-bar-height, 2.65rem);
+  margin: 0 !important;
   align-items: center;
+  box-sizing: border-box;
+}
+
+.studio-mock-col--story > .studio-mock-panel:first-child > .studio-mock-idea-wrap {
+  margin-top: 0;
 }
 
 #studio-story-actions.studio-mock-actions-row {
