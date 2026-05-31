@@ -100,6 +100,12 @@ import { collectRenderImageUrls } from './utils/collectRenderImageUrls'
 import { dedupeScenePreviewUrls, sceneStillUrlsForEpisode, sceneUrlForIndex } from './utils/sceneAssetMap'
 import { resumeEpisodeVideoRenderIfNeeded } from './utils/episodeVideoRender'
 import { CreatorStudioPanel } from './components/CreatorStudioPanel'
+import { StudioProductionBottomBar } from './components/StudioProductionBottomBar'
+import {
+  downloadMarkdownFile,
+  projectToMarkdown,
+  safeFilenameFromTitle
+} from './utils/exportStoryMarkdown'
 
 function splitStudioSubtitleGraphemes(text: string): string[] {
   if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
@@ -625,6 +631,23 @@ export default function App() {
       setBusy(null)
     }
   }, [patchProject, selectedEpisode, setBusy, setError])
+
+  const onExportProject = useCallback(() => {
+    const p = useStudioStore.getState().project
+    if (!p?.bible) return
+    const body = projectToMarkdown(p)
+    downloadMarkdownFile(`${safeFilenameFromTitle(p.title)}.md`, body)
+  }, [])
+
+  const onAdvancedEditor = useCallback(() => {
+    setCreatorStudioOpen(true)
+    setCharactersMonitorOpen(false)
+    requestAnimationFrame(() => {
+      document
+        .getElementById('studio-wireframe-creator')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+  }, [])
 
   const onGenerateFinalVideo = useCallback(() => {
     const p = useStudioStore.getState().project
@@ -1703,7 +1726,8 @@ export default function App() {
                     activeTileIndex={embeddedPreviewIndex}
                     onActiveTileIndexChange={onMonitorSceneSelect}
                     busyLabel={busy}
-                    onSmartRegen={onMonitorSmartRegen}
+                    onRegenerateScene={onMonitorRegenerateScene}
+                    onReplaceSceneImage={onMonitorReplaceSceneImage}
                   />
                 </section>
               ) : null}
@@ -1836,6 +1860,16 @@ export default function App() {
           </div>
         </aside>
         </div>
+        {showStoryboardPreview && project?.bible ? (
+          <StudioProductionBottomBar
+            savedLabel={uiText('studioBarAllChangesSaved')}
+            disabled={Boolean(busy)}
+            rendering={busy === 'rendering'}
+            onAdvancedEditor={onAdvancedEditor}
+            onExportProject={onExportProject}
+            onGenerateVideo={onGenerateFinalVideo}
+          />
+        ) : null}
         </div>
       </main>
 

@@ -121,14 +121,7 @@ export function StoryboardPreviewWorkspace({
         />
       </div>
 
-      <details className="storyboard-workspace__cc-drawer">
-        <summary>{uiText('storyboardCcDrawer')}</summary>
-        <StoryboardSubtitleToolbar
-          studio={studio}
-          disabled={rendering}
-          onPatch={patchSubtitle}
-        />
-      </details>
+      <StoryboardSubtitleToolbar studio={studio} disabled={rendering} onPatch={patchSubtitle} />
 
       {celebrateComplete ? (
         <p className="storyboard-workspace__celebrate-caption" role="status">

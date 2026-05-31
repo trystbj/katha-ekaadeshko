@@ -1353,5 +1353,15 @@ export const en = {
   studioSceneSectionMonitorNote: 'Scenes, narration, and dialogue are listed in the Story Monitor →',
   studioSceneSectionEmpty: 'No scenes in this episode yet.',
   studioSceneApproveImages: 'Generate scene images',
-  storyboardCcDrawer: 'Subtitles (CC)'
+  storyboardCcDrawer: 'Subtitles (CC)',
+  storyboardSubtitleRailAria: 'Subtitle formatting',
+  subtitleToolbarStyle: 'Text style',
+  cineActionDetails: 'Details',
+  cineShotLabel: 'Shot',
+  cineShotWideNatural: 'Wide — Natural',
+  cineDurationLabel: 'Duration',
+  studioBarAdvancedEditor: 'Advanced editor',
+  studioBarExportProject: 'Export project',
+  studioBarGenerateVideo: 'Generate video',
+  studioBarAllChangesSaved: 'All changes saved'
 }

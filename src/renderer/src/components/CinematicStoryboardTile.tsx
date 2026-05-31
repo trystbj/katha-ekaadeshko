@@ -3,23 +3,17 @@ import { useUiText } from '../i18n/useAppI18n'
 import { Glyphs } from '../i18n/uiGlyphs'
 import type { CinematicStoryboardTileModel } from '../utils/cinematicStoryboardSceneModel'
 import type { SubtitleStudioState } from '../types/subtitleStudio'
-import { storyboardSubtitleOverlayStyle } from '../utils/storyboardSubtitleOverlay'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { SmartSceneRegenMenu, type SmartRegenAction } from './SmartSceneRegenMenu'
-type ViewMode = 'compact' | 'cinematic'
 
 type Props = {
   model: CinematicStoryboardTileModel
   active: boolean
   expanded: boolean
-  viewMode: ViewMode
   subtitleStudio: SubtitleStudioState
-  narratorLabel: string
   onSelect: () => void
   onToggleExpand: () => void
   onRegenerateScene?: () => void
   onReplaceImage?: () => void
-  onSmartRegen?: (action: SmartRegenAction) => void
   busy?: boolean
 }
 
@@ -32,155 +26,127 @@ const STATUS_I18N: Record<string, string> = {
   rendered: 'cineStatusRendered'
 }
 
-function motionPreviewClass(preset: string | undefined): string {
-  const p = String(preset || 'static')
-  const map: Record<string, string> = {
-    slow_zoom_in: 'cinematic-player__motion-layer--slow_zoom_in',
-    cinematic_push: 'cinematic-player__motion-layer--cinematic_push',
-    pull_out: 'cinematic-player__motion-layer--pull_out',
-    parallax_float: 'cinematic-player__motion-layer--parallax_float',
-    smooth_pan: 'cinematic-player__motion-layer--smooth_pan',
-    handheld_micro: 'cinematic-player__motion-layer--handheld_micro',
-    shake_dramatic: 'cinematic-player__motion-layer--shake_dramatic'
-  }
-  return map[p] || ''
+function sceneSummary(scene: CinematicStoryboardTileModel['scene'], maxLen = 220): string {
+  const body = (scene.narrationText ?? scene.text).trim()
+  if (!body) return scene.visualDescription?.trim() || ''
+  return body.length > maxLen ? `${body.slice(0, maxLen).trim()}…` : body
 }
 
 export function CinematicStoryboardTile({
   model,
   active,
   expanded,
-  viewMode,
-  subtitleStudio,
-  narratorLabel,
   onSelect,
   onToggleExpand,
   onRegenerateScene,
   onReplaceImage,
-  onSmartRegen,
   busy = false
 }: Props) {
   const uiText = useUiText()
   const reduced = usePrefersReducedMotion()
   const [hover, setHover] = useState(false)
   const { scene, imageUrl, plan } = model
-  const showMiniMotion = hover && !reduced && imageUrl
-  const motionClass = motionPreviewClass(plan?.motion?.preset)
-  const sceneTitle =
-    scene.sceneTitle?.trim() ||
-    uiText('cineSceneNum', { n: String(scene.index) })
-  const narrationBody = (scene.narrationText ?? scene.text).trim()
-  const dialogueLines = scene.dialogueLines ?? []
-  const showStoryCopy = active || expanded
+  const showMiniMotion = hover && !reduced && imageUrl && active
 
-  const subtitleLine =
-    subtitleStudio.subtitlesOn && scene.text.trim()
-      ? scene.text.trim()
-      : ''
+  const sceneTitle =
+    scene.sceneTitle?.trim() || uiText('cineSceneNum', { n: String(scene.index) })
+  const summary = sceneSummary(scene)
+  const mood =
+    scene.emotionalTone?.trim() || (plan?.emotion ? uiText(`cineMood_${plan.emotion}`) : '')
+  const shot = scene.cameraDirection?.trim() || uiText('cineShotWideNatural')
+  const primaryStatus = model.statuses.includes('generated')
+    ? 'generated'
+    : model.statuses[model.statuses.length - 1]
+
+  if (!active) {
+    return (
+      <article
+        className="cine-sb-tile cine-sb-tile--collapsed"
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+      >
+        <button type="button" className="cine-sb-tile__collapsed-btn" onClick={onSelect}>
+          <span className="cine-sb-tile__collapsed-kicker">
+            {uiText('cineSceneNum', { n: String(scene.index) })}
+          </span>
+          <span className="cine-sb-tile__collapsed-title">{sceneTitle}</span>
+          <span
+            className="cine-sb-tile__collapsed-thumb"
+            style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}
+          />
+        </button>
+      </article>
+    )
+  }
 
   return (
     <article
-      className={`cine-sb-tile${active ? ' cine-sb-tile--active' : ''}${expanded ? ' cine-sb-tile--expanded' : ''}${viewMode === 'cinematic' ? ' cine-sb-tile--cinematic' : ''}${!imageUrl ? ' cine-sb-tile--no-img' : ''}`}
+      className={`cine-sb-tile cine-sb-tile--active cine-sb-tile--cinematic${expanded ? ' cine-sb-tile--expanded' : ''}${!imageUrl ? ' cine-sb-tile--no-img' : ''}`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div className="cine-sb-tile__connector" aria-hidden />
-
       <button type="button" className="cine-sb-tile__select" onClick={onSelect}>
         <div className="cine-sb-tile__frame">
           {imageUrl ? (
             <div
-              className={`cine-sb-tile__img-wrap${showMiniMotion && motionClass ? ` ${motionClass}` : ''}`}
+              className={`cine-sb-tile__img-wrap${showMiniMotion ? ' cine-sb-tile__img-wrap--hover' : ''}`}
               style={{ backgroundImage: `url(${imageUrl})` }}
             />
           ) : (
             <div className="cine-sb-tile__img-placeholder" />
           )}
-          <span className="cine-sb-tile__scene-num">
-            {uiText('cineSceneNum', { n: scene.index })}
+          <span className="cine-sb-tile__scene-badge">
+            {uiText('cineSceneNum', { n: String(scene.index) })}
           </span>
-          {subtitleLine && subtitleStudio.subtitlesOn ? (
-            <div className="cine-sb-tile__sub-overlay" style={storyboardSubtitleOverlayStyle(subtitleStudio)}>
-              {subtitleLine.slice(0, viewMode === 'compact' ? 72 : 140)}
-              {subtitleLine.length > 140 ? '…' : ''}
-            </div>
-          ) : null}
         </div>
 
         <div className="cine-sb-tile__body">
-          <p className="cine-sb-tile__scene-title">{sceneTitle}</p>
+          <h4 className="cine-sb-tile__scene-title">{sceneTitle}</h4>
 
-          <div className="cine-sb-tile__tags">
-            {model.tagKeys.map((key) => (
-              <span key={key} className="cine-sb-tile__tag">
-                {uiText(key)}
+          {summary ? <p className="cine-sb-tile__summary">{summary}</p> : null}
+
+          <div className="cine-sb-tile__facts">
+            {mood ? (
+              <span className="cine-sb-tile__fact">
+                <span className="cine-sb-tile__fact-label">{uiText('aiDirectorMood')}</span>
+                {mood}
               </span>
-            ))}
+            ) : null}
+            <span className="cine-sb-tile__fact">
+              <span className="cine-sb-tile__fact-label">{uiText('cineShotLabel')}</span>
+              {shot}
+            </span>
+            <span className="cine-sb-tile__fact">
+              <span className="cine-sb-tile__fact-label">{uiText('cineDurationLabel')}</span>
+              {model.durationSec}s
+            </span>
           </div>
 
-          {showStoryCopy && narrationBody ? (
-            <p className="cine-sb-tile__narration">{narrationBody}</p>
+          {model.tagKeys.length ? (
+            <div className="cine-sb-tile__tags">
+              {model.tagKeys.map((key) => (
+                <span key={key} className="cine-sb-tile__tag">
+                  {uiText(key)}
+                </span>
+              ))}
+            </div>
           ) : null}
 
-          {showStoryCopy && dialogueLines.length
-            ? dialogueLines.map((d, di) => (
+          {(scene.dialogueLines ?? []).length && expanded
+            ? (scene.dialogueLines ?? []).map((d, di) => (
                 <p key={`dlg-${scene.index}-${di}`} className="cine-sb-tile__dialogue">
                   <span className="cine-sb-tile__dialogue-who">{d.character}</span>
-                  {Glyphs.colon}
-                  {Glyphs.space}
-                  {Glyphs.ldquo}
+                  {Glyphs.colon} {Glyphs.ldquo}
                   {d.line}
                   {Glyphs.rdquo}
                 </p>
               ))
             : null}
 
-          {showStoryCopy && scene.visualDescription?.trim() ? (
-            <p className="cine-sb-tile__visual">{scene.visualDescription.trim()}</p>
-          ) : null}
-
-          <div className="cine-sb-tile__meta-row">
-            <span className="cine-sb-tile__meta" title={uiText(model.motionKey)}>
-              {uiText(model.motionKey)}
+          <div className="cine-sb-tile__status-row">
+            <span className={`cine-sb-tile__status-pill cine-sb-tile__status-pill--${primaryStatus}`}>
+              {uiText(STATUS_I18N[primaryStatus] ?? primaryStatus)}
             </span>
-            <span className="cine-sb-tile__meta">{uiText(model.transitionKey)}</span>
-            <span className="cine-sb-tile__meta">
-              {model.durationSec}s{Glyphs.space}
-              {Glyphs.middot}
-              {Glyphs.space}
-              {uiText(model.moodKey)}
-            </span>
-          </div>
-
-          <div className="cine-sb-tile__voice">
-            <span className="cine-sb-tile__voice-ic" aria-hidden>
-              ♪
-            </span>
-            {narratorLabel}
-            {plan?.subtitle?.leadInMs != null ? (
-              <span className="cine-sb-tile__timing">
-                {Glyphs.middot}
-                {Glyphs.space}+{plan.subtitle.leadInMs}ms
-              </span>
-            ) : null}
-          </div>
-
-          {model.castLabels.length ? (
-            <div className="cine-sb-tile__cast">
-              {model.castLabels.map((label) => (
-                <span key={label} className="cine-sb-tile__cast-chip">
-                  {label}
-                </span>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="cine-sb-tile__statuses">
-            {model.statuses.map((s) => (
-              <span key={s} className={`cine-sb-tile__status cine-sb-tile__status--${s}`}>
-                {uiText(STATUS_I18N[s] ?? s)}
-              </span>
-            ))}
           </div>
         </div>
       </button>
@@ -188,27 +154,19 @@ export function CinematicStoryboardTile({
       <div className="cine-sb-tile__actions">
         <button
           type="button"
-          className="btn btn-ghost btn-small"
+          className="btn btn-ghost btn-small cine-sb-tile__action-btn"
           aria-expanded={expanded}
           onClick={(e) => {
             e.stopPropagation()
             onToggleExpand()
           }}
         >
-          {expanded ? uiText('cineTileCollapse') : uiText('cineTileExpand')}
+          {uiText('cineActionDetails')}
         </button>
-        {onSmartRegen ? (
-          <SmartSceneRegenMenu
-            disabled={busy}
-            onAction={(action) => {
-              onSmartRegen(action)
-            }}
-          />
-        ) : null}
-        {onRegenerateScene && !onSmartRegen ? (
+        {onRegenerateScene ? (
           <button
             type="button"
-            className="btn btn-ghost btn-small"
+            className="btn btn-ghost btn-small cine-sb-tile__action-btn"
             disabled={busy}
             onClick={(e) => {
               e.stopPropagation()
@@ -218,10 +176,10 @@ export function CinematicStoryboardTile({
             {uiText('cineActionRegenerate')}
           </button>
         ) : null}
-        {onReplaceImage && !onSmartRegen ? (
+        {onReplaceImage ? (
           <button
             type="button"
-            className="btn btn-ghost btn-small"
+            className="btn btn-ghost btn-small cine-sb-tile__action-btn"
             disabled={busy}
             onClick={(e) => {
               e.stopPropagation()
