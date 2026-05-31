@@ -4035,15 +4035,37 @@
   overflow: visible;
 }
 
-/* Story seed: +6.5mm taller box; wrap eats extra height so nothing below shifts. */
 .studio-mock-col--story > .studio-mock-panel:first-child > .studio-mock-idea-wrap {
   margin-bottom: -6.5mm;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(88px + 6.5mm);
+  padding-bottom: 0;
+  overflow: hidden;
 }
 
 .studio-mock-col--story > .studio-mock-panel:first-child .studio-mock-idea-textarea.idea-input--cinematic {
-  height: calc(88px + 6.5mm) !important;
-  min-height: calc(88px + 6.5mm) !important;
-  max-height: calc(88px + 6.5mm) !important;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  field-sizing: normal !important;
+  padding: 10px !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.35) transparent;
+}
+
+.studio-mock-col--story > .studio-mock-panel:first-child .studio-mock-idea-textarea.idea-input--cinematic::-webkit-scrollbar {
+  display: block;
+  width: 4px;
+}
+
+.studio-mock-col--story > .studio-mock-panel:first-child .studio-mock-idea-textarea.idea-input--cinematic::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: rgba(212, 175, 55, 0.35);
 }
 
 .studio-mock-idea-panel--with-generate > .studio-mock-generate-strip {
@@ -4145,19 +4167,20 @@
 
 .studio-mock-col--story .studio-mock-idea-wrap {
   flex-shrink: 0;
-  padding-bottom: 44px;
-  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
   box-sizing: border-box;
   border: 1px solid var(--studio-glass-border, rgba(212, 175, 55, 0.52));
   border-radius: 10px;
   background: var(--studio-readable-surface);
+  overflow: hidden;
 }
 
 .studio-mock-col--story > .studio-mock-panel:first-child .studio-mock-idea-textarea.idea-input--cinematic {
   border: none !important;
   border-radius: 10px !important;
   background: transparent !important;
-  width: 100%;
   box-sizing: border-box;
 }
 
@@ -4374,8 +4397,11 @@
 }
 
 .studio-mock-frame .idea-input--cinematic.studio-mock-idea-textarea {
-  padding-bottom: 40px !important;
-  padding-right: 48px !important;
+  padding: 10px !important;
+}
+
+.studio-mock-col--story .studio-mock-idea-textarea.idea-input--cinematic {
+  padding: 10px !important;
 }
 
 @keyframes studio-mock-live-gen-caret-pulse {
