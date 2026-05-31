@@ -18,10 +18,17 @@ type Props = {
   studio: SubtitleStudioState
   disabled?: boolean
   onPatch: (patch: Partial<SubtitleStudioState>) => void
+  /** Transparent controls overlaid on the preview image. */
+  overlayOnStage?: boolean
 }
 
 /** Minimal subtitle rail — size/position via on-image handles only. */
-export function StoryboardSubtitleToolbar({ studio, disabled = false, onPatch }: Props) {
+export function StoryboardSubtitleToolbar({
+  studio,
+  disabled = false,
+  onPatch,
+  overlayOnStage = false
+}: Props) {
   const uiText = useUiText()
   const adv = studio.advanced
   const off = disabled || !studio.subtitlesOn
@@ -32,7 +39,7 @@ export function StoryboardSubtitleToolbar({ studio, disabled = false, onPatch }:
 
   return (
     <div
-      className="storyboard-subtitle-rail storyboard-subtitle-rail--minimal"
+      className={`storyboard-subtitle-rail storyboard-subtitle-rail--minimal${overlayOnStage ? ' storyboard-subtitle-rail--overlay' : ''}`}
       role="region"
       aria-label={uiText('storyboardSubtitleRailAria')}
     >
@@ -44,6 +51,20 @@ export function StoryboardSubtitleToolbar({ studio, disabled = false, onPatch }:
           onChange={(e) => onPatch({ subtitlesOn: e.target.checked })}
         />
         <span>{uiText('storyboardSubtitlesOn')}</span>
+      </label>
+
+      <label className="storyboard-subtitle-rail__field storyboard-subtitle-rail__field--size">
+        <span>{uiText('subtitleStudioFontSize')}</span>
+        <input
+          type="range"
+          min={70}
+          max={160}
+          disabled={off}
+          value={adv.fontSizePct}
+          onChange={(e) => patchAdv({ fontSizePct: Number(e.target.value) })}
+          aria-label={uiText('subtitleStudioFontSize')}
+        />
+        <span className="storyboard-subtitle-rail__size-val">{adv.fontSizePct}%</span>
       </label>
 
       <label className="storyboard-subtitle-rail__field">

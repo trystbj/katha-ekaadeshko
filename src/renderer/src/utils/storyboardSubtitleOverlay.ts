@@ -1,5 +1,4 @@
 import type { CSSProperties } from 'react'
-import { buildSubtitleVttLook } from './buildSubtitleVttLook'
 import type { SubtitleStudioState } from '../types/subtitleStudio'
 import { resolveSubtitleFreePosition, storyboardSubtitlePositionStyle } from './subtitleFreePosition'
 
@@ -48,15 +47,13 @@ export function storyboardSubtitleBoxStyle(studio: SubtitleStudioState): CSSProp
   }
 }
 
-/** Cinematic text — always fully visible. */
+/** Cinematic text — size from `--subtitle-font-px` on stage (stable across scenes). */
 export function storyboardSubtitleTextStyle(studio: SubtitleStudioState): CSSProperties {
-  const look = buildSubtitleVttLook(studio)
   const adv = studio.advanced
-  const fontSizeRem = Math.min(2.2, Math.max(0.75, (look.sizePct / 100) * 1.05 * (adv.fontSizePct / 100)))
 
   return {
     fontFamily: FONT_STACKS[adv.fontCategory],
-    fontSize: `${fontSizeRem}rem`,
+    fontSize: 'var(--subtitle-font-px, 1.05rem)',
     fontWeight: adv.fontWeight,
     fontStyle: adv.fontStyle === 'italic' ? 'italic' : undefined,
     letterSpacing: `${adv.letterSpacingEm}em`,

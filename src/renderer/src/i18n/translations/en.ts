@@ -1363,6 +1363,7 @@ export const en = {
   cineShotWideNatural: 'Wide — Natural',
   cineDurationLabel: 'Duration',
   studioBarAdvancedEditor: 'Advanced editor',
+  studioBarAdvancedEditorShort: 'Edit',
   studioBarExportProject: 'Export project',
   studioBarGenerateVideo: 'Generate video',
   studioBarAllChangesSaved: 'All changes saved',

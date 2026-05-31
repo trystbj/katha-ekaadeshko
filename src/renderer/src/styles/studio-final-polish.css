@@ -1,12 +1,24 @@
-/* Final polish — cinematic subtitles, nav icons, scrollable monitor */
+/* Final polish — scrollable monitor, full preview, overlay subtitle controls */
 
 .studio-mock-monitor-body--scroll-all {
   flex: 1 1 0;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.35) transparent;
+}
+
+.studio-mock-monitor-body--scroll-all::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.studio-mock-monitor-body--scroll-all::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: rgba(212, 175, 55, 0.35);
 }
 
 .studio-mock-monitor-section {
@@ -16,16 +28,122 @@
 .studio-mock-monitor-section--storyboard {
   flex: 0 0 auto;
   min-height: min-content;
+  overflow: visible;
+}
+
+.studio-mock-monitor-body--scroll-all .cine-sb-monitor,
+.studio-mock-monitor-body--scroll-all .cine-sb-monitor__flow {
+  flex: 0 0 auto;
+  overflow: visible;
+  max-height: none;
 }
 
 .studio-mock-monitor-section--characters-collapsed .studio-mock-characters-wireframe-panel {
   display: block;
-  max-height: none;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .studio-mock-monitor-section:not(.studio-mock-monitor-section--characters-collapsed)
   .studio-mock-characters-wireframe-panel {
   display: block;
+}
+
+.studio-mock-monitor-action-btn--text {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  min-width: 2rem;
+}
+
+.studio-mock-monitor-title__production .studio-mock-monitor-action-btn {
+  color: rgba(255, 252, 246, 0.9);
+}
+
+/* Full-bleed cinematic preview (no 9:16 letterbox pocket) */
+.studio-mock-preview-slot .storyboard-workspace--preview-focus {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  background: #060a0e;
+  border-radius: 0;
+}
+
+.studio-mock-preview-slot .storyboard-workspace--preview-focus .storyboard-workspace__stage-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  min-height: unset;
+  border: none;
+  border-radius: 0;
+}
+
+.studio-mock-preview-slot .storyboard-workspace--preview-focus .preview-stage,
+.studio-mock-preview-slot .storyboard-workspace--preview-focus .storyboard-workspace__preview-stage {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  aspect-ratio: unset !important;
+  margin: 0 !important;
+}
+
+.studio-mock-preview-slot .storyboard-workspace--preview-focus .preview-stage__inner {
+  min-height: 100%;
+  height: 100%;
+}
+
+/* Subtitle settings — transparent overlay on image */
+.storyboard-subtitle-rail--overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7;
+  margin: 0;
+  padding: 10px 12px 14px;
+  border: none;
+  border-top: none;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.42));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+}
+
+.storyboard-subtitle-rail--overlay > * {
+  pointer-events: auto;
+}
+
+.storyboard-subtitle-rail--overlay .storyboard-subtitle-rail__toggle,
+.storyboard-subtitle-rail--overlay .storyboard-subtitle-rail__field,
+.storyboard-subtitle-rail--overlay .storyboard-subtitle-rail__toggles,
+.storyboard-subtitle-rail--overlay .storyboard-subtitle-rail__icon-btn {
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
+}
+
+.storyboard-subtitle-rail__field--size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  min-width: 108px;
+}
+
+.storyboard-subtitle-rail__field--size input[type='range'] {
+  flex: 1;
+  min-width: 64px;
+}
+
+.storyboard-subtitle-rail__size-val {
+  font-size: 0.62rem;
+  opacity: 0.85;
+  min-width: 2.2rem;
+  text-align: right;
 }
 
 .storyboard-subtitle-overlay__inner {
@@ -51,10 +169,6 @@
   pointer-events: none;
 }
 
-.storyboard-subtitle-overlay:not(.storyboard-subtitle-overlay--edit) .storyboard-subtitle-overlay__bg {
-  /* Cinematic default: text only unless user raised background opacity */
-}
-
 .storyboard-subtitle-rail__field--opacity span:first-child {
   font-size: 0.68rem;
   opacity: 0.85;
@@ -72,11 +186,20 @@
   filter: none;
 }
 
+/* Hide celebration burst on storyboard preview (clean cinematic frame) */
+.storyboard-workspace--preview-focus .preview-stage__celebrate {
+  display: none !important;
+}
+
+.storyboard-workspace--preview-focus .storyboard-workspace__celebrate-caption {
+  display: none;
+}
+
 .storyboard-subtitle-rail__select,
 .storyboard-subtitle-rail .select,
 .storyboard-subtitle-rail select {
   color-scheme: dark;
-  background-color: rgba(10, 16, 26, 0.98) !important;
+  background-color: rgba(10, 16, 26, 0.72) !important;
   color: rgba(255, 252, 246, 0.95) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
 }

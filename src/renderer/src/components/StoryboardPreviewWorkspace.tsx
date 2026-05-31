@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import type { ProjectState, StoryEpisode, StoryScene } from '../types/story'
 import type { StudioSeasonId } from '../constants/studioSeasonThemes'
@@ -81,6 +81,20 @@ export function StoryboardPreviewWorkspace({
     [patchSubtitle]
   )
 
+  useEffect(() => {
+    const el = stageWrapRef.current
+    if (!el) return
+    const syncFontPx = () => {
+      const h = el.clientHeight || 720
+      const px = Math.min(34, Math.max(12, Math.round(h * 0.042 * (studio.advanced.fontSizePct / 100))))
+      el.style.setProperty('--subtitle-font-px', `${px}px`)
+    }
+    syncFontPx()
+    const ro = new ResizeObserver(syncFontPx)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [studio.advanced.fontSizePct])
+
   const generating = busyLabel === 'generating'
   const rendering = busyLabel === 'rendering'
 
@@ -120,9 +134,13 @@ export function StoryboardPreviewWorkspace({
             patchSubtitle({ advanced: { ...studio.advanced, ...partial } })
           }
         />
+        <StoryboardSubtitleToolbar
+          studio={studio}
+          disabled={rendering}
+          onPatch={patchSubtitle}
+          overlayOnStage
+        />
       </div>
-
-      <StoryboardSubtitleToolbar studio={studio} disabled={rendering} onPatch={patchSubtitle} />
 
       {celebrateComplete ? (
         <p className="storyboard-workspace__celebrate-caption" role="status">

@@ -6,17 +6,18 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  background: linear-gradient(180deg, rgba(6, 12, 18, 0.55), rgba(4, 8, 14, 0.82));
-  border-radius: 10px;
+  background: #060a0e;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .storyboard-workspace--preview-focus .storyboard-workspace__stage-wrap {
   flex: 1 1 auto;
-  min-height: min(68vh, 720px);
-  border-radius: 10px 10px 0 0;
+  min-height: 0;
+  height: 100%;
+  border-radius: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: none;
   background: #060a0e;
 }
 
@@ -53,8 +54,8 @@
   border-radius: 4px;
 }
 
-/* Subtitle rail below preview */
-.storyboard-subtitle-rail {
+/* Subtitle rail — default below preview; overlay variant in studio-final-polish.css */
+.storyboard-subtitle-rail:not(.storyboard-subtitle-rail--overlay) {
   flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
@@ -65,6 +66,13 @@
   background: rgba(8, 14, 22, 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+.storyboard-subtitle-rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
 }
 
 .storyboard-subtitle-rail__toggle {

@@ -1,6 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useUiText } from '../i18n/useAppI18n'
-import { Glyphs } from '../i18n/uiGlyphs'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { episodeArcLabelKey } from '../utils/episodeSeriesFlow'
 
@@ -33,9 +32,6 @@ export function EpisodeSequentialBanner({ flashEpisodeDone, totalEpisodes }: Pro
       >
         <div className="episode-seq-banner__glow" aria-hidden />
         <p className="episode-seq-banner__next episode-seq-banner__next--only">
-          <span className="episode-seq-banner__arrow" aria-hidden>
-            {Glyphs.arrowRight}
-          </span>{' '}
           {uiText('episodeFlowNowActive', {
             n: nextN,
             m: totalEpisodes,

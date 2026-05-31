@@ -21,7 +21,6 @@ type ResizeSession = {
   handle: ResizeHandle
   startX: number
   startY: number
-  startFontSize: number
   startScaleX: number
   startScaleY: number
 }
@@ -114,20 +113,15 @@ export function StoryboardSubtitleLiveOverlay({
         const h = session.handle
         let scaleX = session.startScaleX
         let scaleY = session.startScaleY
-        let fontSize = session.startFontSize
 
         if (h.includes('e')) scaleX = session.startScaleX + dx * 0.1
         if (h.includes('w')) scaleX = session.startScaleX - dx * 0.1
         if (h.includes('s')) scaleY = session.startScaleY + dy * 0.1
         if (h.includes('n')) scaleY = session.startScaleY - dy * 0.1
-        if (h === 'se' || h === 'ne' || h === 'sw' || h === 'nw') {
-          fontSize = session.startFontSize + Math.round((-dy + dx) * 0.06)
-        }
 
         onBoxChange({
           boxScaleXPct: Math.min(200, Math.max(50, Math.round(scaleX))),
-          boxScaleYPct: Math.min(200, Math.max(50, Math.round(scaleY))),
-          fontSizePct: Math.min(160, Math.max(70, fontSize))
+          boxScaleYPct: Math.min(200, Math.max(50, Math.round(scaleY)))
         })
         return
       }
@@ -168,7 +162,6 @@ export function StoryboardSubtitleLiveOverlay({
         handle,
         startX: e.clientX,
         startY: e.clientY,
-        startFontSize: adv.fontSizePct,
         startScaleX: adv.boxScaleXPct ?? 100,
         startScaleY: adv.boxScaleYPct ?? 100
       }
