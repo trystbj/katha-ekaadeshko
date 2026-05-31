@@ -26,10 +26,53 @@ const STATUS_I18N: Record<string, string> = {
   rendered: 'cineStatusRendered'
 }
 
+function normSceneLine(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+/** Story Monitor body copy — never composed playback text when dialogue is shown separately. */
 function sceneSummary(scene: CinematicStoryboardTileModel['scene'], maxLen = 220): string {
-  const body = (scene.narrationText ?? scene.text).trim()
-  if (!body) return scene.visualDescription?.trim() || ''
+  const title = scene.sceneTitle?.trim() || ''
+  const narration = (scene.narrationText ?? '').trim()
+  const visual = scene.visualDescription?.trim() || ''
+  const dialogue = scene.dialogueLines ?? []
+
+  let body = narration
+  if (!body) {
+    if (dialogue.length) {
+      body = visual || dialogue.map((d) => d.line.trim()).find(Boolean) || ''
+    } else {
+      body = (scene.text ?? '').trim() || visual
+    }
+  }
+
+  const nt = normSceneLine(title)
+  const nb = normSceneLine(body)
+  if (nt && nb) {
+    if (nb === nt) body = ''
+    else if (nb.startsWith(nt)) {
+      body = body.slice(title.length).replace(/^[\s:—–-]+/, '').trim()
+    }
+  }
+
+  if (!body) return visual
   return body.length > maxLen ? `${body.slice(0, maxLen).trim()}…` : body
+}
+
+function monitorDialogueLines(
+  scene: CinematicStoryboardTileModel['scene'],
+  summary: string
+): Array<{ character: string; line: string }> {
+  const narration = normSceneLine((scene.narrationText ?? '').trim())
+  const sum = normSceneLine(summary.replace(/\u2026$/, '').trim())
+  return (scene.dialogueLines ?? []).filter((d) => {
+    const line = d.line.trim()
+    if (!line) return false
+    const n = normSceneLine(line)
+    if (narration && n === narration) return false
+    if (sum && n === sum) return false
+    return true
+  })
 }
 
 export function CinematicStoryboardTile({
@@ -51,6 +94,7 @@ export function CinematicStoryboardTile({
   const sceneTitle =
     scene.sceneTitle?.trim() || uiText('cineSceneNum', { n: String(scene.index) })
   const summary = sceneSummary(scene)
+  const dialogueLines = monitorDialogueLines(scene, summary)
   const mood =
     scene.emotionalTone?.trim() || (plan?.emotion ? uiText(`cineMood_${plan.emotion}`) : '')
   const shot = scene.cameraDirection?.trim() || uiText('cineShotWideNatural')
@@ -132,8 +176,8 @@ export function CinematicStoryboardTile({
             </div>
           ) : null}
 
-          {(scene.dialogueLines ?? []).length && expanded
-            ? (scene.dialogueLines ?? []).map((d, di) => (
+          {dialogueLines.length && expanded
+            ? dialogueLines.map((d, di) => (
                 <p key={`dlg-${scene.index}-${di}`} className="cine-sb-tile__dialogue">
                   <span className="cine-sb-tile__dialogue-who">{d.character}</span>
                   {Glyphs.colon} {Glyphs.ldquo}

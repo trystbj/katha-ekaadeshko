@@ -15,7 +15,7 @@ const FONT_STACKS: Record<SubtitleStudioState['advanced']['fontCategory'], strin
   display: 'system-ui, sans-serif'
 }
 
-function boxMetrics(
+export function boxMetrics(
   adv: SubtitleStudioState['advanced'],
   containerWidth: number,
   containerHeight: number
@@ -66,13 +66,30 @@ export function storyboardSubtitleBoxStyle(
   }
 }
 
-/** Cinematic text — size from `--subtitle-font-px` on stage (stable across scenes). */
-export function storyboardSubtitleTextStyle(studio: SubtitleStudioState): CSSProperties {
+/** Font px scales with resized subtitle box height × CC relative size. */
+export function storyboardSubtitleFontPx(
+  adv: SubtitleStudioState['advanced'],
+  containerWidth: number,
+  containerHeight: number
+): number {
+  const { heightPx } = boxMetrics(adv, containerWidth, containerHeight)
+  const innerH = Math.max(20, heightPx - 12)
+  const px = Math.round(innerH * 0.28 * (adv.fontSizePct / 100))
+  return Math.min(48, Math.max(11, px))
+}
+
+/** Cinematic text — size follows box resize handles and fontSizePct. */
+export function storyboardSubtitleTextStyle(
+  studio: SubtitleStudioState,
+  containerWidth: number,
+  containerHeight: number
+): CSSProperties {
   const adv = studio.advanced
+  const fontPx = storyboardSubtitleFontPx(adv, containerWidth, containerHeight)
 
   return {
     fontFamily: FONT_STACKS[adv.fontCategory],
-    fontSize: 'var(--subtitle-font-px, 1.05rem)',
+    fontSize: `${fontPx}px`,
     fontWeight: adv.fontWeight,
     fontStyle: adv.fontStyle === 'italic' ? 'italic' : undefined,
     letterSpacing: `${adv.letterSpacingEm}em`,

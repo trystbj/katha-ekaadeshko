@@ -278,7 +278,10 @@ export function StoryboardSubtitleLiveOverlay({
             {showBg ? (
               <span className="storyboard-subtitle-overlay__bg" style={bgStyle} aria-hidden />
             ) : null}
-            <span className="storyboard-subtitle-overlay__line" style={storyboardSubtitleTextStyle(studio)}>
+            <span
+              className="storyboard-subtitle-overlay__line"
+              style={storyboardSubtitleTextStyle(studio, containerWidth, containerHeight)}
+            >
               {line}
             </span>
           </span>

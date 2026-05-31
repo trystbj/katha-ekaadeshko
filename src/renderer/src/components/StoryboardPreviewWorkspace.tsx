@@ -8,6 +8,7 @@ import { ensureVideoStudio } from '../utils/ensureVideoStudio'
 import { sceneUrlForIndex } from '../utils/sceneAssetMap'
 import { useStudioStore } from '../store/useStudioStore'
 import { normalizeSubtitleStudio } from '../types/subtitleStudio'
+import { storyboardSubtitleFontPx } from '../utils/storyboardSubtitleOverlay'
 import { StoryboardSubtitleToolbar } from './StoryboardSubtitleToolbar'
 import type { SubtitleFreePosition } from '../utils/subtitleFreePosition'
 import { isSubtitlePlaybackPresetId } from '../constants/subtitlePlaybackPresets'
@@ -85,15 +86,16 @@ export function StoryboardPreviewWorkspace({
     const el = stageWrapRef.current
     if (!el) return
     const syncFontPx = () => {
-      const h = el.clientHeight || 720
-      const px = Math.min(30, Math.max(13, Math.round(h * 0.038)))
+      const w = Math.max(1, el.clientWidth)
+      const h = Math.max(1, el.clientHeight)
+      const px = storyboardSubtitleFontPx(studio.advanced, w, h)
       el.style.setProperty('--subtitle-font-px', `${px}px`)
     }
     syncFontPx()
     const ro = new ResizeObserver(syncFontPx)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [])
+  }, [studio.advanced])
 
   const generating = busyLabel === 'generating'
   const rendering = busyLabel === 'rendering'
