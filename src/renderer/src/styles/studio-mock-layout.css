@@ -107,9 +107,15 @@
   min-height: 0;
 }
 
+/* Col 3: +1.5mm left, +3.5mm right — visual bleed only; grid tracks unchanged */
 .app-shell.studio-mock-layout--fullscreen .studio-mock-row-4 > .studio-mock-col--story {
   position: relative;
   z-index: 1;
+  width: calc(100% + 5mm);
+  margin-inline-start: -1.5mm;
+  margin-inline-end: -3.5mm;
+  box-sizing: border-box;
+  overflow-x: visible;
 }
 
 .app-shell.studio-mock-layout--fullscreen
@@ -1017,9 +1023,15 @@
     z-index: 0;
   }
 
+  /* Col 3: +1.5mm left, +3.5mm right — visual bleed only; grid tracks unchanged */
   .studio-mock-row-4 > .studio-mock-col--story {
     position: relative;
     z-index: 1;
+    width: calc(100% + 5mm);
+    margin-inline-start: -1.5mm;
+    margin-inline-end: -3.5mm;
+    box-sizing: border-box;
+    overflow-x: visible;
   }
 
   /* Bottom of monitor chrome: stop 3mm short of column foot — lines up with story script / dialog panel frame */
