@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo } from 'react'
 import type { StudioSeasonId } from '../constants/studioSeasonThemes'
 import { STUDIO_SEASON_PRESETS, normalizeStudioSeasonId } from '../constants/studioSeasonThemes'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
+import { cinematicFitBackgroundSize, useCinematicImageFit } from '../hooks/useCinematicImageFit'
 
 export type CastPortraitLayer = { name: string; url: string; role?: string }
 
@@ -44,6 +45,8 @@ type Props = {
   hideCastLayer?: boolean
   /** Show prev/next scene arrows; clamp at first/last (no wrap). */
   showSceneNav?: boolean
+  /** Smart fill (portrait→height, landscape→width) without letterbox waste. */
+  cinematicMedia?: boolean
 }
 
 /** Center cinematic viewport — idle seasonal art, scene rotator, or generating shimmer. */
@@ -67,7 +70,8 @@ export function PreviewStage({
   hideIdleThumbStrip = false,
   hideSceneCaption = false,
   hideCastLayer = false,
-  showSceneNav = false
+  showSceneNav = false,
+  cinematicMedia = false
 }: Props) {
   const uiText = useUiText()
   const reduced = usePrefersReducedMotion()
@@ -75,6 +79,7 @@ export function PreviewStage({
   const indexMax = Math.max(0, (sceneCount ?? sceneUrls.length) - 1)
   const safeIx = indexMax >= 0 ? Math.min(Math.max(0, carouselIndex), indexMax) : 0
   const hero = heroUrl || sceneUrls[safeIx] || sceneUrls.find(Boolean) || ''
+  const fitAxis = useCinematicImageFit(cinematicMedia ? hero : null)
   const pct = typeof jobProgress === 'number' ? Math.min(100, Math.max(0, jobProgress)) : undefined
   const blankIdle = Boolean(idleBlank && !hero)
 
@@ -127,7 +132,7 @@ export function PreviewStage({
         </h3>
       ) : null}
       <div
-        className={`preview-stage ${busy ? 'busy' : ''}${blankIdle ? ' preview-stage--blank-idle' : ''}${hero ? ' preview-stage--has-scene' : ''}${celebrateComplete ? ' preview-stage--celebrate' : ''}`}
+        className={`preview-stage${busy ? ' busy' : ''}${blankIdle ? ' preview-stage--blank-idle' : ''}${hero ? ' preview-stage--has-scene' : ''}${celebrateComplete ? ' preview-stage--celebrate' : ''}${cinematicMedia ? ' preview-stage--cinematic' : ''}${cinematicMedia && hero ? ` preview-stage--fit-${fitAxis}` : ''}`}
       >
         <div className="preview-stage__inner">
           <AnimatePresence mode="wait">
@@ -139,12 +144,21 @@ export function PreviewStage({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.45 }}
               style={{
-                backgroundColor: blankIdle ? 'transparent' : undefined,
+                backgroundColor: blankIdle ? 'transparent' : cinematicMedia && hero ? '#060a0e' : undefined,
                 backgroundImage: hero
-                  ? `linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.5)), url(${hero})`
+                  ? cinematicMedia
+                    ? `url(${hero})`
+                    : `linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.5)), url(${hero})`
                   : blankIdle
                     ? 'none'
-                    : `${preset.overlay}, url(${preset.heroUrl})`
+                    : `${preset.overlay}, url(${preset.heroUrl})`,
+                ...(cinematicMedia && hero
+                  ? {
+                      backgroundSize: cinematicFitBackgroundSize(fitAxis),
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center center'
+                    }
+                  : {})
               }}
             />
           </AnimatePresence>
@@ -185,7 +199,7 @@ export function PreviewStage({
                 disabled={atFirst}
                 onClick={goPrev}
               >
-                ◀
+                ‹
               </button>
               <button
                 type="button"
@@ -194,7 +208,7 @@ export function PreviewStage({
                 disabled={atLast}
                 onClick={goNext}
               >
-                ▶
+                ›
               </button>
             </div>
           ) : null}

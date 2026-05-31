@@ -89,6 +89,7 @@ export function StoryboardPreviewWorkspace({
       <div className="storyboard-workspace__stage-wrap" ref={stageWrapRef}>
         <PreviewStage
           sectionClassName="storyboard-workspace__preview-stage preview-stage--maximize"
+          cinematicMedia
           seasonId={seasonId}
           sceneUrls={sceneUrls}
           heroUrl={heroUrl || activeSceneUrl || null}

@@ -3,7 +3,7 @@ import type { StoryScene } from '../types/story'
 import type { SubtitleStudioState } from '../types/subtitleStudio'
 import { cinematicSubtitleLineForScene } from '../utils/cinematicSubtitleLine'
 import {
-  pointerToSubtitlePosition,
+  clampSubtitlePosition,
   resolveSubtitleFreePosition,
   nudgeSubtitlePosition,
   storyboardSubtitlePositionStyle,
@@ -37,6 +37,9 @@ export function StoryboardSubtitleLiveOverlay({
   const [resizing, setResizing] = useState(false)
   const dragRef = useRef(false)
   const resizeRef = useRef<{ startSize: number; startY: number } | null>(null)
+  const dragOffsetRef = useRef<{ dx: number; dy: number } | null>(null)
+
+  const masterOpacity = Math.min(1, Math.max(0, studio.advanced.bgOpacity))
 
   const animClass =
     studio.advanced.animation === 'fade_in'
@@ -49,18 +52,40 @@ export function StoryboardSubtitleLiveOverlay({
             ? 'storyboard-subtitle-overlay--anim-pop'
             : ''
 
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
+  const positionFromPointer = useCallback(
+    (clientX: number, clientY: number) => {
+      const box = containerRef.current?.getBoundingClientRect()
+      if (!box) return null
+      const off = dragOffsetRef.current
+      const x = off
+        ? ((clientX - box.left - off.dx) / Math.max(1, box.width)) * 100
+        : ((clientX - box.left) / Math.max(1, box.width)) * 100
+      const y = off
+        ? ((clientY - box.top - off.dy) / Math.max(1, box.height)) * 100
+        : ((clientY - box.top) / Math.max(1, box.height)) * 100
+      return clampSubtitlePosition(x, y)
+    },
+    [containerRef]
+  )
+
+  const onTextPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLSpanElement>) => {
       if (!studio.subtitlesOn || e.button !== 0 || resizing) return
       const box = containerRef.current?.getBoundingClientRect()
       if (!box) return
+      e.stopPropagation()
       e.preventDefault()
       e.currentTarget.setPointerCapture(e.pointerId)
+      const anchorX = (pos.positionXPct / 100) * box.width
+      const anchorY = (pos.positionYPct / 100) * box.height
+      dragOffsetRef.current = {
+        dx: e.clientX - box.left - anchorX,
+        dy: e.clientY - box.top - anchorY
+      }
       dragRef.current = true
       setDragging(true)
-      onPositionChange(pointerToSubtitlePosition(e.clientX, e.clientY, box))
     },
-    [containerRef, onPositionChange, resizing, studio.subtitlesOn]
+    [containerRef, pos.positionXPct, pos.positionYPct, resizing, studio.subtitlesOn]
   )
 
   const onPointerMove = useCallback(
@@ -72,25 +97,28 @@ export function StoryboardSubtitleLiveOverlay({
         return
       }
       if (!dragRef.current) return
-      const box = containerRef.current?.getBoundingClientRect()
-      if (!box) return
-      onPositionChange(pointerToSubtitlePosition(e.clientX, e.clientY, box))
+      const next = positionFromPointer(e.clientX, e.clientY)
+      if (next) onPositionChange(next)
     },
-    [containerRef, onPositionChange, onScaleChange]
+    [onPositionChange, onScaleChange, positionFromPointer]
   )
 
-  const endDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const endPointer = useCallback((e: React.PointerEvent) => {
     if (resizeRef.current) {
       resizeRef.current = null
       setResizing(false)
     }
-    if (!dragRef.current) return
-    dragRef.current = false
-    setDragging(false)
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId)
-    } catch {
-      /* already released */
+    if (dragRef.current) {
+      dragRef.current = false
+      dragOffsetRef.current = null
+      setDragging(false)
+      try {
+        if (e.currentTarget instanceof HTMLElement && 'releasePointerCapture' in e.currentTarget) {
+          e.currentTarget.releasePointerCapture(e.pointerId)
+        }
+      } catch {
+        /* already released */
+      }
     }
   }, [])
 
@@ -120,6 +148,7 @@ export function StoryboardSubtitleLiveOverlay({
     if (!dragging && !resizing) return
     const stop = () => {
       dragRef.current = false
+      dragOffsetRef.current = null
       resizeRef.current = null
       setDragging(false)
       setResizing(false)
@@ -132,7 +161,7 @@ export function StoryboardSubtitleLiveOverlay({
     }
   }, [dragging, resizing])
 
-  if (!visible || !studio.subtitlesOn || !line) return null
+  if (!visible || !studio.subtitlesOn || !line || masterOpacity <= 0) return null
 
   return (
     <div
@@ -141,10 +170,9 @@ export function StoryboardSubtitleLiveOverlay({
       aria-label="Subtitle position"
       tabIndex={0}
       onKeyDown={onKeyDown}
-      onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
+      onPointerUp={endPointer}
+      onPointerCancel={endPointer}
       style={{
         ...storyboardSubtitleOverlayStyle(studio),
         ...storyboardSubtitlePositionStyle(pos)
@@ -155,11 +183,18 @@ export function StoryboardSubtitleLiveOverlay({
           <span
             key={edge}
             className={`storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--${edge}`}
-            onPointerDown={edge === 'se' || edge === 's' || edge === 'e' ? onHandleDown : undefined}
+            onPointerDown={
+              edge === 'se' || edge === 's' || edge === 'e' ? onHandleDown : undefined
+            }
           />
         ))}
       </span>
-      <span className="storyboard-subtitle-overlay__text">{line}</span>
+      <span
+        className="storyboard-subtitle-overlay__text"
+        onPointerDown={onTextPointerDown}
+      >
+        {line}
+      </span>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useRef } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import type { StoryCharacter } from '../types/story'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -12,8 +13,9 @@ type Props = {
   busy: boolean
   showReferenceControls?: boolean
   characterId?: string
-  onOpenPortrait: () => void
+  onPreview: () => void
   onGeneratePortrait: () => void
+  onReplacePortrait?: () => void
   onNameChange: (name: string) => void
   onPersonalityChange: (personality: string) => void
 }
@@ -26,18 +28,26 @@ export function MonitorCharacterCard({
   busy,
   showReferenceControls,
   characterId,
-  onOpenPortrait,
+  onPreview,
   onGeneratePortrait,
+  onReplacePortrait,
   onNameChange,
   onPersonalityChange
 }: Props) {
   const reduced = usePrefersReducedMotion()
   const uiText = useUiText()
+  const uploadRef = useRef<HTMLDivElement>(null)
+
+  const triggerUpload = () => {
+    const input = uploadRef.current?.querySelector('input[type="file"]') as HTMLInputElement | null
+    input?.click()
+  }
 
   return (
     <motion.div
       layout={!reduced}
       className={`char-card monitor-char-card ${highlighted ? 'monitor-char-card--lit' : ''}`}
+      data-char-id={characterId ?? c.id}
       animate={
         reduced
           ? undefined
@@ -57,8 +67,8 @@ export function MonitorCharacterCard({
         <motion.button
           type="button"
           className="char-card__thumb-btn monitor-char-card__thumb"
-          aria-label={uiText('imageFullscreenCharacter', { name: c.name })}
-          onClick={onOpenPortrait}
+          aria-label={uiText('characterActionPreview')}
+          onClick={onPreview}
           whileHover={reduced ? undefined : { scale: 1.04 }}
           animate={
             reduced
@@ -92,7 +102,9 @@ export function MonitorCharacterCard({
               value={c.personality}
               onChange={(e) => onPersonalityChange(e.target.value)}
             />
-            {showReferenceControls ? <CharacterReferenceUpload characterId={characterId} /> : null}
+            {showReferenceControls && editMode ? (
+              <CharacterReferenceUpload characterId={characterId} />
+            ) : null}
           </>
         ) : (
           <>
@@ -105,14 +117,45 @@ export function MonitorCharacterCard({
             ) : null}
           </>
         )}
-        <button
-          type="button"
-          className="btn btn-ghost btn-small monitor-char-card__leo"
-          disabled={Boolean(busy)}
-          onClick={onGeneratePortrait}
-        >
-          {uiText('leonardoBasePortrait')}
-        </button>
+        <div ref={uploadRef} className="monitor-char-card__upload-host" hidden aria-hidden>
+          <CharacterReferenceUpload characterId={characterId} />
+        </div>
+        <div className="monitor-char-card__actions">
+          <button
+            type="button"
+            className="btn btn-ghost btn-small monitor-char-card__action-btn"
+            disabled={Boolean(busy)}
+            onClick={onPreview}
+          >
+            {uiText('characterActionPreview')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-small monitor-char-card__action-btn"
+            disabled={Boolean(busy)}
+            onClick={onGeneratePortrait}
+          >
+            {uiText('characterActionRegenerate')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-small monitor-char-card__action-btn"
+            disabled={Boolean(busy)}
+            onClick={triggerUpload}
+          >
+            {uiText('characterActionUploadRef')}
+          </button>
+          {onReplacePortrait ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-small monitor-char-card__action-btn"
+              disabled={Boolean(busy)}
+              onClick={onReplacePortrait}
+            >
+              {uiText('characterActionReplaceImage')}
+            </button>
+          ) : null}
+        </div>
       </div>
     </motion.div>
   )

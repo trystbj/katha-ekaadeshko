@@ -1363,5 +1363,9 @@ export const en = {
   studioBarAdvancedEditor: 'Advanced editor',
   studioBarExportProject: 'Export project',
   studioBarGenerateVideo: 'Generate video',
-  studioBarAllChangesSaved: 'All changes saved'
+  studioBarAllChangesSaved: 'All changes saved',
+  characterActionPreview: 'Preview',
+  characterActionRegenerate: 'Regenerate',
+  characterActionUploadRef: 'Upload reference',
+  characterActionReplaceImage: 'Replace image'
 }

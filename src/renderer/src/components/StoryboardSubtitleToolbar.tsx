@@ -20,15 +20,7 @@ type Props = {
   onPatch: (patch: Partial<SubtitleStudioState>) => void
 }
 
-function displaySizePx(fontSizePct: number): number {
-  return Math.round(24 + ((fontSizePct - 70) / 90) * 28)
-}
-
-function fontSizePctFromDisplay(px: number): number {
-  return Math.min(160, Math.max(70, Math.round(70 + ((px - 24) / 28) * 90)))
-}
-
-/** Reference-style subtitle controls — always below preview, never over the image. */
+/** Minimal subtitle rail — size/position via on-image handles only. */
 export function StoryboardSubtitleToolbar({ studio, disabled = false, onPatch }: Props) {
   const uiText = useUiText()
   const adv = studio.advanced
@@ -38,10 +30,12 @@ export function StoryboardSubtitleToolbar({ studio, disabled = false, onPatch }:
     onPatch({ advanced: { ...adv, ...partial } })
   }
 
-  const sizePx = displaySizePx(adv.fontSizePct)
-
   return (
-    <div className="storyboard-subtitle-rail" role="region" aria-label={uiText('storyboardSubtitleRailAria')}>
+    <div
+      className="storyboard-subtitle-rail storyboard-subtitle-rail--minimal"
+      role="region"
+      aria-label={uiText('storyboardSubtitleRailAria')}
+    >
       <label className="storyboard-subtitle-rail__toggle">
         <input
           type="checkbox"
@@ -69,20 +63,6 @@ export function StoryboardSubtitleToolbar({ studio, disabled = false, onPatch }:
         </select>
       </label>
 
-      <label className="storyboard-subtitle-rail__field storyboard-subtitle-rail__field--size">
-        <span className="sr-only">{uiText('storyboardSubtitleSize')}</span>
-        <input
-          type="number"
-          className="storyboard-subtitle-rail__size-input"
-          min={24}
-          max={64}
-          disabled={off}
-          value={sizePx}
-          onChange={(e) => patchAdv({ fontSizePct: fontSizePctFromDisplay(Number(e.target.value)) })}
-          aria-label={uiText('storyboardSubtitleSize')}
-        />
-      </label>
-
       <div className="storyboard-subtitle-rail__toggles" role="group" aria-label={uiText('subtitleToolbarStyle')}>
         <button
           type="button"
@@ -103,32 +83,6 @@ export function StoryboardSubtitleToolbar({ studio, disabled = false, onPatch }:
           I
         </button>
       </div>
-
-      <div className="storyboard-subtitle-rail__align" role="group" aria-label={uiText('subtitleToolbarAlign')}>
-        {(['start', 'center', 'end'] as const).map((align) => (
-          <button
-            key={align}
-            type="button"
-            className={`storyboard-subtitle-rail__icon-btn${(adv.textAlign ?? 'center') === align ? ' storyboard-subtitle-rail__icon-btn--on' : ''}`}
-            disabled={off}
-            onClick={() => patchAdv({ textAlign: align })}
-            aria-pressed={(adv.textAlign ?? 'center') === align}
-          >
-            {align === 'start' ? '≡' : align === 'end' ? '≣' : '≡'}
-          </button>
-        ))}
-      </div>
-
-      <label className="storyboard-subtitle-rail__field storyboard-subtitle-rail__field--color">
-        <span className="sr-only">{uiText('storyboardSubtitleColor')}</span>
-        <input
-          type="color"
-          className="storyboard-subtitle-rail__color"
-          disabled={off}
-          value={adv.textColor}
-          onChange={(e) => patchAdv({ textColor: e.target.value })}
-        />
-      </label>
 
       <label className="storyboard-subtitle-rail__field storyboard-subtitle-rail__field--opacity">
         <span>{uiText('subtitleStudioOpacity')}</span>

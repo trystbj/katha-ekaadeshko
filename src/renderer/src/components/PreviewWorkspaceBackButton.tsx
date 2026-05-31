@@ -18,7 +18,7 @@ export function PreviewWorkspaceBackButton({ visible, onBack }: Props) {
       title={uiText('previewWorkspaceBackAria')}
     >
       <span className="preview-workspace-back__glyph" aria-hidden>
-        ←
+        ‹
       </span>
     </button>
   )

@@ -100,12 +100,16 @@ import { collectRenderImageUrls } from './utils/collectRenderImageUrls'
 import { dedupeScenePreviewUrls, sceneStillUrlsForEpisode, sceneUrlForIndex } from './utils/sceneAssetMap'
 import { resumeEpisodeVideoRenderIfNeeded } from './utils/episodeVideoRender'
 import { CreatorStudioPanel } from './components/CreatorStudioPanel'
-import { StudioProductionBottomBar } from './components/StudioProductionBottomBar'
 import {
   downloadMarkdownFile,
   projectToMarkdown,
   safeFilenameFromTitle
 } from './utils/exportStoryMarkdown'
+import {
+  charactersNeedingPortraits,
+  hasAutoPortraitRun,
+  markAutoPortraitRun
+} from './utils/autoGenerateCharacterPortraits'
 
 function splitStudioSubtitleGraphemes(text: string): string[] {
   if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
@@ -648,6 +652,26 @@ export default function App() {
         ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     })
   }, [])
+
+  const prevBusyAutoCharRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const prev = prevBusyAutoCharRef.current
+    prevBusyAutoCharRef.current = busy
+    if (busy || prev !== 'generating') return
+    const p = useStudioStore.getState().project
+    if (!p?.bible || !p.id) return
+    const need = charactersNeedingPortraits(p)
+    if (!need.length || hasAutoPortraitRun(p.id)) return
+    markAutoPortraitRun(p.id)
+    console.info('[katha:character]', 'auto_portrait_batch_start', { count: need.length })
+    void (async () => {
+      for (const ch of need) {
+        if (useStudioStore.getState().busy) break
+        await generateCharacterBase(ch.id)
+      }
+    })()
+  }, [busy, generateCharacterBase, project?.id, project?.bible?.characters?.length])
 
   const onGenerateFinalVideo = useCallback(() => {
     const p = useStudioStore.getState().project
@@ -1202,13 +1226,20 @@ export default function App() {
                   patchProject={patchProject}
                 />
               ) : characterPreviewChar ? (
-                <div className="studio-mock-preview-wrap workspace-premium__stage character-preview-mode-wrap">
+                <div className="studio-mock-preview-wrap workspace-premium__stage character-preview-mode-wrap character-preview-mode-wrap--fill">
                   <CharacterPreviewMode
                     character={characterPreviewChar}
                     narratorId={project?.bible?.narratorId}
                     busy={Boolean(busy)}
                     onBackToScene={exitCharacterPreview}
                     onRegeneratePortrait={() => void generateCharacterBase(characterPreviewChar.id)}
+                    onUploadReference={() => {
+                      document
+                        .querySelector<HTMLInputElement>(
+                          `.monitor-char-card[data-char-id="${characterPreviewChar.id}"] input[type="file"]`
+                        )
+                        ?.click()
+                    }}
                   />
                 </div>
               ) : showStoryboardPreview && activeEpisode ? (
@@ -1562,6 +1593,37 @@ export default function App() {
               >
                 {Glyphs.gear}
               </button>
+              {showStoryboardPreview && project?.bible ? (
+                <span className="studio-mock-monitor-title__production">
+                  <button
+                    type="button"
+                    className="studio-mock-monitor-action-btn"
+                    title={uiText('studioBarAdvancedEditor')}
+                    disabled={Boolean(busy)}
+                    onClick={onAdvancedEditor}
+                  >
+                    ⚙
+                  </button>
+                  <button
+                    type="button"
+                    className="studio-mock-monitor-action-btn"
+                    title={uiText('studioBarExportProject')}
+                    disabled={Boolean(busy)}
+                    onClick={onExportProject}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="studio-mock-monitor-action-btn studio-mock-monitor-action-btn--accent"
+                    title={uiText('studioBarGenerateVideo')}
+                    disabled={Boolean(busy)}
+                    onClick={onGenerateFinalVideo}
+                  >
+                    ▶
+                  </button>
+                </span>
+              ) : null}
             </div>
             <div className="studio-mock-monitor-title__fill" aria-hidden />
             <div className="studio-mock-monitor-title__locale" aria-hidden />
@@ -1814,15 +1876,15 @@ export default function App() {
                     editMode={editMode}
                     storyMetaLocked={storyMetaLocked}
                     busy={Boolean(busy)}
-                    showReferenceControls={Boolean(editMode)}
+                    showReferenceControls
                     characterId={c.id}
-                    onOpenPortrait={() => {
-                      if (!c.baseImageUrl) return
+                    onPreview={() => {
                       setCharacterPreviewId(c.id)
-                      setEmbeddedHeroOverride(c.baseImageUrl)
+                      setEmbeddedHeroOverride(c.baseImageUrl ?? null)
                       console.info('[katha:preview]', 'character_preview_mode', { name: c.name })
                     }}
                     onGeneratePortrait={() => void generateCharacterBase(c.id)}
+                    onReplacePortrait={() => void generateCharacterBase(c.id)}
                     onNameChange={(name) =>
                       patchProject((p) => {
                         if (!p.bible) return p
@@ -1860,16 +1922,6 @@ export default function App() {
           </div>
         </aside>
         </div>
-        {showStoryboardPreview && project?.bible ? (
-          <StudioProductionBottomBar
-            savedLabel={uiText('studioBarAllChangesSaved')}
-            disabled={Boolean(busy)}
-            rendering={busy === 'rendering'}
-            onAdvancedEditor={onAdvancedEditor}
-            onExportProject={onExportProject}
-            onGenerateVideo={onGenerateFinalVideo}
-          />
-        ) : null}
         </div>
       </main>
 

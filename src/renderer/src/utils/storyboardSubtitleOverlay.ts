@@ -20,11 +20,14 @@ const FONT_STACKS: Record<SubtitleStudioState['advanced']['fontCategory'], strin
 export function storyboardSubtitleOverlayStyle(studio: SubtitleStudioState): CSSProperties {
   const look = buildSubtitleVttLook(studio)
   const adv = studio.advanced
+  const master = Math.min(1, Math.max(0, adv.bgOpacity))
   const fontSizeRem = Math.min(2.2, Math.max(0.75, (look.sizePct / 100) * 1.05 * (adv.fontSizePct / 100)))
   const pos = resolveSubtitleFreePosition(studio)
+  const showEffects = master > 0.06
 
   return {
     ...storyboardSubtitlePositionStyle(pos),
+    opacity: master,
     fontFamily: FONT_STACKS[adv.fontCategory],
     fontSize: `${fontSizeRem}rem`,
     fontWeight: adv.fontWeight,
@@ -33,14 +36,16 @@ export function storyboardSubtitleOverlayStyle(studio: SubtitleStudioState): CSS
     lineHeight: adv.lineHeight,
     color: adv.textColor,
     textTransform: adv.textTransform === 'none' ? undefined : adv.textTransform,
-    textShadow: [
-      adv.outlinePx > 0 ? `0 0 ${adv.outlinePx}px ${adv.outlineColor}` : '',
-      adv.shadowBlurPx > 0 ? `0 2px ${adv.shadowBlurPx}px rgba(0,0,0,0.65)` : '',
-      adv.glowBlurPx > 0 ? `0 0 ${adv.glowBlurPx}px ${adv.glowColor}` : ''
-    ]
-      .filter(Boolean)
-      .join(', ') || undefined,
-    backgroundColor: `rgba(6, 8, 16, ${Math.min(0.92, adv.bgOpacity)})`,
+    textShadow: showEffects
+      ? [
+          adv.outlinePx > 0 ? `0 0 ${adv.outlinePx}px ${adv.outlineColor}` : '',
+          adv.shadowBlurPx > 0 ? `0 2px ${adv.shadowBlurPx}px rgba(0,0,0,0.65)` : '',
+          adv.glowBlurPx > 0 ? `0 0 ${adv.glowBlurPx}px ${adv.glowColor}` : ''
+        ]
+          .filter(Boolean)
+          .join(', ') || undefined
+      : 'none',
+    backgroundColor: showEffects ? 'rgba(6, 8, 16, 0.65)' : 'transparent',
     borderRadius: adv.roundedBoxPx > 0 ? `${adv.roundedBoxPx}px` : undefined,
     padding: '0.35em 0.65em',
     maxWidth: '92%',
