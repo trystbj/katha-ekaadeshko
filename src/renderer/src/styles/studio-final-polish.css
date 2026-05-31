@@ -49,17 +49,12 @@
   overflow: visible !important;
 }
 
-.studio-mock-monitor-section--characters-collapsed .studio-mock-characters-wireframe-panel {
-  display: block;
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
+.studio-mock-monitor-section--characters-collapsed {
+  flex: 0 0 auto;
 }
 
-.studio-mock-monitor-section:not(.studio-mock-monitor-section--characters-collapsed)
-  .studio-mock-characters-wireframe-panel {
-  display: block;
+.studio-mock-monitor-section--characters-collapsed .studio-mock-characters-wireframe-panel {
+  display: none !important;
 }
 
 .studio-mock-monitor-action-btn--text {

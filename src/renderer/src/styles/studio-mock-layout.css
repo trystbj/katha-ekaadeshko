@@ -4247,8 +4247,30 @@
   margin: 4px 2px 0;
 }
 
-.studio-mock-characters-wireframe-panel {
+.studio-mock-monitor-section--characters:not(.studio-mock-monitor-section--characters-collapsed)
+  .studio-mock-characters-wireframe-panel {
   min-height: 120px;
+}
+
+.studio-mock-monitor-section--characters-collapsed .studio-mock-characters-wireframe-panel {
+  display: none;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.studio-mock-monitor-section--characters-collapsed .studio-mock-monitor-section__head-row {
+  margin-bottom: 0;
+}
+
+.studio-mock-monitor-section--characters-collapsed
+  .studio-mock-monitor-section__head-row
+  .studio-mock-wireframe-monitor-h {
+  margin-bottom: 0;
 }
 
 .studio-mock-episodes-panel {
