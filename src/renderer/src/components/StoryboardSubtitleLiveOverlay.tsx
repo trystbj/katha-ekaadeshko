@@ -22,7 +22,7 @@ type ResizeSession = {
   startX: number
   startY: number
   startWidthPct: number
-  startScaleY: number
+  startHeightPct: number
 }
 
 type Props = {
@@ -35,6 +35,25 @@ type Props = {
 }
 
 const HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
+
+const HANDLE_CURSORS: Record<ResizeHandle, string> = {
+  nw: 'nwse-resize',
+  n: 'ns-resize',
+  ne: 'nesw-resize',
+  e: 'ew-resize',
+  se: 'nwse-resize',
+  s: 'ns-resize',
+  sw: 'nesw-resize',
+  w: 'ew-resize'
+}
+
+function clampWidthPct(pct: number) {
+  return Math.min(92, Math.max(24, Math.round(pct)))
+}
+
+function clampHeightPct(pct: number) {
+  return Math.min(48, Math.max(8, Math.round(pct)))
+}
 
 export function StoryboardSubtitleLiveOverlay({
   scene,
@@ -53,17 +72,19 @@ export function StoryboardSubtitleLiveOverlay({
   const [dragging, setDragging] = useState(false)
   const [resizing, setResizing] = useState(false)
   const [containerWidth, setContainerWidth] = useState(480)
+  const [containerHeight, setContainerHeight] = useState(640)
   const dragRef = useRef(false)
   const resizeRef = useRef<ResizeSession | null>(null)
   const dragOffsetRef = useRef<{ dx: number; dy: number } | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  const showChrome = selected || dragging || resizing
-
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    const sync = () => setContainerWidth(Math.max(1, el.clientWidth))
+    const sync = () => {
+      setContainerWidth(Math.max(1, el.clientWidth))
+      setContainerHeight(Math.max(1, el.clientHeight))
+    }
     sync()
     const ro = new ResizeObserver(sync)
     ro.observe(el)
@@ -108,15 +129,15 @@ export function StoryboardSubtitleLiveOverlay({
     [containerRef]
   )
 
-  const onDragPointerDown = useCallback(
-    (e: React.PointerEvent) => {
+  const onMovePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (!studio.subtitlesOn || e.button !== 0 || resizing) return
       const box = containerRef.current?.getBoundingClientRect()
       if (!box) return
       e.stopPropagation()
       e.preventDefault()
       setSelected(true)
-      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      e.currentTarget.setPointerCapture(e.pointerId)
       const anchorX = (pos.positionXPct / 100) * box.width
       const anchorY = (pos.positionYPct / 100) * box.height
       dragOffsetRef.current = {
@@ -129,56 +150,9 @@ export function StoryboardSubtitleLiveOverlay({
     [containerRef, pos.positionXPct, pos.positionYPct, resizing, studio.subtitlesOn]
   )
 
-  const onPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      const session = resizeRef.current
-      if (session && onBoxChange && containerWidth > 0) {
-        const dx = e.clientX - session.startX
-        const dy = e.clientY - session.startY
-        const h = session.handle
-        let widthPct = session.startWidthPct
-        let scaleY = session.startScaleY
-
-        if (h.includes('e')) widthPct = session.startWidthPct + (dx / containerWidth) * 100
-        if (h.includes('w')) widthPct = session.startWidthPct - (dx / containerWidth) * 100
-        if (h.includes('s')) scaleY = session.startScaleY + dy * 0.1
-        if (h.includes('n')) scaleY = session.startScaleY - dy * 0.1
-
-        onBoxChange({
-          boxWidthPct: Math.min(92, Math.max(24, Math.round(widthPct))),
-          boxScaleYPct: Math.min(200, Math.max(50, Math.round(scaleY)))
-        })
-        return
-      }
-      if (!dragRef.current) return
-      const next = positionFromPointer(e.clientX, e.clientY)
-      if (next) onPositionChange(next)
-    },
-    [containerWidth, onBoxChange, onPositionChange, positionFromPointer]
-  )
-
-  const endPointer = useCallback((e: React.PointerEvent) => {
-    if (resizeRef.current) {
-      resizeRef.current = null
-      setResizing(false)
-    }
-    if (dragRef.current) {
-      dragRef.current = false
-      dragOffsetRef.current = null
-      setDragging(false)
-    }
-    try {
-      if (e.currentTarget instanceof HTMLElement && 'releasePointerCapture' in e.currentTarget) {
-        e.currentTarget.releasePointerCapture(e.pointerId)
-      }
-    } catch {
-      /* released */
-    }
-  }, [])
-
-  const onHandleDown = useCallback(
+  const onResizePointerDown = useCallback(
     (handle: ResizeHandle) => (e: React.PointerEvent<HTMLSpanElement>) => {
-      if (!studio.subtitlesOn || !onBoxChange) return
+      if (!studio.subtitlesOn || !onBoxChange || e.button !== 0) return
       e.stopPropagation()
       e.preventDefault()
       setSelected(true)
@@ -189,12 +163,67 @@ export function StoryboardSubtitleLiveOverlay({
         startX: e.clientX,
         startY: e.clientY,
         startWidthPct: adv.boxWidthPct ?? adv.boxScaleXPct ?? 72,
-        startScaleY: adv.boxScaleYPct ?? 100
+        startHeightPct: adv.boxHeightPct ?? 14
       }
       setResizing(true)
     },
     [onBoxChange, studio.advanced, studio.subtitlesOn]
   )
+
+  useEffect(() => {
+    if (!dragging && !resizing) return
+
+    const onMove = (e: PointerEvent) => {
+      const session = resizeRef.current
+      if (session && onBoxChange && containerWidth > 0 && containerHeight > 0) {
+        const dx = e.clientX - session.startX
+        const dy = e.clientY - session.startY
+        const h = session.handle
+        let widthPct = session.startWidthPct
+        let heightPct = session.startHeightPct
+
+        if (h.includes('e')) widthPct = session.startWidthPct + (dx / containerWidth) * 100
+        if (h.includes('w')) widthPct = session.startWidthPct - (dx / containerWidth) * 100
+        if (h.includes('s')) heightPct = session.startHeightPct + (dy / containerHeight) * 100
+        if (h.includes('n')) heightPct = session.startHeightPct - (dy / containerHeight) * 100
+
+        onBoxChange({
+          boxWidthPct: clampWidthPct(widthPct),
+          boxHeightPct: clampHeightPct(heightPct)
+        })
+        return
+      }
+
+      if (!dragRef.current) return
+      const next = positionFromPointer(e.clientX, e.clientY)
+      if (next) onPositionChange(next)
+    }
+
+    const end = () => {
+      dragRef.current = false
+      dragOffsetRef.current = null
+      resizeRef.current = null
+      setDragging(false)
+      setResizing(false)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+    }
+  }, [
+    containerHeight,
+    containerWidth,
+    dragging,
+    onBoxChange,
+    onPositionChange,
+    positionFromPointer,
+    resizing
+  ])
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -206,23 +235,6 @@ export function StoryboardSubtitleLiveOverlay({
     [onPositionChange, pos]
   )
 
-  useEffect(() => {
-    if (!dragging && !resizing) return
-    const stop = () => {
-      dragRef.current = false
-      dragOffsetRef.current = null
-      resizeRef.current = null
-      setDragging(false)
-      setResizing(false)
-    }
-    window.addEventListener('pointerup', stop)
-    window.addEventListener('pointercancel', stop)
-    return () => {
-      window.removeEventListener('pointerup', stop)
-      window.removeEventListener('pointercancel', stop)
-    }
-  }, [dragging, resizing])
-
   if (!visible || !studio.subtitlesOn || !line) return null
 
   const bgStyle = storyboardSubtitleBgStyle(studio)
@@ -231,41 +243,46 @@ export function StoryboardSubtitleLiveOverlay({
   return (
     <div
       ref={rootRef}
-      className={`storyboard-subtitle-overlay${dragging ? ' storyboard-subtitle-overlay--dragging' : ''}${resizing ? ' storyboard-subtitle-overlay--resizing' : ''}${showChrome ? ' storyboard-subtitle-overlay--edit' : ''} ${animClass}`}
+      className={`storyboard-subtitle-overlay${dragging ? ' storyboard-subtitle-overlay--dragging' : ''}${resizing ? ' storyboard-subtitle-overlay--resizing' : ''}${selected ? ' storyboard-subtitle-overlay--selected' : ''} ${animClass}`}
       role="group"
       aria-label="Subtitle"
       tabIndex={0}
       onKeyDown={onKeyDown}
-      onPointerDown={() => setSelected(true)}
-      onPointerMove={onPointerMove}
-      onPointerUp={endPointer}
-      onPointerCancel={endPointer}
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) setSelected(true)
+      }}
       style={storyboardSubtitleOuterStyle(studio)}
     >
       <div
         className="storyboard-subtitle-overlay__box"
-        style={storyboardSubtitleBoxStyle(studio, containerWidth)}
-        onPointerDown={onDragPointerDown}
+        style={storyboardSubtitleBoxStyle(studio, containerWidth, containerHeight)}
       >
-        {showChrome ? (
+        {selected ? (
           <span className="storyboard-subtitle-overlay__frame" aria-hidden>
             {HANDLES.map((edge) => (
               <span
                 key={edge}
                 className={`storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--${edge}`}
-                onPointerDown={onHandleDown(edge)}
+                style={{ cursor: HANDLE_CURSORS[edge] }}
+                onPointerDown={onResizePointerDown(edge)}
               />
             ))}
           </span>
         ) : null}
-        <span className="storyboard-subtitle-overlay__inner">
-          {showBg ? (
-            <span className="storyboard-subtitle-overlay__bg" style={bgStyle} aria-hidden />
-          ) : null}
-          <span className="storyboard-subtitle-overlay__line" style={storyboardSubtitleTextStyle(studio)}>
-            {line}
+        <div
+          className="storyboard-subtitle-overlay__move-surface"
+          onPointerDown={onMovePointerDown}
+          onClick={() => setSelected(true)}
+        >
+          <span className="storyboard-subtitle-overlay__inner">
+            {showBg ? (
+              <span className="storyboard-subtitle-overlay__bg" style={bgStyle} aria-hidden />
+            ) : null}
+            <span className="storyboard-subtitle-overlay__line" style={storyboardSubtitleTextStyle(studio)}>
+              {line}
+            </span>
           </span>
-        </span>
+        </div>
       </div>
     </div>
   )

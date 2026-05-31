@@ -84,6 +84,11 @@
   color: rgba(220, 230, 235, 0.62);
 }
 
+.studio-mock-monitor-body--scroll-all .studio-monitor-search__results {
+  max-height: none;
+  overflow: visible;
+}
+
 .studio-monitor-search__results {
   flex: 1;
   min-height: 120px;

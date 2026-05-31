@@ -1049,12 +1049,23 @@
 
 .storyboard-subtitle-overlay__box {
   position: relative;
-  display: inline-block;
-  cursor: grab;
+  display: block;
   max-width: 100%;
+  overflow: visible;
 }
 
-.storyboard-subtitle-overlay--dragging .storyboard-subtitle-overlay__box {
+.storyboard-subtitle-overlay__move-surface {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.storyboard-subtitle-overlay--dragging .storyboard-subtitle-overlay__move-surface {
   cursor: grabbing;
 }
 
@@ -1062,35 +1073,34 @@
   display: none;
 }
 
-.storyboard-subtitle-overlay--edit .storyboard-subtitle-overlay__frame {
+.storyboard-subtitle-overlay--selected .storyboard-subtitle-overlay__frame {
   display: block;
   position: absolute;
-  inset: -10px;
-  border: 1px solid rgba(200, 220, 255, 0.72);
+  inset: 0;
+  border: 1px solid rgba(200, 220, 255, 0.85);
   border-radius: 4px;
   pointer-events: none;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    0 0 12px rgba(100, 160, 255, 0.25);
+  z-index: 2;
 }
 
 .storyboard-subtitle-overlay__handle {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  background: rgba(212, 175, 55, 0.92);
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.45);
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  background: rgba(120, 180, 255, 0.95);
+  box-shadow: 0 0 6px rgba(80, 140, 255, 0.45);
   pointer-events: auto;
+  z-index: 4;
+  touch-action: none;
 }
 
-.storyboard-subtitle-overlay__handle--se,
-.storyboard-subtitle-overlay__handle--s,
-.storyboard-subtitle-overlay__handle--e {
-  cursor: nwse-resize;
-}
-
-.storyboard-subtitle-overlay--resizing {
-  cursor: nwse-resize;
+.storyboard-subtitle-overlay--resizing .storyboard-subtitle-overlay__move-surface {
+  pointer-events: none;
 }
 
 .storyboard-subtitle-overlay__handle--nw {

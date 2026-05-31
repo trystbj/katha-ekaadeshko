@@ -15,11 +15,23 @@ const FONT_STACKS: Record<SubtitleStudioState['advanced']['fontCategory'], strin
   display: 'system-ui, sans-serif'
 }
 
-function boxMetrics(adv: SubtitleStudioState['advanced'], containerWidth: number) {
+function boxMetrics(
+  adv: SubtitleStudioState['advanced'],
+  containerWidth: number,
+  containerHeight: number
+) {
   const widthPct = Math.min(92, Math.max(24, adv.boxWidthPct ?? adv.boxScaleXPct ?? 72))
-  const scaleY = Math.min(200, Math.max(50, adv.boxScaleYPct ?? 100))
-  const widthPx = Math.max(140, Math.round((containerWidth * widthPct) / 100))
-  return { widthPx, scaleY: scaleY / 100 }
+  const heightPct = Math.min(
+    48,
+    Math.max(
+      8,
+      adv.boxHeightPct ??
+        (adv.boxScaleYPct != null ? Math.round((adv.boxScaleYPct / 100) * 14) : 14)
+    )
+  )
+  const widthPx = Math.max(120, Math.round((containerWidth * widthPct) / 100))
+  const heightPx = Math.max(48, Math.round((containerHeight * heightPct) / 100))
+  return { widthPx, heightPx }
 }
 
 function cinematicTextShadow(adv: SubtitleStudioState['advanced']): string | undefined {
@@ -36,18 +48,21 @@ export function storyboardSubtitleOuterStyle(studio: SubtitleStudioState): CSSPr
   return storyboardSubtitlePositionStyle(resolveSubtitleFreePosition(studio))
 }
 
-/** Single subtitle box — fixed horizontal width; vertical scale via handles only. */
+/** Subtitle box — explicit width and height (no scale transforms). */
 export function storyboardSubtitleBoxStyle(
   studio: SubtitleStudioState,
-  containerWidth: number
+  containerWidth: number,
+  containerHeight: number
 ): CSSProperties {
-  const { widthPx, scaleY } = boxMetrics(studio.advanced, containerWidth)
+  const { widthPx, heightPx } = boxMetrics(studio.advanced, containerWidth, containerHeight)
   return {
     width: `${widthPx}px`,
     minWidth: `${widthPx}px`,
     maxWidth: `${widthPx}px`,
-    transform: scaleY !== 1 ? `scaleY(${scaleY})` : undefined,
-    transformOrigin: 'center center'
+    height: `${heightPx}px`,
+    minHeight: `${heightPx}px`,
+    maxHeight: `${heightPx}px`,
+    boxSizing: 'border-box'
   }
 }
 

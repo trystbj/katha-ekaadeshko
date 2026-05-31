@@ -6,8 +6,13 @@
 }
 
 .creator-studio-panel-wrap {
-  max-height: 22rem;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.studio-mock-monitor-body--scroll-all .creator-studio-panel-wrap {
+  max-height: none;
+  overflow: visible;
 }
 
 .creator-studio {

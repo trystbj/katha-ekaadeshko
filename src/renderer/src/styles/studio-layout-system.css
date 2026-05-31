@@ -60,9 +60,7 @@
 }
 
 .cine-sb-monitor__flow {
-  overflow-y: auto;
-  overflow-x: clip;
-  overscroll-behavior: contain;
+  overflow: visible;
 }
 
 .cine-sb-monitor__flow .cine-sb-tile:not(.cine-sb-tile--active):not(.cine-sb-tile--expanded) .cine-sb-tile__body,
@@ -188,15 +186,17 @@
   margin-bottom: 4px;
 }
 
-/* Character studio — responsive wrap, no horizontal scroll */
+/* Character studio — no nested scroll (monitor body scrolls) */
 .studio-mock-characters-wireframe-panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  overflow-x: clip;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   min-height: 0;
+  overflow: visible;
+}
+
+.studio-mock-monitor-body--scroll-all .studio-mock-characters-wireframe-panel {
+  overflow: visible;
 }
 
 .studio-mock-characters-wireframe-panel .monitor-char-card,

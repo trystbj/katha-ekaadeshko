@@ -1787,6 +1787,7 @@ export default function App() {
                     activeTileIndex={embeddedPreviewIndex}
                     onActiveTileIndexChange={onMonitorSceneSelect}
                     busyLabel={busy}
+                    scrollContainerRef={studioMonitorBodyRef}
                     onRegenerateScene={onMonitorRegenerateScene}
                     onReplaceSceneImage={onMonitorReplaceSceneImage}
                   />

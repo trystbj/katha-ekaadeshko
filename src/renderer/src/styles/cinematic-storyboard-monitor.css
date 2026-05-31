@@ -33,12 +33,10 @@
 }
 
 .cine-sb-monitor__flow {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   max-height: none;
-  overflow-y: auto;
-  overflow-x: clip;
-  overscroll-behavior: contain;
+  overflow: visible;
   scroll-behavior: smooth;
   padding: 8px 6px 12px;
   display: flex;

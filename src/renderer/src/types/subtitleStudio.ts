@@ -56,8 +56,10 @@ export interface SubtitleStudioAdvanced {
   boxWidthPct: number
   /** @deprecated Migrated to boxWidthPct — kept for older saves. */
   boxScaleXPct?: number
-  /** Box height scale % (50–200) — vertical resize handles. */
-  boxScaleYPct: number
+  /** Box height (% of preview height, 8–48) — vertical resize handles. */
+  boxHeightPct: number
+  /** @deprecated Migrated to boxHeightPct — kept for older saves. */
+  boxScaleYPct?: number
   roundedBoxPx: number
   backdropBlurPx: number
   animation: 'none' | 'fade_in' | 'bounce' | 'slide' | 'typewriter'
@@ -114,7 +116,7 @@ export function defaultSubtitleStudioAdvanced(): SubtitleStudioAdvanced {
     bgColor: '#060810',
     bgOpacity: 0,
     boxWidthPct: 72,
-    boxScaleYPct: 100,
+    boxHeightPct: 14,
     roundedBoxPx: 10,
     backdropBlurPx: 0,
     animation: 'none',
@@ -167,7 +169,17 @@ export function normalizeSubtitleStudio(
         : advancedRaw.boxScaleXPct ?? def.advanced.boxWidthPct
     )
   )
-  const advanced = { ...advancedRaw, boxWidthPct, boxScaleXPct: undefined }
+  const heightFromScale = Number.isFinite(advancedRaw.boxHeightPct)
+    ? advancedRaw.boxHeightPct
+    : Math.round(((advancedRaw.boxScaleYPct ?? 100) / 100) * def.advanced.boxHeightPct)
+  const boxHeightPct = Math.min(48, Math.max(8, heightFromScale))
+  const advanced = {
+    ...advancedRaw,
+    boxWidthPct,
+    boxHeightPct,
+    boxScaleXPct: undefined,
+    boxScaleYPct: undefined
+  }
   const merged: SubtitleStudioState = {
     ...def,
     ...raw,

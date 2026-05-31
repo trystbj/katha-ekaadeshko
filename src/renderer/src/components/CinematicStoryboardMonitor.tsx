@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import type { ProjectState, StoryEpisode } from '../types/story'
 import { buildStoryboardTileModels } from '../utils/cinematicStoryboardSceneModel'
@@ -6,6 +6,7 @@ import { ensureVideoStudio } from '../utils/ensureVideoStudio'
 import { CinematicStoryboardTile } from './CinematicStoryboardTile'
 import { NARRATOR_UI_PRESETS } from '../constants/narrators'
 import { normalizeNarratorId } from '../constants/narrators'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 type Props = {
   project: ProjectState
@@ -13,8 +14,30 @@ type Props = {
   activeTileIndex: number
   onActiveTileIndexChange: (index: number) => void
   busyLabel: string | null
+  /** Bordered monitor body — fallback scroll root when scene feed is not scrollable */
+  scrollContainerRef?: RefObject<HTMLElement | null>
   onRegenerateScene?: (sceneIndex: number) => void
   onReplaceSceneImage?: (sceneIndex: number) => void
+}
+
+function scrollTileIntoView(scrollEl: HTMLElement, tileEl: HTMLElement, smooth: boolean) {
+  const pad = 6
+  const canScroll = scrollEl.scrollHeight > scrollEl.clientHeight + 1
+  if (!canScroll) {
+    tileEl.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'nearest', inline: 'nearest' })
+    return
+  }
+  const cRect = scrollEl.getBoundingClientRect()
+  const tRect = tileEl.getBoundingClientRect()
+  const relTop = tRect.top - cRect.top + scrollEl.scrollTop
+  const tileH = tileEl.offsetHeight
+  const viewH = scrollEl.clientHeight
+  let top = relTop - pad
+  if (tileH < viewH) {
+    top = relTop - (viewH - tileH) / 2
+  }
+  top = Math.max(0, Math.min(top, scrollEl.scrollHeight - viewH))
+  scrollEl.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' })
 }
 
 /** Vertical cinematic scene browser — sole scene list for generated stories. */
@@ -24,10 +47,12 @@ export function CinematicStoryboardMonitor({
   activeTileIndex,
   onActiveTileIndexChange,
   busyLabel,
+  scrollContainerRef,
   onRegenerateScene,
   onReplaceSceneImage
 }: Props) {
   const uiText = useUiText()
+  const reduced = usePrefersReducedMotion()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 
@@ -50,14 +75,22 @@ export function CinematicStoryboardMonitor({
     [project, episode, cinematicPlan, busyLabel, narratorLabel]
   )
 
-  const scrollToTile = useCallback((ix: number) => {
-    const root = scrollRef.current
-    if (!root) return
-    const el = root.querySelector(`[data-tile-index="${ix}"]`)
-    if (el && 'scrollIntoView' in el) {
-      ;(el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
-  }, [])
+  const scrollToTile = useCallback(
+    (ix: number) => {
+      const flow = scrollRef.current
+      const scrollEl = scrollContainerRef?.current ?? flow
+      if (!scrollEl || !flow) return
+      const tile = flow.querySelector(`[data-tile-index="${ix}"]`) as HTMLElement | null
+      if (!tile) return
+      const smooth = !reduced
+      if (scrollEl.scrollHeight > scrollEl.clientHeight + 1) {
+        scrollTileIntoView(scrollEl, tile, smooth)
+        return
+      }
+      tile.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'nearest', inline: 'nearest' })
+    },
+    [reduced, scrollContainerRef]
+  )
 
   useEffect(() => {
     scrollToTile(activeTileIndex)
