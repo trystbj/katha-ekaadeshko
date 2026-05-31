@@ -570,7 +570,7 @@
 
 .storyboard-workspace--preview-focus .storyboard-workspace__stage-wrap {
   flex: 1 1 auto;
-  min-height: min(72vh, 100%);
+  min-height: 0;
 }
 
 .preview-stage--maximize.preview-stage,
@@ -579,11 +579,19 @@
   height: 100%;
 }
 
-.preview-stage--maximize .preview-stage__media,
-.storyboard-workspace__preview-stage .preview-stage__media {
+.preview-stage--maximize:not(.preview-stage--cinematic) .preview-stage__media,
+.storyboard-workspace__preview-stage .preview-stage:not(.preview-stage--cinematic) .preview-stage__media {
   background-size: contain;
   background-repeat: no-repeat;
   background-color: rgba(4, 10, 14, 0.95);
+}
+
+.preview-stage--cinematic.preview-stage--fit-height .preview-stage__media {
+  background-size: auto 100% !important;
+}
+
+.preview-stage--cinematic.preview-stage--fit-width .preview-stage__media {
+  background-size: 100% auto !important;
 }
 
 .storyboard-workspace__cc-drawer {

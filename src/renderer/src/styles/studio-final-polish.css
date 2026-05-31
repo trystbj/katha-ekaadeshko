@@ -63,39 +63,68 @@
   color: rgba(255, 252, 246, 0.9);
 }
 
-/* Full-bleed cinematic preview (no 9:16 letterbox pocket) */
+/* Main display preview — flex chain + container-sized stage (scene image visible) */
 .studio-mock-preview-slot .storyboard-workspace--preview-focus {
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
   height: 100%;
   max-height: 100%;
   background: #060a0e;
-  border-radius: 0;
 }
 
 .studio-mock-preview-slot .storyboard-workspace--preview-focus .storyboard-workspace__stage-wrap {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
-  min-height: unset;
   border: none;
   border-radius: 0;
 }
 
-.studio-mock-preview-slot .storyboard-workspace--preview-focus .preview-stage,
 .studio-mock-preview-slot .storyboard-workspace--preview-focus .storyboard-workspace__preview-stage {
-  flex: 1 1 auto !important;
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  min-height: 0 !important;
-  aspect-ratio: unset !important;
-  margin: 0 !important;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.studio-mock-preview-slot .storyboard-workspace--preview-focus .storyboard-workspace__preview-stage > .preview-stage {
+  flex: 0 1 auto;
+  width: auto;
+  height: min(100cqh, calc(100cqw * 16 / 9));
+  max-width: 100cqw;
+  max-height: 100cqh !important;
+  min-height: 180px;
+  aspect-ratio: 9 / 16 !important;
+  margin: 0 auto !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: #060a0e !important;
 }
 
 .studio-mock-preview-slot .storyboard-workspace--preview-focus .preview-stage__inner {
-  min-height: 100%;
+  position: relative;
+  width: 100%;
   height: 100%;
+  min-height: 100%;
+}
+
+.studio-mock-preview-slot .storyboard-workspace--preview-focus .preview-stage--cinematic .preview-stage__media {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* Subtitle settings — transparent overlay on image */

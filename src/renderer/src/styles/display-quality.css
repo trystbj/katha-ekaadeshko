@@ -71,8 +71,10 @@ body {
   background-position: center;
 }
 
-/* Preview scene stills: prefer cover for clarity */
-.studio-mock-preview-wrap .preview-stage.preview-stage--has-scene .preview-stage__media {
+/* Preview scene stills: prefer cover for clarity (non-cinematic legacy path) */
+.studio-mock-preview-wrap
+  .preview-stage.preview-stage--has-scene:not(.preview-stage--cinematic)
+  .preview-stage__media {
   background-size:
     100% 100%,
     cover !important;

@@ -50,11 +50,11 @@
 }
 
 .preview-stage--cinematic .preview-stage__media {
-  position: relative;
-  inset: unset;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  flex: 1 1 auto;
+  flex: none;
   min-height: 0;
   background-repeat: no-repeat;
   background-position: center center;
