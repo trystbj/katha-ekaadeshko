@@ -9,7 +9,22 @@ import {
   storyboardSubtitlePositionStyle,
   type SubtitleFreePosition
 } from '../utils/subtitleFreePosition'
-import { storyboardSubtitleOverlayStyle } from '../utils/storyboardSubtitleOverlay'
+import {
+  storyboardSubtitleBgStyle,
+  storyboardSubtitleOuterStyle,
+  storyboardSubtitleTextStyle
+} from '../utils/storyboardSubtitleOverlay'
+
+type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+
+type ResizeSession = {
+  handle: ResizeHandle
+  startX: number
+  startY: number
+  startFontSize: number
+  startScaleX: number
+  startScaleY: number
+}
 
 type Props = {
   scene: StoryScene | null | undefined
@@ -17,8 +32,10 @@ type Props = {
   visible: boolean
   containerRef: RefObject<HTMLElement | null>
   onPositionChange: (pos: SubtitleFreePosition) => void
-  onScaleChange?: (fontSizePct: number) => void
+  onBoxChange?: (patch: Partial<SubtitleStudioState['advanced']>) => void
 }
+
+const HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 
 export function StoryboardSubtitleLiveOverlay({
   scene,
@@ -26,7 +43,7 @@ export function StoryboardSubtitleLiveOverlay({
   visible,
   containerRef,
   onPositionChange,
-  onScaleChange
+  onBoxChange
 }: Props) {
   const line = useMemo(() => cinematicSubtitleLineForScene(scene), [scene])
   const pos = useMemo(
@@ -36,10 +53,8 @@ export function StoryboardSubtitleLiveOverlay({
   const [dragging, setDragging] = useState(false)
   const [resizing, setResizing] = useState(false)
   const dragRef = useRef(false)
-  const resizeRef = useRef<{ startSize: number; startY: number } | null>(null)
+  const resizeRef = useRef<ResizeSession | null>(null)
   const dragOffsetRef = useRef<{ dx: number; dy: number } | null>(null)
-
-  const masterOpacity = Math.min(1, Math.max(0, studio.advanced.bgOpacity))
 
   const animClass =
     studio.advanced.animation === 'fade_in'
@@ -90,17 +105,35 @@ export function StoryboardSubtitleLiveOverlay({
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (resizeRef.current && onScaleChange) {
-        const { startSize, startY } = resizeRef.current
-        const delta = Math.round((startY - e.clientY) * 0.25)
-        onScaleChange(Math.min(160, Math.max(70, startSize + delta)))
+      const session = resizeRef.current
+      if (session && onBoxChange) {
+        const dx = e.clientX - session.startX
+        const dy = e.clientY - session.startY
+        const h = session.handle
+        let scaleX = session.startScaleX
+        let scaleY = session.startScaleY
+        let fontSize = session.startFontSize
+
+        if (h.includes('e')) scaleX = session.startScaleX + dx * 0.12
+        if (h.includes('w')) scaleX = session.startScaleX - dx * 0.12
+        if (h.includes('s')) scaleY = session.startScaleY + dy * 0.12
+        if (h.includes('n')) scaleY = session.startScaleY - dy * 0.12
+        if (h === 'se' || h === 'nw') {
+          fontSize = session.startFontSize + Math.round((-dy + dx) * 0.08)
+        }
+
+        onBoxChange({
+          boxScaleXPct: Math.min(200, Math.max(50, Math.round(scaleX))),
+          boxScaleYPct: Math.min(200, Math.max(50, Math.round(scaleY))),
+          fontSizePct: Math.min(160, Math.max(70, fontSize))
+        })
         return
       }
       if (!dragRef.current) return
       const next = positionFromPointer(e.clientX, e.clientY)
       if (next) onPositionChange(next)
     },
-    [onPositionChange, onScaleChange, positionFromPointer]
+    [onBoxChange, onPositionChange, positionFromPointer]
   )
 
   const endPointer = useCallback((e: React.PointerEvent) => {
@@ -123,15 +156,23 @@ export function StoryboardSubtitleLiveOverlay({
   }, [])
 
   const onHandleDown = useCallback(
-    (e: React.PointerEvent<HTMLSpanElement>) => {
-      if (!studio.subtitlesOn || !onScaleChange) return
+    (handle: ResizeHandle) => (e: React.PointerEvent<HTMLSpanElement>) => {
+      if (!studio.subtitlesOn || !onBoxChange) return
       e.stopPropagation()
       e.preventDefault()
       e.currentTarget.setPointerCapture(e.pointerId)
-      resizeRef.current = { startSize: studio.advanced.fontSizePct, startY: e.clientY }
+      const adv = studio.advanced
+      resizeRef.current = {
+        handle,
+        startX: e.clientX,
+        startY: e.clientY,
+        startFontSize: adv.fontSizePct,
+        startScaleX: adv.boxScaleXPct ?? 100,
+        startScaleY: adv.boxScaleYPct ?? 100
+      }
       setResizing(true)
     },
-    [onScaleChange, studio.advanced.fontSizePct, studio.subtitlesOn]
+    [onBoxChange, studio.advanced, studio.subtitlesOn]
   )
 
   const onKeyDown = useCallback(
@@ -161,7 +202,7 @@ export function StoryboardSubtitleLiveOverlay({
     }
   }, [dragging, resizing])
 
-  if (!visible || !studio.subtitlesOn || !line || masterOpacity <= 0) return null
+  if (!visible || !studio.subtitlesOn || !line) return null
 
   return (
     <div
@@ -173,27 +214,28 @@ export function StoryboardSubtitleLiveOverlay({
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}
       onPointerCancel={endPointer}
-      style={{
-        ...storyboardSubtitleOverlayStyle(studio),
-        ...storyboardSubtitlePositionStyle(pos)
-      }}
+      style={storyboardSubtitleOuterStyle(studio)}
     >
       <span className="storyboard-subtitle-overlay__frame" aria-hidden>
-        {(['nw', 'ne', 'sw', 'se', 'n', 's', 'e', 'w'] as const).map((edge) => (
+        {HANDLES.map((edge) => (
           <span
             key={edge}
             className={`storyboard-subtitle-overlay__handle storyboard-subtitle-overlay__handle--${edge}`}
-            onPointerDown={
-              edge === 'se' || edge === 's' || edge === 'e' ? onHandleDown : undefined
-            }
+            onPointerDown={onHandleDown(edge)}
           />
         ))}
       </span>
       <span
         className="storyboard-subtitle-overlay__text"
+        style={storyboardSubtitleTextStyle(studio)}
         onPointerDown={onTextPointerDown}
       >
-        {line}
+        <span
+          className="storyboard-subtitle-overlay__bg"
+          style={storyboardSubtitleBgStyle(studio)}
+          aria-hidden
+        />
+        <span className="storyboard-subtitle-overlay__line">{line}</span>
       </span>
     </div>
   )

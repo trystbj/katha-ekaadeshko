@@ -87,9 +87,6 @@ export function StudioScriptWorkspaceTabs({
               episode={episode}
               activeSceneIndex={activeIx}
               busyLabel={busyLabel}
-              onSmartRegen={onSmartRegen}
-              onRegenerateMissingSceneImages={onRegenerateMissingSceneImages}
-              onGenerateFinalVideo={onGenerateFinalVideo}
               onApproveSceneImages={onApproveSceneImages}
             />
           ) : (

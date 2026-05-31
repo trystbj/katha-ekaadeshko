@@ -52,6 +52,10 @@ export interface SubtitleStudioAdvanced {
   glowBlurPx: number
   bgColor: string
   bgOpacity: number
+  /** Box width scale % (50–200) — resize handles. */
+  boxScaleXPct: number
+  /** Box height scale % (50–200) — resize handles. */
+  boxScaleYPct: number
   roundedBoxPx: number
   backdropBlurPx: number
   animation: 'none' | 'fade_in' | 'bounce' | 'slide' | 'typewriter'
@@ -107,6 +111,8 @@ export function defaultSubtitleStudioAdvanced(): SubtitleStudioAdvanced {
     glowBlurPx: 12,
     bgColor: '#060810',
     bgOpacity: 0.62,
+    boxScaleXPct: 100,
+    boxScaleYPct: 100,
     roundedBoxPx: 10,
     backdropBlurPx: 0,
     animation: 'none',

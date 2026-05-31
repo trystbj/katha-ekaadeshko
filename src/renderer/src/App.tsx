@@ -34,7 +34,7 @@ import { ScriptReviewWorkspace } from './components/ScriptReviewWorkspace'
 import { showScriptReviewWorkspace, withScriptReviewReopened } from './utils/productionWorkflow'
 import { PreviewWorkspaceBackButton } from './components/PreviewWorkspaceBackButton'
 import { StudioScriptWorkspaceTabs } from './components/StudioScriptWorkspaceTabs'
-import { CharacterPreviewMode } from './components/CharacterPreviewMode'
+import { CinematicCharacterPreview } from './components/CinematicCharacterPreview'
 import { CharacterConsistencyLocks } from './components/CharacterConsistencyLocks'
 import {
   DEFAULT_CHARACTER_CONSISTENCY_LOCKS,
@@ -484,6 +484,11 @@ export default function App() {
     [characterPreviewId, project?.bible?.characters]
   )
 
+  const exitCharacterPreview = useCallback(() => {
+    setCharacterPreviewId(null)
+    setEmbeddedHeroOverride(null)
+  }, [])
+
   const pipelineSceneTotalEstimate = useMemo(() => {
     const fromEpisode = activeEpisode?.scenes?.length ?? 0
     if (fromEpisode > 0) return fromEpisode
@@ -565,10 +570,15 @@ export default function App() {
   }, [patchProject])
 
   const showPreviewBack = Boolean(
-    project?.bible && (showPostExportPreview || showStoryboardPreview || showScriptReview)
+    project?.bible &&
+      (showPostExportPreview || showStoryboardPreview || showScriptReview || characterPreviewId)
   )
 
   const onPreviewWorkspaceBack = useCallback(() => {
+    if (characterPreviewId) {
+      exitCharacterPreview()
+      return
+    }
     if (showPostExportPreview) {
       setDismissedExportPreview(true)
       return
@@ -581,7 +591,14 @@ export default function App() {
       document.getElementById('studio-story-seed')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       document.getElementById('studio-story-seed')?.focus()
     }
-  }, [showPostExportPreview, showStoryboardPreview, showScriptReview, onReopenScriptReview])
+  }, [
+    characterPreviewId,
+    exitCharacterPreview,
+    showPostExportPreview,
+    showStoryboardPreview,
+    showScriptReview,
+    onReopenScriptReview
+  ])
 
   const onMonitorRegenerateScene = useCallback(
     (sceneIndex: number) => {
@@ -850,11 +867,6 @@ export default function App() {
   useEffect(() => {
     if (activeEpisode?.scenes?.length) setCharactersMonitorOpen(false)
   }, [activeEpisode?.scenes?.length, project?.id])
-
-  const exitCharacterPreview = useCallback(() => {
-    setCharacterPreviewId(null)
-    setEmbeddedHeroOverride(null)
-  }, [])
 
   const onMonitorSceneSelect = useCallback(
     (rowIndex: number) => {
@@ -1225,23 +1237,19 @@ export default function App() {
                   }}
                   patchProject={patchProject}
                 />
-              ) : characterPreviewChar ? (
-                <div className="studio-mock-preview-wrap workspace-premium__stage character-preview-mode-wrap character-preview-mode-wrap--fill">
-                  <CharacterPreviewMode
-                    character={characterPreviewChar}
-                    narratorId={project?.bible?.narratorId}
-                    busy={Boolean(busy)}
-                    onBackToScene={exitCharacterPreview}
-                    onRegeneratePortrait={() => void generateCharacterBase(characterPreviewChar.id)}
-                    onUploadReference={() => {
-                      document
-                        .querySelector<HTMLInputElement>(
-                          `.monitor-char-card[data-char-id="${characterPreviewChar.id}"] input[type="file"]`
-                        )
-                        ?.click()
-                    }}
-                  />
-                </div>
+              ) : characterPreviewChar && project?.bible ? (
+                <CinematicCharacterPreview
+                  characters={project.bible.characters}
+                  activeCharacterId={characterPreviewChar.id}
+                  seasonId={studioSeasonId}
+                  busy={Boolean(busy)}
+                  onCharacterIndexChange={(i) => {
+                    const c = project.bible!.characters[i]
+                    if (!c) return
+                    setCharacterPreviewId(c.id)
+                    setEmbeddedHeroOverride(c.baseImageUrl ?? null)
+                  }}
+                />
               ) : showStoryboardPreview && activeEpisode ? (
                 <StoryboardPreviewWorkspace
                   project={project}

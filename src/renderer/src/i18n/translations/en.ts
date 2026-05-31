@@ -1353,6 +1353,7 @@ export const en = {
   studioSceneSectionMonitorNote: 'Scenes, narration, and dialogue are listed in the Story Monitor →',
   studioSceneSectionEmpty: 'No scenes in this episode yet.',
   studioSceneApproveImages: 'Generate scene images',
+  studioSceneGenerateAllImages: 'Generate all scene images',
   storyboardCcDrawer: 'Subtitles (CC)',
   storyboardSubtitleRailAria: 'Subtitle formatting',
   subtitleToolbarStyle: 'Text style',

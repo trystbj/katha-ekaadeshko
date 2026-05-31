@@ -5,7 +5,7 @@ type Props = {
   onBack: () => void
 }
 
-/** Top-left back control for the preview column (reference wireframe). */
+/** Single minimal back control for the preview column. */
 export function PreviewWorkspaceBackButton({ visible, onBack }: Props) {
   const uiText = useUiText()
   if (!visible) return null
@@ -18,7 +18,7 @@ export function PreviewWorkspaceBackButton({ visible, onBack }: Props) {
       title={uiText('previewWorkspaceBackAria')}
     >
       <span className="preview-workspace-back__glyph" aria-hidden>
-        ‹
+        ←
       </span>
     </button>
   )

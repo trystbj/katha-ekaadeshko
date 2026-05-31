@@ -85,7 +85,7 @@ export function StoryboardPreviewWorkspace({
   const rendering = busyLabel === 'rendering'
 
   return (
-    <div className="storyboard-workspace storyboard-workspace--preview-focus studio-mock-preview-wrap workspace-premium__stage">
+    <div className="cinematic-main-preview storyboard-workspace storyboard-workspace--preview-focus studio-mock-preview-wrap workspace-premium__stage">
       <div className="storyboard-workspace__stage-wrap" ref={stageWrapRef}>
         <PreviewStage
           sectionClassName="storyboard-workspace__preview-stage preview-stage--maximize"
@@ -116,8 +116,8 @@ export function StoryboardPreviewWorkspace({
           visible={!rendering}
           containerRef={stageWrapRef}
           onPositionChange={onSubtitlePositionChange}
-          onScaleChange={(fontSizePct) =>
-            patchSubtitle({ advanced: { ...studio.advanced, fontSizePct } })
+          onBoxChange={(partial) =>
+            patchSubtitle({ advanced: { ...studio.advanced, ...partial } })
           }
         />
       </div>
