@@ -16,6 +16,11 @@ const MENU_OPTS = {
   extraRightTuckMm: 2
 } as const
 
+const RAIL_MENU_OPTS = {
+  ...MENU_OPTS,
+  placement: 'above' as const
+}
+
 export type StorySubtitleStylePickerProps = {
   menuPortalContainerRef: RefObject<HTMLElement | null>
   /** `rail` — compact CC control beside B/I on preview subtitle toolbar. */
@@ -53,7 +58,8 @@ export function StorySubtitleStylePicker({
     }
     const wrap = menuPortalContainerRef.current
     const trigger = triggerRef.current
-    const apply = () => setPortalMenuStyle(computeLocaleMenuPortalStyle(trigger, wrap, MENU_OPTS))
+    const apply = () =>
+      setPortalMenuStyle(computeLocaleMenuPortalStyle(trigger, wrap, rail ? RAIL_MENU_OPTS : MENU_OPTS))
     apply()
     window.addEventListener('resize', apply)
     window.addEventListener('scroll', apply, true)
@@ -61,7 +67,7 @@ export function StorySubtitleStylePicker({
       window.removeEventListener('resize', apply)
       window.removeEventListener('scroll', apply, true)
     }
-  }, [open, menuPortalContainerRef])
+  }, [open, menuPortalContainerRef, rail])
 
   useEffect(() => {
     if (!open) return
@@ -87,7 +93,9 @@ export function StorySubtitleStylePicker({
   const menuEl = (
     <div
       ref={menuPortalRef}
-      className="studio-mock-locale-menu studio-mock-locale-menu--story-region studio-mock-subtitle-style-menu"
+      className={`studio-mock-locale-menu studio-mock-locale-menu--story-region studio-mock-subtitle-style-menu${
+        rail ? ' studio-mock-subtitle-style-menu--above' : ''
+      }`}
       role="dialog"
       aria-label={uiText('storySubtitleStyleTitle')}
       style={portalHostEl ? portalMenuStyle : undefined}
