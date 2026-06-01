@@ -189,6 +189,8 @@
   font-size: 0.64rem;
   min-width: 0;
   max-width: min(9rem, 32vw);
+  /* Opacity slider — 5mm right; transform only, rail layout unchanged */
+  transform: translateX(5mm);
 }
 
 .storyboard-subtitle-rail__opacity-label,
