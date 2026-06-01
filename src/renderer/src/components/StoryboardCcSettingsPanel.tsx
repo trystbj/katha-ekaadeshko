@@ -6,6 +6,7 @@ import {
   isSubtitlePlaybackPresetId,
   type SubtitlePlaybackPresetId
 } from '../constants/subtitlePlaybackPresets'
+import { subtitleStudioPatchForPlaybackPreset } from '../utils/subtitlePlaybackPresetApply'
 
 const FONT_CATS: SubtitleFontCategory[] = [
   'sans',
@@ -36,7 +37,7 @@ export function StoryboardCcSettingsPanel({ studio, disabled = false, onPatch }:
   }
 
   const setPreset = (id: SubtitlePlaybackPresetId) => {
-    onPatch({ playbackPresetId: id })
+    onPatch(subtitleStudioPatchForPlaybackPreset(studio, id))
   }
 
   const off = disabled || !studio.subtitlesOn

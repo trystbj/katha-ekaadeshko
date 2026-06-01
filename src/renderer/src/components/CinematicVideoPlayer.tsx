@@ -12,6 +12,7 @@ import {
 } from '../engines/timelineSync'
 import { subtitleVttOptionsForPreset, isSubtitlePlaybackPresetId } from '../constants/subtitlePlaybackPresets'
 import { buildSubtitleVttLook } from '../utils/buildSubtitleVttLook'
+import { subtitleStudioPatchForPlaybackPreset } from '../utils/subtitlePlaybackPresetApply'
 import type { SubtitleStudioState } from '../types/subtitleStudio'
 import { useStudioStore } from '../store/useStudioStore'
 import type { VoiceDirectorContext } from '../voice/voiceDirector'
@@ -137,7 +138,7 @@ export function CinematicVideoPlayer({
     if (!studioMode || !onSubtitleStudioPatch || !subtitleStudioProp) return
     if (!isSubtitlePlaybackPresetId(subtitlePresetId)) return
     if (subtitlePresetId === subtitleStudioProp.playbackPresetId) return
-    onSubtitleStudioPatch({ playbackPresetId: subtitlePresetId })
+    onSubtitleStudioPatch(subtitleStudioPatchForPlaybackPreset(subtitleStudioProp, subtitlePresetId))
   }, [studioMode, onSubtitleStudioPatch, subtitleStudioProp, subtitlePresetId])
 
   const vttLook = useMemo(() => {

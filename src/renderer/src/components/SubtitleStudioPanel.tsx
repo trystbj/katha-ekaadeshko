@@ -11,6 +11,7 @@ import {
   type SubtitlePlaybackPresetId
 } from '../constants/subtitlePlaybackPresets'
 import { subtitlePresetForGenre } from '../utils/subtitleGenreSuggest'
+import { subtitleStudioPatchForPlaybackPreset } from '../utils/subtitlePlaybackPresetApply'
 import {
   loadStoredSubtitlePresets,
   persistStoredSubtitlePresets,
@@ -59,8 +60,8 @@ export function SubtitleStudioPanel({ scenes, studio, patchSubtitleStudio }: Pro
 
   const applyGenrePreset = useCallback(() => {
     const id = subtitlePresetForGenre(backendGenre || '')
-    patchSubtitleStudio({ playbackPresetId: id })
-  }, [backendGenre, patchSubtitleStudio])
+    patchSubtitleStudio(subtitleStudioPatchForPlaybackPreset(studio, id))
+  }, [backendGenre, patchSubtitleStudio, studio])
 
   const saveNamedPreset = useCallback(() => {
     const name = window.prompt(uiText('subtitleStudioSavePrompt'))
@@ -299,7 +300,7 @@ export function SubtitleStudioPanel({ scenes, studio, patchSubtitleStudio }: Pro
                 type="button"
                 role="listitem"
                 className={`subtitle-studio-panel__preset-chip${active ? ' subtitle-studio-panel__preset-chip--active' : ''}`}
-                onClick={() => patchSubtitleStudio({ playbackPresetId: id })}
+                onClick={() => patchSubtitleStudio(subtitleStudioPatchForPlaybackPreset(studio, id))}
               >
                 <span className="subtitle-studio-panel__preset-swatch" style={{ background: preset.swatch }} />
                 <span>{uiText(preset.labelKey)}</span>
@@ -635,16 +636,39 @@ export function SubtitleStudioPanel({ scenes, studio, patchSubtitleStudio }: Pro
       <details className="subtitle-studio-panel__details">
         <summary>{uiText('subtitleStudioTemplatesSocial')}</summary>
         <div className="subtitle-studio-panel__chip-row">
-          <button type="button" className="btn btn-ghost btn-small" onClick={() => patchSubtitleStudio({ playbackPresetId: 'viral_reel' })}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            onClick={() => patchSubtitleStudio(subtitleStudioPatchForPlaybackPreset(studio, 'viral_reel'))}
+          >
             {uiText('subtitleTplReel')}
           </button>
-          <button type="button" className="btn btn-ghost btn-small" onClick={() => patchSubtitleStudio({ playbackPresetId: 'tiktok_pop' })}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            onClick={() => patchSubtitleStudio(subtitleStudioPatchForPlaybackPreset(studio, 'tiktok_pop'))}
+          >
             {uiText('subtitleTplTiktok')}
           </button>
-          <button type="button" className="btn btn-ghost btn-small" onClick={() => patchSubtitleStudio({ playbackPresetId: 'youtube_shorts_caption' })}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            onClick={() =>
+              patchSubtitleStudio(subtitleStudioPatchForPlaybackPreset(studio, 'youtube_shorts_caption'))
+            }
+          >
             {uiText('subtitleTplShorts')}
           </button>
-          <button type="button" className="btn btn-ghost btn-small" onClick={() => patchSubtitleStudio({ playbackPresetId: 'karaoke_highlight', karaokeMode: 'pulse' })}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            onClick={() =>
+              patchSubtitleStudio({
+                ...subtitleStudioPatchForPlaybackPreset(studio, 'karaoke_highlight'),
+                karaokeMode: 'pulse'
+              })
+            }
+          >
             {uiText('subtitleTplKaraoke')}
           </button>
         </div>

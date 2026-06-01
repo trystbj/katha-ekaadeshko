@@ -83,6 +83,14 @@ export function StoryboardPreviewWorkspace({
   )
 
   useEffect(() => {
+    const z = useStudioStore.getState()
+    z.setPlaybackSubtitlesOn(studio.subtitlesOn)
+    if (isSubtitlePlaybackPresetId(studio.playbackPresetId)) {
+      z.setSubtitlePlaybackPresetId(studio.playbackPresetId)
+    }
+  }, [studio.subtitlesOn, studio.playbackPresetId])
+
+  useEffect(() => {
     const el = stageWrapRef.current
     if (!el) return
     const syncFontPx = () => {

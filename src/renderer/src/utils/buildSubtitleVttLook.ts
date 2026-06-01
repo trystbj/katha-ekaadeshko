@@ -16,7 +16,7 @@ const FONT_STACKS: Record<SubtitleStudioState['advanced']['fontCategory'], strin
   display: '"Segoe UI Variable Display", system-ui, sans-serif'
 }
 
-function hexToRgba(hex: string, a: number): string {
+export function hexToRgba(hex: string, a: number): string {
   const m = hex.trim().match(/^#?([0-9a-f]{6})$/i)
   if (!m) return `rgba(6, 8, 16, ${a})`
   const n = parseInt(m[1], 16)
@@ -26,7 +26,7 @@ function hexToRgba(hex: string, a: number): string {
   return `rgba(${r}, ${g}, ${b}, ${a})`
 }
 
-function outlineShadow(color: string, px: number): string {
+export function outlineShadow(color: string, px: number): string {
   const p = Math.min(6, Math.max(0, Math.round(px)))
   if (p <= 0) return ''
   const c = color

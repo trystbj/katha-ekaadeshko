@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { SubtitleStudioState } from '../types/subtitleStudio'
+import { hexToRgba, outlineShadow } from './buildSubtitleVttLook'
 import { resolveSubtitleFreePosition, storyboardSubtitlePositionStyle } from './subtitleFreePosition'
 
 const FONT_STACKS: Record<SubtitleStudioState['advanced']['fontCategory'], string> = {
@@ -35,12 +36,14 @@ export function boxMetrics(
 }
 
 function cinematicTextShadow(adv: SubtitleStudioState['advanced']): string | undefined {
-  const parts = [
-    adv.outlinePx > 0 ? `0 0 ${adv.outlinePx}px ${adv.outlineColor}` : '',
-    adv.shadowBlurPx > 0 ? `0 2px ${adv.shadowBlurPx}px rgba(0,0,0,0.72)` : '',
-    '0 1px 3px rgba(0,0,0,0.55)'
-  ].filter(Boolean)
-  return parts.length ? parts.join(', ') : undefined
+  const outline = outlineShadow(adv.outlineColor, adv.outlinePx)
+  const soft =
+    adv.shadowBlurPx > 0
+      ? `0 ${Math.round(adv.shadowBlurPx * 0.35)}px ${adv.shadowBlurPx}px rgba(0,0,0,0.55)`
+      : ''
+  const glow = adv.glowBlurPx > 0 ? `0 0 ${adv.glowBlurPx}px ${adv.glowColor}` : ''
+  const shadows = [outline, soft, glow].filter(Boolean).join(', ')
+  return shadows || '0 1px 3px rgba(0,0,0,0.55)'
 }
 
 /** Outer anchor — position only. */
@@ -116,8 +119,9 @@ export function storyboardSubtitleBgStyle(studio: SubtitleStudioState): CSSPrope
     return { opacity: 0, background: 'transparent' }
   }
   return {
-    opacity: bgAlpha,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    borderRadius: studio.advanced.roundedBoxPx > 0 ? `${studio.advanced.roundedBoxPx}px` : '4px'
+    opacity: 1,
+    backgroundColor: hexToRgba(studio.advanced.bgColor, bgAlpha),
+    borderRadius: studio.advanced.roundedBoxPx > 0 ? `${studio.advanced.roundedBoxPx}px` : '4px',
+    backdropFilter: studio.advanced.backdropBlurPx > 0 ? `blur(${studio.advanced.backdropBlurPx}px)` : undefined
   }
 }

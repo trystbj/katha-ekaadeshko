@@ -7,8 +7,11 @@ import { useStudioStore } from '../store/useStudioStore'
 import {
   SUBTITLE_PLAYBACK_PRESETS,
   SUBTITLE_PLAYBACK_PRESET_ORDER,
+  isSubtitlePlaybackPresetId,
   type SubtitlePlaybackPresetId
 } from '../constants/subtitlePlaybackPresets'
+import type { SubtitleStudioState } from '../types/subtitleStudio'
+import { subtitleStudioPatchForPlaybackPreset } from '../utils/subtitlePlaybackPresetApply'
 
 const MENU_OPTS = {
   maxWidthCapPx: Math.round(236 * 1.03),
@@ -25,20 +28,28 @@ export type StorySubtitleStylePickerProps = {
   menuPortalContainerRef: RefObject<HTMLElement | null>
   /** `rail` — compact CC control beside B/I on preview subtitle toolbar. */
   variant?: 'headline' | 'rail'
+  /** Live preview + export studio state (required for rail CC). */
+  studio?: SubtitleStudioState
+  /** Persist subtitle look to project video studio. */
+  onPatch?: (patch: Partial<SubtitleStudioState>) => void
 }
 
 /** CC control beside the story seed headline (“More”) after `project.lastRenderVideoUrl` exists. */
 export function StorySubtitleStylePicker({
   menuPortalContainerRef,
-  variant = 'headline'
+  variant = 'headline',
+  studio,
+  onPatch
 }: StorySubtitleStylePickerProps) {
   const rail = variant === 'rail'
   const uiText = useUiText()
   const busy = useStudioStore((s) => !!s.busy)
-  const playbackSubtitlesOn = useStudioStore((s) => s.playbackSubtitlesOn)
-  const presetId = useStudioStore((s) => s.subtitlePlaybackPresetId)
+  const storeSubsOn = useStudioStore((s) => s.playbackSubtitlesOn)
+  const storePresetId = useStudioStore((s) => s.subtitlePlaybackPresetId)
   const setPlaybackSubtitlesOn = useStudioStore((s) => s.setPlaybackSubtitlesOn)
   const setSubtitlePlaybackPresetId = useStudioStore((s) => s.setSubtitlePlaybackPresetId)
+  const playbackSubtitlesOn = studio?.subtitlesOn ?? storeSubsOn
+  const presetId = studio?.playbackPresetId ?? storePresetId
 
   const [open, setOpen] = useState(false)
   const [portalHostEl, setPortalHostEl] = useState<HTMLElement | null>(null)
@@ -105,7 +116,11 @@ export function StorySubtitleStylePicker({
         <input
           type="checkbox"
           checked={playbackSubtitlesOn}
-          onChange={(e) => setPlaybackSubtitlesOn(e.target.checked)}
+          onChange={(e) => {
+            const on = e.target.checked
+            setPlaybackSubtitlesOn(on)
+            onPatch?.({ subtitlesOn: on })
+          }}
         />
         <span>{uiText('storySubtitleShowInPlayer')}</span>
       </label>
@@ -122,7 +137,12 @@ export function StorySubtitleStylePicker({
               aria-selected={active}
               className={`studio-mock-subtitle-style-preset${active ? ' studio-mock-subtitle-style-preset--active' : ''}`}
               onClick={() => {
-                setSubtitlePlaybackPresetId(id)
+                if (studio && onPatch) {
+                  onPatch(subtitleStudioPatchForPlaybackPreset(studio, id))
+                } else {
+                  setSubtitlePlaybackPresetId(id)
+                }
+                if (isSubtitlePlaybackPresetId(id)) setSubtitlePlaybackPresetId(id)
                 setOpen(false)
               }}
             >

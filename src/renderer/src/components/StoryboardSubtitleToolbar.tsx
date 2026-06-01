@@ -98,6 +98,8 @@ export function StoryboardSubtitleToolbar({
           <StorySubtitleStylePicker
             menuPortalContainerRef={ccMenuPortalContainerRef}
             variant="rail"
+            studio={studio}
+            onPatch={onPatch}
           />
         ) : null}
       </div>
