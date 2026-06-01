@@ -123,6 +123,11 @@
   background: rgba(80, 140, 220, 0.22);
 }
 
+/* Italic (I) — 2mm right; transform only, rail layout unchanged */
+.storyboard-subtitle-rail__toggles .storyboard-subtitle-rail__icon-btn:nth-child(2) {
+  transform: translateX(2mm);
+}
+
 .storyboard-subtitle-rail__field--opacity {
   display: inline-flex;
   align-items: center;
