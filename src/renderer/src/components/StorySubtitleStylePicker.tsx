@@ -18,10 +18,16 @@ const MENU_OPTS = {
 
 export type StorySubtitleStylePickerProps = {
   menuPortalContainerRef: RefObject<HTMLElement | null>
+  /** `rail` — compact CC control beside B/I on preview subtitle toolbar. */
+  variant?: 'headline' | 'rail'
 }
 
 /** CC control beside the story seed headline (“More”) after `project.lastRenderVideoUrl` exists. */
-export function StorySubtitleStylePicker({ menuPortalContainerRef }: StorySubtitleStylePickerProps) {
+export function StorySubtitleStylePicker({
+  menuPortalContainerRef,
+  variant = 'headline'
+}: StorySubtitleStylePickerProps) {
+  const rail = variant === 'rail'
   const uiText = useUiText()
   const busy = useStudioStore((s) => !!s.busy)
   const playbackSubtitlesOn = useStudioStore((s) => s.playbackSubtitlesOn)
@@ -123,11 +129,16 @@ export function StorySubtitleStylePicker({ menuPortalContainerRef }: StorySubtit
   )
 
   return (
-    <div className="studio-mock-subtitle-picker" ref={rootRef}>
+    <div
+      className={`studio-mock-subtitle-picker${rail ? ' studio-mock-subtitle-picker--rail' : ''}`}
+      ref={rootRef}
+    >
       <button
         ref={triggerRef}
         type="button"
-        className="studio-mock-subtitle-picker__trigger"
+        className={`studio-mock-subtitle-picker__trigger${
+          rail ? ' storyboard-subtitle-rail__icon-btn' : ''
+        }${open ? ' studio-mock-subtitle-picker__trigger--open' : ''}`}
         disabled={busy}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -140,9 +151,11 @@ export function StorySubtitleStylePicker({ menuPortalContainerRef }: StorySubtit
         <span className="studio-mock-subtitle-picker__glyph" aria-hidden>
           {Glyphs.cc}
         </span>
-        <span className="studio-mock-subtitle-picker__chev" aria-hidden>
-          {Glyphs.caretDown}
-        </span>
+        {rail ? null : (
+          <span className="studio-mock-subtitle-picker__chev" aria-hidden>
+            {Glyphs.caretDown}
+          </span>
+        )}
       </button>
       {open && portalHostEl ? createPortal(menuEl, portalHostEl) : open ? menuEl : null}
     </div>

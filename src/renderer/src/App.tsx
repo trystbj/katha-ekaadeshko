@@ -78,7 +78,6 @@ const MonitorUserGuide = lazy(() =>
 import { namesMatch } from './utils/characterNameMatch'
 import { pushStoryToHistory } from './utils/storyHistory'
 import { STUDIO_BROADCAST_CHANNEL } from './constants/studioSync'
-import { StorySubtitleStylePicker } from './components/StorySubtitleStylePicker'
 import { StudioMonitorLabelIcon } from './components/StudioMonitorLabelIcon'
 import { StudioStyleLabelIcon } from './components/StudioStyleLabelIcon'
 import { EpisodeSequentialBanner } from './components/EpisodeSequentialBanner'
@@ -1337,9 +1336,6 @@ export default function App() {
                   </span>
                   <span className="studio-mock-section-title__seed-cluster">
                     <span className="studio-mock-section-title__seed-headline">{uiText('ideaSeedTitleWireframe')}</span>
-                    {project?.lastRenderVideoUrl || showStoryboardPreview ? (
-                      <StorySubtitleStylePicker menuPortalContainerRef={storyIdeaWrapRef} />
-                    ) : null}
                   </span>
                 </span>
                 <span className="studio-mock-section-title__pickers">

@@ -128,6 +128,42 @@
   transform: translateX(2mm);
 }
 
+/* CC — same footprint as B/I, immediately after italic */
+.storyboard-subtitle-rail__toggles .studio-mock-subtitle-picker--rail {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  transform: translateX(2mm);
+}
+
+.storyboard-subtitle-rail__toggles .studio-mock-subtitle-picker--rail .studio-mock-subtitle-picker__trigger {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 8px;
+  margin: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 252, 246, 0.92);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  gap: 0;
+}
+
+.storyboard-subtitle-rail__toggles .studio-mock-subtitle-picker--rail .studio-mock-subtitle-picker__trigger--open,
+.storyboard-subtitle-rail__toggles .studio-mock-subtitle-picker--rail .studio-mock-subtitle-picker__trigger:hover:not(:disabled) {
+  border-color: rgba(212, 175, 55, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.storyboard-subtitle-rail__toggles .studio-mock-subtitle-picker--rail .studio-mock-subtitle-picker__glyph {
+  font-variant: normal;
+  font-size: inherit;
+}
+
 .storyboard-subtitle-rail__field--opacity {
   display: inline-flex;
   align-items: center;

@@ -141,6 +141,7 @@ export function StoryboardPreviewWorkspace({
           disabled={rendering}
           onPatch={patchSubtitle}
           overlayOnStage
+          ccMenuPortalContainerRef={stageWrapRef}
         />
       </div>
 

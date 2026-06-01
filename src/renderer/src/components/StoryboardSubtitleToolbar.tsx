@@ -1,5 +1,7 @@
+import type { RefObject } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import type { SubtitleStudioState, SubtitleFontCategory } from '../types/subtitleStudio'
+import { StorySubtitleStylePicker } from './StorySubtitleStylePicker'
 
 const FONT_CATS: SubtitleFontCategory[] = [
   'elegant',
@@ -20,6 +22,8 @@ type Props = {
   onPatch: (patch: Partial<SubtitleStudioState>) => void
   /** Transparent controls overlaid on the preview image. */
   overlayOnStage?: boolean
+  /** Portal host for CC preset menu (preview stage wrap). */
+  ccMenuPortalContainerRef?: RefObject<HTMLElement | null>
 }
 
 /** Minimal subtitle rail — size/position via on-image handles only. */
@@ -27,7 +31,8 @@ export function StoryboardSubtitleToolbar({
   studio,
   disabled = false,
   onPatch,
-  overlayOnStage = false
+  overlayOnStage = false,
+  ccMenuPortalContainerRef
 }: Props) {
   const uiText = useUiText()
   const adv = studio.advanced
@@ -89,6 +94,12 @@ export function StoryboardSubtitleToolbar({
         >
           I
         </button>
+        {ccMenuPortalContainerRef ? (
+          <StorySubtitleStylePicker
+            menuPortalContainerRef={ccMenuPortalContainerRef}
+            variant="rail"
+          />
+        ) : null}
       </div>
 
       <label className="storyboard-subtitle-rail__field storyboard-subtitle-rail__field--opacity">
