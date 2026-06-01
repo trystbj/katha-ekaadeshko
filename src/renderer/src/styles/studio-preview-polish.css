@@ -189,7 +189,13 @@
 }
 
 .storyboard-subtitle-rail--minimal {
-  gap: 8px 10px;
+  gap: 4px 6px;
+}
+
+.storyboard-subtitle-rail--overlay .storyboard-subtitle-rail__opacity-val {
+  min-width: 2ch;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .storyboard-subtitle-rail__select,

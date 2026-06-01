@@ -48,14 +48,17 @@ export function StoryboardSubtitleToolbar({
       role="region"
       aria-label={uiText('storyboardSubtitleRailAria')}
     >
-      <label className="storyboard-subtitle-rail__toggle">
+      <label
+        className="storyboard-subtitle-rail__toggle storyboard-subtitle-rail__toggle--icon"
+        title={uiText('storyboardSubtitlesOn')}
+      >
         <input
           type="checkbox"
           checked={studio.subtitlesOn}
           disabled={disabled}
           onChange={(e) => onPatch({ subtitlesOn: e.target.checked })}
+          aria-label={uiText('storyboardSubtitlesOn')}
         />
-        <span>{uiText('storyboardSubtitlesOn')}</span>
       </label>
 
       <label className="storyboard-subtitle-rail__field">
@@ -105,7 +108,7 @@ export function StoryboardSubtitleToolbar({
       </div>
 
       <label className="storyboard-subtitle-rail__field storyboard-subtitle-rail__field--opacity">
-        <span>{uiText('subtitleStudioOpacity')}</span>
+        <span className="storyboard-subtitle-rail__opacity-label">{uiText('subtitleStudioOpacity')}</span>
         <input
           type="range"
           min={0}

@@ -20,7 +20,9 @@ const MENU_OPTS = {
 } as const
 
 const RAIL_MENU_OPTS = {
-  ...MENU_OPTS,
+  maxWidthCapPx: Math.round(212 * 1.03),
+  maxHeightPx: 400,
+  extraRightTuckMm: 2,
   placement: 'above' as const
 }
 
@@ -105,27 +107,35 @@ export function StorySubtitleStylePicker({
     <div
       ref={menuPortalRef}
       className={`studio-mock-locale-menu studio-mock-locale-menu--story-region studio-mock-subtitle-style-menu${
-        rail ? ' studio-mock-subtitle-style-menu--above' : ''
+        rail ? ' studio-mock-subtitle-style-menu--above studio-mock-subtitle-style-menu--compact' : ''
       }`}
       role="dialog"
       aria-label={uiText('storySubtitleStyleTitle')}
       style={portalHostEl ? portalMenuStyle : undefined}
     >
-      <div className="studio-mock-subtitle-style-menu__head">{uiText('storySubtitleStyleTitle')}</div>
-      <label className="studio-mock-subtitle-style-menu__toggle">
-        <input
-          type="checkbox"
-          checked={playbackSubtitlesOn}
-          onChange={(e) => {
-            const on = e.target.checked
-            setPlaybackSubtitlesOn(on)
-            onPatch?.({ subtitlesOn: on })
-          }}
-        />
-        <span>{uiText('storySubtitleShowInPlayer')}</span>
-      </label>
-      <div className="studio-mock-subtitle-style-menu__divider" aria-hidden />
-      <div className="studio-mock-subtitle-style-menu__presets" role="listbox" aria-label={uiText('storySubtitleStyleTitle')}>
+      {!rail ? (
+        <>
+          <div className="studio-mock-subtitle-style-menu__head">{uiText('storySubtitleStyleTitle')}</div>
+          <label className="studio-mock-subtitle-style-menu__toggle">
+            <input
+              type="checkbox"
+              checked={playbackSubtitlesOn}
+              onChange={(e) => {
+                const on = e.target.checked
+                setPlaybackSubtitlesOn(on)
+                onPatch?.({ subtitlesOn: on })
+              }}
+            />
+            <span>{uiText('storySubtitleShowInPlayer')}</span>
+          </label>
+          <div className="studio-mock-subtitle-style-menu__divider" aria-hidden />
+        </>
+      ) : null}
+      <div
+        className="studio-mock-subtitle-style-menu__presets"
+        role="listbox"
+        aria-label={uiText('storySubtitleStyleTitle')}
+      >
         {SUBTITLE_PLAYBACK_PRESET_ORDER.map((id: SubtitlePlaybackPresetId) => {
           const preset = SUBTITLE_PLAYBACK_PRESETS[id]
           const active = presetId === id
@@ -152,7 +162,9 @@ export function StorySubtitleStylePicker({
           )
         })}
       </div>
-      <p className="studio-mock-subtitle-style-menu__hint">{uiText('storySubtitleTimingHint')}</p>
+      {!rail ? (
+        <p className="studio-mock-subtitle-style-menu__hint">{uiText('storySubtitleTimingHint')}</p>
+      ) : null}
     </div>
   )
 

@@ -162,13 +162,22 @@
 }
 
 .storyboard-subtitle-rail--overlay {
-  gap: 6px 8px;
-  padding: 8px 10px 12px;
+  gap: 4px 6px;
+  padding: 6px 8px 8px;
   background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.38) 72%) !important;
 }
 
 .storyboard-subtitle-rail--minimal {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
+}
+
+.storyboard-subtitle-rail--overlay .storyboard-subtitle-rail__field {
+  margin: 0;
+  padding: 0;
+}
+
+.storyboard-subtitle-rail--overlay .storyboard-subtitle-rail__toggles {
+  gap: 2px;
 }
 
 .storyboard-subtitle-overlay {

@@ -184,7 +184,7 @@ export function SubtitleStudioPanel({ scenes, studio, patchSubtitleStudio }: Pro
 
   return (
     <section className="subtitle-studio-panel" aria-label={uiText('subtitleStudioSectionTitle')}>
-      <h4 className="post-export-dock__section-title">{uiText('subtitleStudioSectionTitle')}</h4>
+      <h4 className="post-export-dock__section-title sr-only">{uiText('subtitleStudioSectionTitle')}</h4>
       <p className="subtitle-studio-panel__lead">{uiText('subtitleStudioLead')}</p>
 
       <div className="subtitle-studio-panel__row subtitle-studio-panel__row--toggle">

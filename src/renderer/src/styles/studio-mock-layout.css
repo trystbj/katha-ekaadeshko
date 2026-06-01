@@ -1866,6 +1866,42 @@
   box-sizing: border-box;
 }
 
+/* CC preset popup on preview rail — dense list, no duplicate chrome */
+.studio-mock-subtitle-style-menu--compact {
+  width: min(212px, 48vw);
+  max-height: min(52vh, 420px);
+  padding: 4px 5px 5px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.studio-mock-subtitle-style-menu--compact.studio-mock-subtitle-style-menu--above {
+  max-height: min(48vh, 380px);
+}
+
+.studio-mock-subtitle-style-menu--compact .studio-mock-subtitle-style-menu__presets {
+  gap: 2px;
+  padding: 0;
+}
+
+.studio-mock-subtitle-style-menu--compact .studio-mock-subtitle-style-preset {
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: calc(0.54rem * 1.03);
+  line-height: 1.22;
+}
+
+.studio-mock-subtitle-style-menu--compact .studio-mock-subtitle-style-preset__swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+.studio-mock-subtitle-style-menu--compact .studio-mock-subtitle-style-preset__label {
+  line-height: 1.2;
+}
+
 .studio-mock-subtitle-style-menu__head {
   padding: 4px 6px 6px;
   font-size: calc(0.52rem * 1.03);
