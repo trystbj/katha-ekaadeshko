@@ -134,7 +134,7 @@
   flex-shrink: 0;
   margin: 0;
   padding: 0;
-  transform: translateX(2mm);
+  transform: translateX(4mm);
 }
 
 .storyboard-subtitle-rail__toggles .studio-mock-subtitle-picker--rail .studio-mock-subtitle-picker__trigger {
