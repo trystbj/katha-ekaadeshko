@@ -1902,6 +1902,21 @@
   line-height: 1.2;
 }
 
+/* Font list on preview rail — same shell as CC look, text rows only */
+.studio-mock-subtitle-font-menu.studio-mock-subtitle-style-menu--compact {
+  width: min(212px, 48vw);
+}
+
+.studio-mock-subtitle-font-menu .studio-mock-subtitle-style-preset--text-only {
+  gap: 0;
+  padding: 4px 6px;
+}
+
+.studio-mock-subtitle-font-menu .studio-mock-subtitle-style-preset--text-only .studio-mock-subtitle-style-preset__label {
+  font-size: calc(0.54rem * 1.03);
+  line-height: 1.2;
+}
+
 .studio-mock-subtitle-style-menu__head {
   padding: 4px 6px 6px;
   font-size: calc(0.52rem * 1.03);

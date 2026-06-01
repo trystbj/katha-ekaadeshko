@@ -1358,6 +1358,7 @@ export const en = {
   storyboardCcDrawer: 'Subtitles (CC)',
   storyboardSubtitleRailAria: 'Subtitle formatting',
   subtitleToolbarStyle: 'Text style',
+  subtitleToolbarFont: 'Font',
   cineActionDetails: 'Details',
   cineShotLabel: 'Shot',
   cineShotWideNatural: 'Wide — Natural',

@@ -1,20 +1,8 @@
 import type { RefObject } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
-import type { SubtitleStudioState, SubtitleFontCategory } from '../types/subtitleStudio'
+import type { SubtitleStudioState } from '../types/subtitleStudio'
+import { StorySubtitleFontPicker } from './StorySubtitleFontPicker'
 import { StorySubtitleStylePicker } from './StorySubtitleStylePicker'
-
-const FONT_CATS: SubtitleFontCategory[] = [
-  'elegant',
-  'serif',
-  'sans',
-  'cinematic',
-  'bold',
-  'handwritten',
-  'playful',
-  'traditional',
-  'modern',
-  'display'
-]
 
 type Props = {
   studio: SubtitleStudioState
@@ -61,21 +49,16 @@ export function StoryboardSubtitleToolbar({
         />
       </label>
 
-      <label className="storyboard-subtitle-rail__field">
-        <span className="sr-only">{uiText('subtitleStudioFontCategory')}</span>
-        <select
-          className="select storyboard-subtitle-rail__select"
-          disabled={off}
-          value={adv.fontCategory}
-          onChange={(e) => patchAdv({ fontCategory: e.target.value as SubtitleFontCategory })}
-          aria-label={uiText('subtitleStudioFontCategory')}
-        >
-          {FONT_CATS.map((fc) => (
-            <option key={fc} value={fc}>
-              {uiText(`subtitleStudioFont_${fc}`)}
-            </option>
-          ))}
-        </select>
+      <label className="storyboard-subtitle-rail__field storyboard-subtitle-rail__field--font">
+        <span className="storyboard-subtitle-rail__font-label">{uiText('subtitleToolbarFont')}</span>
+        {ccMenuPortalContainerRef ? (
+          <StorySubtitleFontPicker
+            menuPortalContainerRef={ccMenuPortalContainerRef}
+            value={adv.fontCategory}
+            disabled={off}
+            onChange={(fc) => patchAdv({ fontCategory: fc })}
+          />
+        ) : null}
       </label>
 
       <div className="storyboard-subtitle-rail__toggles" role="group" aria-label={uiText('subtitleToolbarStyle')}>
