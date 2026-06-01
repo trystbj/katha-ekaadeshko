@@ -50,7 +50,7 @@ export function StoryboardSubtitleToolbar({
       </label>
 
       <label className="storyboard-subtitle-rail__field storyboard-subtitle-rail__field--font">
-        <span className="storyboard-subtitle-rail__font-label">{uiText('subtitleToolbarFont')}</span>
+        <span className="sr-only">{uiText('subtitleToolbarFont')}</span>
         {ccMenuPortalContainerRef ? (
           <StorySubtitleFontPicker
             menuPortalContainerRef={ccMenuPortalContainerRef}
@@ -91,7 +91,7 @@ export function StoryboardSubtitleToolbar({
       </div>
 
       <label className="storyboard-subtitle-rail__field storyboard-subtitle-rail__field--opacity">
-        <span className="storyboard-subtitle-rail__opacity-label">{uiText('subtitleStudioOpacity')}</span>
+        <span className="sr-only">{uiText('subtitleStudioOpacity')}</span>
         <input
           type="range"
           min={0}
@@ -99,6 +99,7 @@ export function StoryboardSubtitleToolbar({
           disabled={off}
           value={Math.round(adv.bgOpacity * 100)}
           onChange={(e) => patchAdv({ bgOpacity: Number(e.target.value) / 100 })}
+          aria-label={uiText('subtitleStudioOpacity')}
         />
         <span className="storyboard-subtitle-rail__opacity-val">{Math.round(adv.bgOpacity * 100)}%</span>
       </label>
