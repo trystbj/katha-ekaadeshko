@@ -295,6 +295,7 @@ export async function runKathaPipeline(input, req, opts = {}) {
     order: ['openai', 'gemini', 'deepseek']
   })
   providersUsed.story = storyProvider
+  budget.checkpoint('story', { story })
 
   // Anti-repetition: fingerprint and reject if too similar
   const fp = fingerprintStory(story)
@@ -484,7 +485,7 @@ async function continuePipelineFromStory(
 
   budget.checkpoint('master_context', { story: finalStory, masterStoryContext })
 
-  if (pipelinePhase === 'story') {
+  if (pipelinePhase === 'story' || (isServerlessRuntime() && budget.shouldStop())) {
     throw new PipelineYieldError(
       buildYieldResult(
         { story: finalStory, script: [] },

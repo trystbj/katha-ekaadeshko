@@ -7,7 +7,7 @@ const TIMEOUT_USER_MESSAGE =
 
 function isTimeoutMessage(text: string): boolean {
   return (
-    /timed out|60s limit|server time limit|shorter story|generate again|pipeline_yield|function.*timeout|504|gateway timeout/i.test(
+    /timed out|60s limit|server time limit|shorter story|generate again|function.*timeout|504|gateway timeout/i.test(
       text
     )
   )

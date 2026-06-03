@@ -35,7 +35,8 @@ export async function runStreamPipeline(input, req, opts = {}) {
           metadata: {
             pipelineYielded: true,
             pipelineCheckpoint: snap.script?.length ? 'script_ready' : 'story_ready',
-            pipelineResumable: true
+            pipelineResumable: true,
+            ...(snap.masterStoryContext ? { masterStoryContext: snap.masterStoryContext } : {})
           }
         }
       }

@@ -2,10 +2,10 @@
  * Cooperative pipeline time budget — checkpoint before hard serverless limits.
  */
 
-import { isServerlessRuntime } from './runtime.js'
+import { isServerlessRuntime, serverlessPipelineBudgetMs } from './runtime.js'
 
-export const PIPELINE_SOFT_TIMEOUT_MS = isServerlessRuntime() ? 45_000 : 120_000
-export const PIPELINE_HARD_TIMEOUT_MS = isServerlessRuntime() ? 58_000 : 300_000
+export const PIPELINE_SOFT_TIMEOUT_MS = isServerlessRuntime() ? 38_000 : 120_000
+export const PIPELINE_HARD_TIMEOUT_MS = isServerlessRuntime() ? serverlessPipelineBudgetMs() : 300_000
 
 /**
  * @typedef {object} PipelineBudgetHandle

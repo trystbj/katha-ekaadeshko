@@ -40,6 +40,12 @@ import { withScriptReviewReady } from '../utils/productionWorkflow'
 import { formatApiError } from '../utils/formatApiError'
 import { normalizeStudioErrorMessage } from '../utils/formatStudioError'
 import { serializePipelineError, taskStateFromStage } from '../utils/studioTaskState'
+import {
+  clearPipelineResume,
+  loadPipelineResume,
+  savePipelineResume,
+  type PipelineResumePayload
+} from '../utils/pipelineResumeStorage'
 
 const GENERATE_FAIL_FALLBACK =
   'Story generation failed. Open /api/health in your browser — if storyAiReady is false, add OPENAI_API_KEY (or GEMINI/DEEPSEEK) in Vercel env and redeploy. Local: npm run dev:vercel.'
@@ -211,53 +217,49 @@ export function useBackendGenerate() {
         throw new Error(uiText('generateNetworkError'))
       }
 
-      const res = await fetch('/api/jobs-stream-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: ac.signal,
-        body: JSON.stringify({
-          theme: themeEnriched,
-          country,
-          genre: backendGenre,
-          length: backendLength,
-          aspectMode: 'vertical_9_16',
-          narratorId,
-          narratorIdentity: narratorIdentityForId(narratorId),
-          narration: narrationDraft,
-          autoVoiceDirector: narrationDraft.autoVoiceDirector,
-          narratorGenderPreference: narrationDraft.narratorGenderPreference ?? 'auto',
-          storyLanguage,
-          screenplayLanguage: 'en',
-          outputLanguage: 'English',
-          styleId: styleId as VisualStyleId,
-          ...(styleId === 'custom' ? { customVisualPrompt: customVisualPrompt.trim() } : {}),
-          ...(visualAccent ? { visualAccent } : {}),
-          ...(toneRaw ? { storyTone: toneRaw } : {}),
-          seedLine: clampStoryIdea(idea),
-          projectId,
-          ...(priorMemorySummary ? { priorMemorySummary } : {}),
-          ...(priorWorldState ? { priorWorldState } : {}),
-          ...(priorRelationships?.length ? { priorRelationships } : {}),
-          ...(creatorPreferences ? { creatorPreferences } : {}),
-          ...(wsProject?.characterReference ? { characterReference: wsProject.characterReference } : {}),
-          ...(wsProject?.bible?.characters?.length
-            ? {
-                bibleCharacters: wsProject.bible.characters.map((c) => ({
-                  name: c.name,
-                  gender: c.gender,
-                  age: c.age,
-                  appearance: c.appearance || c.visualIdentity,
-                  visualIdentity: c.visualIdentity,
-                  referenceImages: c.referenceImages
-                }))
-              }
-            : {}),
-          scriptOnly: true,
-          generationMode: prefersReducedMotion ? 'fast' : 'cinematic',
-          performancePreferLow: true,
-          pipelinePhase: 'story'
-        })
-      })
+      const streamRequestBase = {
+        theme: themeEnriched,
+        country,
+        genre: backendGenre,
+        length: backendLength,
+        aspectMode: 'vertical_9_16' as const,
+        narratorId,
+        narratorIdentity: narratorIdentityForId(narratorId),
+        narration: narrationDraft,
+        autoVoiceDirector: narrationDraft.autoVoiceDirector,
+        narratorGenderPreference: narrationDraft.narratorGenderPreference ?? 'auto',
+        storyLanguage,
+        screenplayLanguage: 'en',
+        outputLanguage: 'English',
+        styleId: styleId as VisualStyleId,
+        ...(styleId === 'custom' ? { customVisualPrompt: customVisualPrompt.trim() } : {}),
+        ...(visualAccent ? { visualAccent } : {}),
+        ...(toneRaw ? { storyTone: toneRaw } : {}),
+        seedLine: clampStoryIdea(idea),
+        projectId,
+        ...(priorMemorySummary ? { priorMemorySummary } : {}),
+        ...(priorWorldState ? { priorWorldState } : {}),
+        ...(priorRelationships?.length ? { priorRelationships } : {}),
+        ...(creatorPreferences ? { creatorPreferences } : {}),
+        ...(wsProject?.characterReference ? { characterReference: wsProject.characterReference } : {}),
+        ...(wsProject?.bible?.characters?.length
+          ? {
+              bibleCharacters: wsProject.bible.characters.map((c) => ({
+                name: c.name,
+                gender: c.gender,
+                age: c.age,
+                appearance: c.appearance || c.visualIdentity,
+                visualIdentity: c.visualIdentity,
+                referenceImages: c.referenceImages
+              }))
+            }
+          : {}),
+        scriptOnly: true,
+        generationMode: prefersReducedMotion ? 'fast' : 'cinematic',
+        performancePreferLow: true
+      }
+
+      const savedResume = loadPipelineResume(projectId)
 
       const consumeStream = async (response: Response): Promise<JobsStreamGenerateResult> => {
         if (!response.ok) {
@@ -360,56 +362,97 @@ export function useBackendGenerate() {
         return out
       }
 
-      let pipelineResult = await consumeStream(res)
+      const resumePayloadFromResult = (
+        story: JobsStreamGenerateResult['story'],
+        meta?: JobsStreamGenerateResult['metadata']
+      ): PipelineResumePayload => ({
+        projectId,
+        savedAt: new Date().toISOString(),
+        story,
+        masterStoryContext: meta?.masterStoryContext as Record<string, unknown> | undefined,
+        request: { ...streamRequestBase }
+      })
 
-      const needsScriptPhase =
-        pipelineResult.story &&
-        (!Array.isArray(pipelineResult.script) || pipelineResult.script.length === 0) &&
-        (pipelineResult.metadata?.pipelineCheckpoint === 'story_ready' ||
-          pipelineResult.metadata?.pipelineYielded === true)
+      let pipelineResult: JobsStreamGenerateResult
 
-      if (needsScriptPhase) {
+      if (savedResume?.story) {
+        console.info('[katha:generate] resume_from_storage', { projectId })
         useStudioStore.getState().setWorkspaceJob(workspaceIx, {
           id: 'job',
           stage: 'script_resume',
           progress: 42,
           log: [uiText('liveGenSseScriptResume')]
         })
-        const resScript = await fetch('/api/jobs-stream-generate', {
+        pipelineResult = {
+          story: savedResume.story,
+          script: [],
+          images: [],
+          audio: [],
+          metadata: {
+            pipelineCheckpoint: 'story_ready',
+            pipelineYielded: true,
+            pipelineResumable: true,
+            ...(savedResume.masterStoryContext
+              ? { masterStoryContext: savedResume.masterStoryContext }
+              : {})
+          }
+        }
+      } else {
+        const res = await fetch('/api/jobs-stream-generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: ac.signal,
-          body: JSON.stringify({
-            theme: themeEnriched,
-            country,
-            genre: backendGenre,
-            length: backendLength,
-            aspectMode: 'vertical_9_16',
-            narratorId,
-            narration: narrationDraft,
-            autoVoiceDirector: narrationDraft.autoVoiceDirector,
-            narratorGenderPreference: narrationDraft.narratorGenderPreference ?? 'auto',
-            storyLanguage,
-            screenplayLanguage: 'en',
-            styleId: styleId as VisualStyleId,
-            ...(styleId === 'custom' ? { customVisualPrompt: customVisualPrompt.trim() } : {}),
-            seedLine: clampStoryIdea(idea),
-            projectId,
-            scriptOnly: true,
-            performancePreferLow: true,
-            pipelinePhase: 'script',
-            resumeStory: pipelineResult.story,
-            ...(pipelineResult.metadata?.masterStoryContext
-              ? { masterStoryContext: pipelineResult.metadata.masterStoryContext }
-              : {})
-          })
+          body: JSON.stringify({ ...streamRequestBase, pipelinePhase: 'story' })
         })
-        const scriptPhase = await consumeStream(resScript)
-        pipelineResult = {
-          ...scriptPhase,
-          story: scriptPhase.story || pipelineResult.story
+        pipelineResult = await consumeStream(res)
+      }
+
+      const needsScriptPhase =
+        pipelineResult.story &&
+        (!Array.isArray(pipelineResult.script) || pipelineResult.script.length === 0) &&
+        (pipelineResult.metadata?.pipelineCheckpoint === 'story_ready' ||
+          pipelineResult.metadata?.pipelineYielded === true ||
+          Boolean(savedResume?.story))
+
+      if (needsScriptPhase && pipelineResult.story) {
+        savePipelineResume(resumePayloadFromResult(pipelineResult.story, pipelineResult.metadata))
+        useStudioStore.getState().setWorkspaceJob(workspaceIx, {
+          id: 'job',
+          stage: 'script_resume',
+          progress: 42,
+          log: [uiText('liveGenSseScriptResume')]
+        })
+        try {
+          const resScript = await fetch('/api/jobs-stream-generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: ac.signal,
+            body: JSON.stringify({
+              ...streamRequestBase,
+              pipelinePhase: 'script',
+              resumeStory: pipelineResult.story,
+              ...(pipelineResult.metadata?.masterStoryContext
+                ? { masterStoryContext: pipelineResult.metadata.masterStoryContext }
+                : {})
+            })
+          })
+          const scriptPhase = await consumeStream(resScript)
+          pipelineResult = {
+            ...scriptPhase,
+            story: scriptPhase.story || pipelineResult.story
+          }
+        } catch (scriptErr) {
+          savePipelineResume(resumePayloadFromResult(pipelineResult.story, pipelineResult.metadata))
+          const scriptMsg =
+            scriptErr instanceof Error ? scriptErr.message : String(scriptErr)
+          if (/paused|progress was saved|timed out|60s|generate again/i.test(scriptMsg)) {
+            throw new Error(uiText('generateResumeScriptStep'))
+          }
+          throw scriptErr
         }
       }
+
+      clearPipelineResume(projectId)
 
       const namingPolicy = analyzeNamingPolicy(idea, themeEnriched)
       const sanitizedCast = sanitizeStoryCharacters(
@@ -656,10 +699,17 @@ export function useBackendGenerate() {
       }
     } catch (e) {
       useStudioStore.getState().setWorkspaceStreamReveal(workspaceIx, null)
+      const wsId =
+        useStudioStore.getState().workspaceSlots[workspaceIx]?.project?.id ||
+        useStudioStore.getState().project?.id
+      const hasResume = wsId ? loadPipelineResume(wsId) : null
       let msg =
         normalizeStudioErrorMessage(
           humanizeGenerateError(serializePipelineError(e, 'Generation failed'), uiText)
         ) || uiText('generateTimeoutResume')
+      if (hasResume?.story) {
+        msg = uiText('generateResumeScriptStep')
+      }
       if (e instanceof TypeError && /fetch|network|failed/i.test(msg)) {
         msg = uiText('generateNetworkError')
       }
