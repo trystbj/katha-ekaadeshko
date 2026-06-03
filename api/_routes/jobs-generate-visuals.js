@@ -31,6 +31,8 @@ const BodySchema = z.object({
 
 export default async function handler(req, res) {
   process.env.KATHA_SERVERLESS = '1'
+  // Dedicated visual SSE route — batched scenes; allow Leonardo polls under Vercel maxDuration.
+  process.env.KATHA_SERVERLESS_LEONARDO = '1'
   setSecurityHeaders(res)
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')

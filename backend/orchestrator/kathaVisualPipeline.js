@@ -154,10 +154,11 @@ export async function runKathaVisualPipeline(opts = {}) {
       input: inputWithContinuity,
       region,
       onProgress,
-      characters: story.characters || [],
+      characters: story.characters || storyCast,
       sceneBlueprints,
       projectId: input.projectId || story.id,
-      strict: isStrictImagePipeline()
+      strict: isStrictImagePipeline(),
+      allowServerlessLeonardo: true
     }),
     ttsGenerateForScript({
       script,

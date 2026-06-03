@@ -74,15 +74,18 @@ export async function leonardoGenerateForScript({
   characters,
   sceneBlueprints,
   projectId,
-  strict: strictOpt
+  strict: strictOpt,
+  allowServerlessLeonardo
 }) {
   const strict = strictOpt !== false && isStrictImagePipeline()
+  const serverlessLeonardoOk =
+    process.env.KATHA_SERVERLESS_LEONARDO === '1' || allowServerlessLeonardo === true
   // Serverless-safe: Leonardo returns hosted URLs; no local storage required.
   if (process.env.KATHA_DISABLE_LEONARDO === '1') {
     if (strict) throw new Error('Leonardo is disabled (KATHA_DISABLE_LEONARDO) — scene images are required.')
     return []
   }
-  if (isServerlessRuntime() && process.env.KATHA_SERVERLESS_LEONARDO !== '1') {
+  if (isServerlessRuntime() && !serverlessLeonardoOk) {
     if (strict) {
       throw new Error(
         'Scene image generation is unavailable in serverless mode. Set KATHA_SERVERLESS_LEONARDO=1 or use the worker.'
