@@ -174,7 +174,8 @@ export function useVisualGeneration() {
             age: c.age,
             appearance: c.appearance || c.visualIdentity,
             visualIdentity: c.visualIdentity,
-            referenceImages: c.referenceImages
+            referenceImages: c.referenceImages,
+            characterDNA: (c as { characterDNA?: Record<string, unknown> }).characterDNA
           })),
           ...(p.productionDirectives ? { productionDirectives: p.productionDirectives } : {}),
           generationMode: p.productionDirectives?.generationMode || 'cinematic',
@@ -199,31 +200,53 @@ export function useVisualGeneration() {
             ?.remainingSceneIndices
         }
 
-        const pipelineImages = out.images ?? []
-        const probe = await probeSceneImagesFromPipeline(pipelineImages)
-        if (!probe.ok) {
-          console.warn('[katha:pipeline]', 'image_rendered', { failed: probe.failedScenes, reasons: probe.reasons })
-          throw new Error(
-            `Scene images failed display validation: ${probe.reasons.slice(0, 4).join('; ')}`
-          )
-        }
-        console.info('[katha:pipeline]', 'image_rendered', { scenes: pipelineImages.length })
-
-        const assetsFromPipeline = buildSceneAssetsFromPipeline(pipelineImages)
+        let mergedImages = [...(out.images ?? [])]
         const narrationAudioUrl = (out.audio ?? [])
           .map((r) => r?.audio_url)
           .find((u) => typeof u === 'string' && u.length > 0)
-
-        const draftProject = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
+        let draftProject = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
         if (draftProject?.bible) {
-          const mergedForCov = mergeProjectAssets(draftProject.assets, assetsFromPipeline)
-          const covPre = episodeSceneImageCoverage({ ...draftProject, assets: mergedForCov }, epn)
+          let mergedForCov = mergeProjectAssets(draftProject.assets, assetsFromPipeline)
+          let covPre = episodeSceneImageCoverage({ ...draftProject, assets: mergedForCov }, epn)
+          let missingRetry = 0
+          while (covPre.missing.length > 0 && missingRetry < 3) {
+            missingRetry += 1
+            console.info('[katha:pipeline]', 'scene_retry_missing', {
+              attempt: missingRetry,
+              scenes: covPre.missing
+            })
+            const retryOut = await runVisualStream({
+              ...baseBody,
+              sceneIndices: covPre.missing
+            })
+            mergedImages = [...mergedImages, ...(retryOut.images ?? [])]
+            const retryAssets = buildSceneAssetsFromPipeline(retryOut.images ?? [])
+            useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
+              if (!cur.bible) return cur
+              return { ...cur, assets: mergeProjectAssets(cur.assets, retryAssets) }
+            })
+            draftProject = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
+            if (!draftProject?.bible) break
+            mergedForCov = mergeProjectAssets(draftProject.assets, buildSceneAssetsFromPipeline(mergedImages))
+            covPre = episodeSceneImageCoverage({ ...draftProject, assets: mergedForCov }, epn)
+          }
           if (covPre.missing.length > 0) {
             throw new Error(
               `Scene image generation incomplete — missing scenes: ${covPre.missing.join(', ')}`
             )
           }
         }
+
+        const probe = await probeSceneImagesFromPipeline(mergedImages)
+        if (!probe.ok) {
+          console.warn('[katha:pipeline]', 'image_rendered', { failed: probe.failedScenes, reasons: probe.reasons })
+          throw new Error(
+            `Scene images failed display validation: ${probe.reasons.slice(0, 4).join('; ')}`
+          )
+        }
+        console.info('[katha:pipeline]', 'image_rendered', { scenes: mergedImages.length })
+
+        const assetsFromPipeline = buildSceneAssetsFromPipeline(mergedImages)
 
         useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
           if (!cur.bible) return cur

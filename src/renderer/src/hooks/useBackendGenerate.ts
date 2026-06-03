@@ -512,7 +512,8 @@ export function useBackendGenerate() {
           appearance: String(c.appearance || c.visualIdentity || '').trim(),
           ...(prior?.referenceImages?.length ? { referenceImages: prior.referenceImages } : {}),
           ...(prior?.baseImageUrl ? { baseImageUrl: prior.baseImageUrl } : {}),
-          ...(prior?.leonardoSeed != null ? { leonardoSeed: prior.leonardoSeed } : {})
+          ...(prior?.leonardoSeed != null ? { leonardoSeed: prior.leonardoSeed } : {}),
+          ...(c.characterDNA ? { characterDNA: c.characterDNA as Record<string, unknown> } : {})
         }
       })
       const characterIdentityMemory = buildCharacterIdentityMemory(

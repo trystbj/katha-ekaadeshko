@@ -9,6 +9,7 @@ import {
 } from '../character/characterIdentityMemory.js'
 import { resolveStyleProfile, strictStylePromptLine } from '../utils/visualStyleLock.js'
 import { pipelineStageLog } from '../utils/pipelineStageLog.js'
+import { buildAllCharacterDNA, characterDNABlockForScene } from './characterDNA.js'
 
 /**
  * @param {object} story
@@ -30,8 +31,13 @@ export function buildStoryBible(story, input = {}, script = [], region = '') {
     }
   })
 
+  const characterDNA = buildAllCharacterDNA(story?.characters || [], {
+    country: input.country,
+    theme: input.theme || input.seedLine
+  })
+
   const bible = {
-    version: 1,
+    version: 2,
     story: {
       title: String(story?.title || '').trim(),
       genre: String(input.genre || '').trim(),
@@ -40,6 +46,7 @@ export function buildStoryBible(story, input = {}, script = [], region = '') {
       timeline: 'linear story progression — no unexplained time jumps'
     },
     characters: master.characterAppearanceProfiles || [],
+    characterDNA,
     characterIdentityMemory: master.memory?.character_reference_memory || [],
     visualStyle: {
       styleId: input.styleId || 'soft_anime_fantasy',
@@ -65,44 +72,56 @@ export function buildStoryBible(story, input = {}, script = [], region = '') {
  * @param {ReturnType<typeof buildCharacterIdentityMemory>} castMemory
  */
 export function buildSceneVisualBrief(row, storyBible = {}, castMemory = []) {
+  const dnaList = Array.isArray(storyBible.characterDNA) ? storyBible.characterDNA : []
+  const dnaScene = characterDNABlockForScene(dnaList, row)
+
   const slots = pickCastSlotsForScriptRow(row, castMemory)
   const castLines = slots
     .map((s) => castMemory.find((m) => m.slot === s))
     .filter(Boolean)
     .map((m) => {
       const g = m.gender && m.gender !== 'unknown' ? m.gender : 'neutral'
-      return `${m.label} (${g}): pose/action visible; emotion matches scene; appearance ${String(m.visualIdentity || '').slice(0, 100)}`
+      const dna = dnaList.find((d) => String(d.name || '').toLowerCase() === m.label.toLowerCase())
+      const look = dna
+        ? `${dna.hairstyle}, ${dna.clothing}, ${dna.eyeColor}`
+        : String(m.visualIdentity || '').slice(0, 100)
+      return `${m.label} (${g}): ${String(row.action || 'active in story beat').slice(0, 80)}; emotion ${String(row.mood || row.emotional_tone || 'story-true')}; look ${look}`
     })
 
-  const env = [
-    `Location: ${String(row.environment || row.location || storyBible.story?.setting || '').trim() || 'story setting'}.`,
-    row.weather ? `Weather: ${row.weather}.` : '',
-    row.time_of_day ? `Time: ${row.time_of_day}.` : '',
-    `Atmosphere: ${String(row.mood || row.emotional_tone || storyBible.story?.tone || 'cinematic')}.`
+  const event = String(row.action || row.visual_description || '').trim()
+  const storyEvent = [
+    `PRIMARY STORY EVENT: ${event || 'single clear narrative beat with visible action'}.`,
+    'Image must show WHO is doing WHAT — not empty landscape.',
+    row.narration ? `Emotional beat (do not render text): ${String(row.mood || row.emotional_tone || 'cinematic')}.` : ''
   ]
     .filter(Boolean)
     .join(' ')
 
   const chars = [
-    castLines.length ? `Characters: ${castLines.join('; ')}.` : 'Only locked cast — no new faces.',
-    'Expressions, pose, gesture, and body language readable.'
-  ].join(' ')
+    castLines.length ? `CAST IN SHOT: ${castLines.join('; ')}.` : 'Only locked cast — no new faces.',
+    dnaScene ? dnaScene.slice(0, 280) : '',
+    'Readable pose, gesture, expression.'
+  ]
+    .filter(Boolean)
+    .join(' ')
 
-  const event = String(row.visual_description || row.action || '').trim()
-  const storyEvent = [
-    `Story event: ${event || 'single clear narrative beat'}.`,
-    row.narration
-      ? `Significance: emotional story moment (do not paint narration text).`
-      : 'Significance: advances plot.'
-  ].join(' ')
+  const env = [
+    `SUPPORTING ENVIRONMENT: ${String(row.environment || row.location || storyBible.story?.setting || '').trim() || 'story setting'}.`,
+    row.weather ? `Weather: ${row.weather}.` : '',
+    row.time_of_day ? `Time: ${row.time_of_day}.` : '',
+    `Atmosphere supports action — background secondary.`
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   const cinema = [
-    `Shot: ${String(row.camera || row.camera_angle || 'motivated medium shot')}.`,
+    `Framing: ${String(row.camera || row.camera_angle || 'motivated medium shot')}.`,
     `Lighting: ${String(row.lighting || 'motivated cinematic light')}.`,
-    'Composition: one focal action, cinematic framing, no collage.'
+    `Focal point: character action and story beat.`,
+    `Style: ${String(storyBible.visualStyle?.styleRules || 'locked studio style')}.`
   ].join(' ')
 
-  return [env, chars, storyEvent, cinema].filter(Boolean).join(' ').slice(0, 900)
+  return [storyEvent, chars, env, cinema].filter(Boolean).join(' ').slice(0, 950)
 }
 
 /**

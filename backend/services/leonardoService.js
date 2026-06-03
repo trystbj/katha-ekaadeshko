@@ -30,11 +30,20 @@ import {
   serverlessLeonardoSceneCooldownMs
 } from '../utils/serverlessSceneLimits.js'
 
-const SCENE_IMAGE_MAX_ATTEMPTS = 3
+function sceneImageMaxAttempts() {
+  const n = Number(process.env.KATHA_SCENE_MAX_ATTEMPTS || 5)
+  return Number.isFinite(n) && n >= 1 ? Math.min(8, Math.floor(n)) : 5
+}
+
+function sceneRetryPasses() {
+  const n = Number(process.env.KATHA_SCENE_RETRY_PASSES || 2)
+  return Number.isFinite(n) && n >= 0 ? Math.min(4, Math.floor(n)) : 2
+}
 
 async function generateOneWithRetry(args) {
+  const max = sceneImageMaxAttempts()
   let lastErr = null
-  for (let attempt = 1; attempt <= SCENE_IMAGE_MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= max; attempt++) {
     try {
       return await generateOne(args)
     } catch (e) {
@@ -43,7 +52,7 @@ async function generateOneWithRetry(args) {
         attempt,
         message: e instanceof Error ? e.message : String(e)
       })
-      if (attempt < SCENE_IMAGE_MAX_ATTEMPTS) await sleep(1200)
+      if (attempt < max) await sleep(1200)
     }
   }
   throw lastErr || new Error('Leonardo: generation failed')
@@ -213,7 +222,8 @@ export async function leonardoGenerateForScript({
       )
       const castSeed = typeof castChar?.leonardoSeed === 'number' ? castChar.leonardoSeed : undefined
 
-      for (let attempt = 1; attempt <= SCENE_IMAGE_MAX_ATTEMPTS; attempt++) {
+      const maxSceneAttempts = sceneImageMaxAttempts()
+      for (let attempt = 1; attempt <= maxSceneAttempts; attempt++) {
         pipelineStageLog('leonardo_request_sent', { scene: sceneKey, attempt })
         const gen = await generateOneWithRetry({
           prompt,
@@ -240,6 +250,14 @@ export async function leonardoGenerateForScript({
           castMemory,
           styleKey: styleProfile.key
         })
+        if (lastValidation.scores) {
+          pipelineStageLog('image_match_scored', {
+            scene: sceneKey,
+            composite: lastValidation.scores.composite,
+            story: lastValidation.scores.storyMatch,
+            character: lastValidation.scores.characterMatch
+          })
+        }
         if (imageUrl) {
           const remote = await validateRemoteSceneImageUrl(imageUrl)
           pipelineStageLog('image_downloaded', {
@@ -260,7 +278,7 @@ export async function leonardoGenerateForScript({
           }
         }
         if (lastValidation.ok) break
-        if (!lastValidation.shouldRegenerate || attempt >= SCENE_IMAGE_MAX_ATTEMPTS) break
+        if (!lastValidation.shouldRegenerate || attempt >= maxSceneAttempts) break
         console.warn('[katha:leonardo]', 'scene_validation_regen', {
           scene: sceneKey,
           attempt,
@@ -331,6 +349,28 @@ export async function leonardoGenerateForScript({
   }
 
   await Promise.all(Array.from({ length: Math.min(parallelLimit, total) }, () => worker()))
+
+  const retryPasses = sceneRetryPasses()
+  for (let pass = 0; pass < retryPasses && failures.length > 0; pass++) {
+    const retryFailures = [...failures]
+    failures.length = 0
+    for (const f of retryFailures) {
+      const idx = script.findIndex((row, i) => {
+        const n = Number(row?.scene)
+        const key = Number.isFinite(n) && n > 0 ? n : i + 1
+        return key === f.scene
+      })
+      if (idx < 0) continue
+      console.info('[katha:leonardo]', 'scene_retry_pass', { scene: f.scene, pass: pass + 1, reason: f.message })
+      const row = await generateSceneRow(script[idx], idx)
+      if (row) {
+        const exists = out.some((o) => Number(o.scene) === Number(row.scene))
+        if (!exists) out.push(row)
+      } else {
+        failures.push(f)
+      }
+    }
+  }
 
   if (onProgress) {
     onProgress({

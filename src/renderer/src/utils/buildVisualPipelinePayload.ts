@@ -32,7 +32,8 @@ export function buildVisualPipelinePayload(
       gender: c.gender,
       age: c.age,
       baseImageUrl: c.baseImageUrl,
-      baseImagePrompt: c.baseImagePrompt
+      baseImagePrompt: c.baseImagePrompt,
+      characterDNA: (c as { characterDNA?: Record<string, unknown> }).characterDNA
     }))
   }
 

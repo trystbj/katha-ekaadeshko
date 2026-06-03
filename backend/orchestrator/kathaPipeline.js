@@ -59,6 +59,7 @@ import {
 } from '../cinematic/masterStoryContext.js'
 import { pipelineStageLog } from '../utils/pipelineStageLog.js'
 import { buildStoryBible } from '../cinematic/storyBible.js'
+import { buildAllCharacterDNA } from '../cinematic/characterDNA.js'
 
 const PROVIDERS = [
   {
@@ -448,17 +449,22 @@ async function continuePipelineFromStory(
       mergeBibleCharactersIntoCast(sanitized, pinnedInput.bibleCharacters),
       { country: pinnedInput.country, theme: pinnedInput.theme }
     )
+    const castWithDNA = buildAllCharacterDNA(mergedCast, {
+      country: pinnedInput.country,
+      theme: pinnedInput.theme
+    }).map((dna, i) => ({ ...mergedCast[i], characterDNA: dna }))
     finalStory = {
       ...finalStory,
-      characters: mergedCast
+      characters: castWithDNA
     }
     console.info('[katha:character]', 'story_cast_policy', {
       mode: namingPolicy.mode,
       count: finalStory.characters.length,
-      withRefs: mergedCast.filter((c) => Array.isArray(c.referenceImages) && c.referenceImages.length).length
+      withRefs: castWithDNA.filter((c) => Array.isArray(c.referenceImages) && c.referenceImages.length).length
     })
     pipelineStageLog('character_profiles_created', { count: finalStory.characters.length })
     pinnedInput.__storyBible = buildStoryBible(finalStory, pinnedInput, [], region)
+    pinnedInput.__characterDNA = castWithDNA.map((c) => c.characterDNA)
   }
 
   // Stage 3b — Master story context + character identity memory (before screenplay)

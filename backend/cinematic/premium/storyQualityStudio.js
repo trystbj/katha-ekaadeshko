@@ -10,12 +10,29 @@ import { analyzeCinematicQuality } from '../../creator/qualityAnalyzer.js'
 export function analyzeStoryQualityStudio(bundle) {
   const base = analyzeCinematicQuality(bundle)
   const scenes = bundle?.cinematicDirectorPlan?.scenes || []
-  const script = bundle?.script || []
+  const script = Array.isArray(bundle?.script) ? bundle.script : []
   const improvements = []
 
   let dialogueScore = 1
   let narrationScore = 1
   let continuityScore = 1
+  let plotScore = 1
+  let visualAlignScore = 1
+
+  if (!scenes.length && script.length) {
+    for (let i = 0; i < script.length; i++) {
+      const row = script[i]
+      const narr = String(row?.narration || '')
+      const visual = String(row?.visual_description || row?.action || '')
+      if (narr.length < 30) narrationScore -= 0.04
+      if (visual.length < 50) visualAlignScore -= 0.06
+      if (visual.length > 80 && narr.length > 40) plotScore += 0.02
+      const dlg = row?.dialogue
+      if (Array.isArray(dlg) && dlg.length) dialogueScore += 0.02
+    }
+    plotScore = Math.min(1, plotScore)
+    visualAlignScore = Math.max(0.5, visualAlignScore)
+  }
 
   for (let i = 0; i < script.length; i++) {
     const narr = String(script[i]?.narration || '')
@@ -66,7 +83,7 @@ export function analyzeStoryQualityStudio(bundle) {
     0,
     Math.min(
       1,
-      (base.score + narrationScore + dialogueScore + continuityScore) / 4 -
+      (base.score + narrationScore + dialogueScore + continuityScore + plotScore + visualAlignScore) / 6 -
         improvements.length * 0.02
     )
   )

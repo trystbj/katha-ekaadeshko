@@ -115,6 +115,14 @@ function scoreVisualConsistency(
     episode.scenes.filter((s) => (s.visual_description || '').trim().length > 70).length / total
   score += visualDescScore * 8
   if (ratio < 1) return clampScore(score)
+  const briefAligned =
+    episode.scenes.filter((s) => (s.visual_description || '').includes('PRIMARY STORY EVENT')).length /
+    total
+  if (briefAligned > 0.5) score += 6
+  if (project.storyBible) score += 4
+  if (project.bible?.characters?.some((c) => (c as { characterDNA?: { locked?: boolean } }).characterDNA?.locked)) {
+    score += 6
+  }
   return clampScore(Math.max(90, score))
 }
 

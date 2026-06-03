@@ -23,6 +23,7 @@ import {
   attachSceneVisualBriefsToScript,
   buildStoryBible
 } from '../cinematic/storyBible.js'
+import { buildAllCharacterDNA } from '../cinematic/characterDNA.js'
 import { enrichScriptRowsForVisuals } from '../utils/sceneVisualIntelligence.js'
 import { pipelineStageLog, isStrictImagePipeline } from '../utils/pipelineStageLog.js'
 import {
@@ -77,14 +78,18 @@ export async function runKathaVisualPipeline(opts = {}) {
     country: input.country,
     theme: input.theme || input.seedLine
   })
-  story.characters = storyCast
+  const castWithDNA = buildAllCharacterDNA(storyCast, {
+    country: input.country,
+    theme: input.theme || input.seedLine
+  }).map((dna, i) => ({ ...storyCast[i], characterDNA: dna }))
+  story.characters = castWithDNA
 
-  const permanentProfiles = buildPermanentCharacterProfiles(storyCast)
+  const permanentProfiles = buildPermanentCharacterProfiles(castWithDNA)
   pipelineStageLog('character_profiles_created', { count: permanentProfiles.length })
 
   const storyBible = buildStoryBible(story, input, scriptFiltered, region)
   const scriptBriefed = attachSceneVisualBriefsToScript(scriptFiltered, storyBible, {
-    bibleCharacters: storyCast
+    bibleCharacters: castWithDNA
   })
   const script = enrichScriptRowsForVisuals(scriptBriefed, input, story)
   pipelineStageLog('scene_descriptions_created', { count: script.length })
@@ -107,7 +112,7 @@ export async function runKathaVisualPipeline(opts = {}) {
       Array.isArray(story?.characters) ? story.characters : input.bibleCharacters || [],
       input.characterVisualLocks
     ),
-    storyCast.length ? storyCast : input.bibleCharacters || []
+    castWithDNA.length ? castWithDNA : input.bibleCharacters || []
   )
   const characterBlock = characterConsistencyPromptBlock(characterLocks)
   const storyboardPlan = buildStoryboardDirectorPlan(script, directives)
@@ -130,6 +135,7 @@ export async function runKathaVisualPipeline(opts = {}) {
     ...input,
     __story: story,
     __storyBible: storyBible,
+    __characterDNA: storyBible.characterDNA || castWithDNA.map((c) => c.characterDNA),
     __permanentCharacterProfiles: permanentProfiles,
     seedLine: input.seedLine || input.theme,
     __masterStoryContext: masterCtx,
@@ -172,7 +178,7 @@ export async function runKathaVisualPipeline(opts = {}) {
       input: inputWithContinuity,
       region,
       onProgress,
-      characters: story.characters || storyCast,
+      characters: castWithDNA,
       sceneBlueprints,
       projectId: input.projectId || story.id,
       strict: isStrictImagePipeline(),
