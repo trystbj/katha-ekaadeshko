@@ -4405,8 +4405,8 @@
     0 10px 32px rgba(0, 0, 0, 0.55),
     0 0 0 1px rgba(201, 76, 76, 0.35);
   word-break: break-word;
-  /* Error alert — 100mm left total; transform only, layout unchanged */
-  transform: translateX(-100mm);
+  /* Error alert — 150mm left total; transform only, layout unchanged */
+  transform: translateX(-150mm);
 }
 
 .studio-mock-col--story .error-banner,
