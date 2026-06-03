@@ -5,6 +5,10 @@ export type PipelineImageRow = {
   prompt?: string
 }
 
+export function hasUsablePipelineImages(images: PipelineImageRow[] = []): boolean {
+  return images.some((r) => Boolean(String(r.image_url || r.imageUrl || '').trim()))
+}
+
 export function mergePipelineImageRows(
   existing: PipelineImageRow[],
   row: PipelineImageRow,

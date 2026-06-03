@@ -7,6 +7,7 @@ import { publicErrorMessage, safeLog } from '../_lib/log.js'
 import { setSecurityHeaders } from '../_lib/http.js'
 import { initSseResponse, sseWrite } from '../_lib/sse.js'
 import { isServerlessRuntime } from '../../backend/utils/runtime.js'
+import { normalizeVisualPipelineResult } from '../../backend/cinematic/visualGenerationRecovery.js'
 
 const BodySchema = z.object({
   story: z.record(z.unknown()),
@@ -128,12 +129,18 @@ export default async function handler(req, res) {
 
     done = true
     if (keepalive) clearInterval(keepalive)
+    const normalized = normalizeVisualPipelineResult(result)
     const merged = {
-      ...result,
+      ...normalized,
       metadata: {
-        ...(result.metadata || {}),
-        ...(batchNote ? { visualBatch: batchNote } : {})
+        ...(normalized.metadata || {}),
+        ...(batchNote ? { visualBatch: batchNote } : {}),
+        imageCount: normalized.images.length
       }
+    }
+    const hasMore = Boolean(batchNote?.remainingSceneIndices?.length)
+    if (!merged.images.length && !hasMore) {
+      throw new Error('Visual pipeline completed without image URLs — check Leonardo API and scene prompts.')
     }
     if (merged.metadata?.pipelineYielded) {
       sseWrite(res, {

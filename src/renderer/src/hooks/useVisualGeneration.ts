@@ -15,6 +15,7 @@ import { applySceneImagePatch, markSceneGenerating } from '../utils/applySceneIm
 import { sceneIndexFromPipelineRow } from '../utils/sceneAssetMap'
 import { probeSceneImagesFromPipeline } from '../utils/probeSceneImageUrl'
 import {
+  hasUsablePipelineImages,
   mergePipelineImageRows,
   pipelineImagesFromStore,
   type PipelineImageRow
@@ -25,7 +26,17 @@ type VisualGenResult = {
   audio: { scene?: string | number; audio_url?: string }[]
 }
 
-const STREAM_MAX_ATTEMPTS = Number(import.meta.env.VITE_VISUAL_STREAM_RETRIES || 3) || 3
+const STREAM_MAX_ATTEMPTS = Number(import.meta.env.VITE_VISUAL_STREAM_RETRIES || 4) || 4
+
+function mergeCollectedImages(a: PipelineImageRow[], b: PipelineImageRow[]): PipelineImageRow[] {
+  let merged = [...a]
+  for (const row of b) {
+    const sceneNum = Number(row.scene) || 0
+    if (!sceneNum) continue
+    merged = mergePipelineImageRows(merged, row, sceneNum)
+  }
+  return merged
+}
 
 function mergePortraitMetadata(
   project: import('../types/story').ProjectState,
@@ -216,6 +227,7 @@ export function useVisualGeneration() {
           theme: p.bible.concept,
           country: inferCountryFromLanguageCode(p.bible.language),
           storyLanguage: p.bible.language,
+          setting: p.bible.concept,
           screenplayLanguage: 'en',
           projectId: p.id,
           narratorId: p.bible.narratorId,
@@ -239,20 +251,44 @@ export function useVisualGeneration() {
         }
 
         let collected: PipelineImageRow[] = []
-        let out: VisualGenResult & { metadata?: Record<string, unknown> } | null = null
+        let out: (VisualGenResult & { metadata?: Record<string, unknown> }) | null = null
         let streamAttempt = 0
-        while (streamAttempt < STREAM_MAX_ATTEMPTS && !out) {
+        let lastStreamError: unknown = null
+
+        while (streamAttempt < STREAM_MAX_ATTEMPTS) {
           streamAttempt += 1
           try {
-            out = await runVisualStream(baseBody, collected)
+            const attemptOut = await runVisualStream(baseBody, collected)
+            collected = mergeCollectedImages(collected, attemptOut.images ?? [])
+            if (hasUsablePipelineImages(attemptOut.images) || hasUsablePipelineImages(collected)) {
+              out = {
+                ...attemptOut,
+                images: hasUsablePipelineImages(attemptOut.images) ? attemptOut.images : collected
+              }
+              break
+            }
+            lastStreamError = new Error('stream_empty_images')
+            console.warn('[katha:pipeline]', 'visual_stream_empty', { attempt: streamAttempt })
           } catch (e) {
+            lastStreamError = e
             const draft = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
             collected = draft ? pipelineImagesFromStore(draft, ep.scenes) : collected
+            if (hasUsablePipelineImages(collected)) {
+              out = { images: collected, audio: [], metadata: { recoveredAfterError: true } }
+              break
+            }
             if (streamAttempt >= STREAM_MAX_ATTEMPTS) throw e
             console.warn('[katha:pipeline]', 'visual_stream_retry', { attempt: streamAttempt })
           }
         }
-        if (!out) throw new Error(uiText('visualGenNoResult'))
+
+        if (!out && hasUsablePipelineImages(collected)) {
+          out = { images: collected, audio: [], metadata: { recoveredFromCollected: true } }
+        }
+        if (!out) {
+          console.error('[katha:pipeline]', 'visual_stream_exhausted', { lastStreamError })
+          throw lastStreamError instanceof Error ? lastStreamError : new Error(uiText('visualGenNoResult'))
+        }
 
         let batchGuard = 0
         let remaining = (out.metadata?.visualBatch as { remainingSceneIndices?: number[] } | undefined)

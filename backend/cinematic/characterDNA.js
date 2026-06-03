@@ -4,6 +4,8 @@
 
 import { buildCharacterAppearanceProfile } from '../../shared/characterNamingPolicy.js'
 import { pipelineStageLog } from '../utils/pipelineStageLog.js'
+import { resolveRegionalAppearanceContext, regionalAppearancePromptBlock } from './regionalAppearance.js'
+import { buildOutfitLock, outfitLockPromptBlock } from './outfitLock.js'
 
 function extractTrait(blob, patterns, fallback = '') {
   const t = String(blob || '')
@@ -16,7 +18,7 @@ function extractTrait(blob, patterns, fallback = '') {
 
 /**
  * @param {Record<string, unknown>} character
- * @param {{ country?: string, theme?: string }} [opts]
+ * @param {{ country?: string, theme?: string, setting?: string, storyLanguage?: string }} [opts]
  */
 export function buildCharacterDNA(character = {}, opts = {}) {
   const name = String(character.name || 'Character').trim()
@@ -27,36 +29,40 @@ export function buildCharacterDNA(character = {}, opts = {}) {
   let gender = String(character.gender || profile.gender || '').toLowerCase()
   if (!gender || gender === 'unknown') gender = profile.gender === 'unknown' ? 'neutral' : profile.gender
 
-  const ethnicity =
-    String(character.ethnicity || '').trim() ||
-    (/\b(nepal|nepali|himalaya)\b/i.test(blob)
-      ? 'Nepali / Himalayan South Asian'
-      : /\b(india|indian|sari|kurta)\b/i.test(blob)
-        ? 'South Asian'
-        : 'regionally authentic to the story setting')
+  const regional = resolveRegionalAppearanceContext({
+    country: opts.country,
+    theme: opts.theme || opts.seedLine,
+    setting: opts.setting || character.setting,
+    storyLanguage: opts.storyLanguage
+  })
+
+  const ethnicity = String(character.ethnicity || '').trim() || regional.ethnicity
 
   const race =
     String(character.race || '').trim() ||
-    (ethnicity.includes('Asian')
-      ? 'South/East Asian'
-      : ethnicity.includes('European')
-        ? 'European'
-        : ethnicity.includes('African')
-          ? 'African'
-          : ethnicity.includes('Middle Eastern')
-            ? 'Middle Eastern'
-            : 'story-authentic')
+    (ethnicity.includes('Nepali') || ethnicity.includes('Himalayan')
+      ? 'Himalayan South Asian'
+      : ethnicity.includes('South Asian')
+        ? 'South Asian'
+        : ethnicity.includes('Japanese') || ethnicity.includes('East Asian')
+          ? 'East Asian'
+          : 'story-authentic')
 
   const skinTone =
     extractTrait(visual, [
-      /\b(fair|light|medium|olive|tan|brown|dark|deep)\s+skin\b/i,
+      /\b(fair|light|medium|olive|tan|brown|dark|deep|warm brown)\s+skin\b/i,
       /\b(pale|bronze|golden)\s+complexion\b/i
-    ]) || 'consistent skin tone from story'
+    ]) ||
+    (regional.regionalOrigin.includes('Nepal') ? 'warm brown Himalayan skin tone' : 'consistent skin tone from story')
 
   const faceShape =
     extractTrait(visual, [/\b(oval|round|heart-shaped|square|angular)\s+face\b/i]) ||
     profile.facialFeatures ||
-    'consistent face shape'
+    'consistent facial structure'
+
+  const facialStructure = extractTrait(visual, [
+    /\b(high cheekbones|sharp jaw|soft features|angular features|round face)\b/i
+  ]) || faceShape
 
   const eyeShape =
     extractTrait(visual, [/\b(almond|round|hooded|wide-set|narrow)\s+eyes?\b/i]) || 'consistent eye shape'
@@ -65,14 +71,21 @@ export function buildCharacterDNA(character = {}, opts = {}) {
     extractTrait(visual, [/\b(short|tall|petite|average height|\d\s*ft|\d\s*cm)\b/i]) ||
     'height consistent with age and body type'
 
+  const outfitLock = buildOutfitLock(character, {
+    clothing: String(character.clothing || profile.clothing || '').trim(),
+    accessories: profile.accessories
+  })
+
   const dna = {
     locked: true,
     name,
     age: String(character.age || profile.age || 'adult').trim(),
     gender,
     ethnicity,
+    regionalOrigin: regional.regionalOrigin,
     race,
     skinTone,
+    facialStructure,
     faceShape,
     eyeShape,
     eyeColor: String(character.eyeColor || profile.eyeColor || 'locked eye color').trim(),
@@ -80,20 +93,22 @@ export function buildCharacterDNA(character = {}, opts = {}) {
     hairColor: String(character.hairColor || profile.hairColor || '').trim(),
     bodyType: String(character.bodyType || profile.bodyType || 'consistent proportions').trim(),
     height,
-    clothing: String(character.clothing || profile.clothing || 'locked wardrobe').trim(),
-    accessories: String(character.accessories || profile.accessories || 'same accessories').trim(),
+    clothing: outfitLock.primaryOutfit,
+    accessories: outfitLock.accessories,
+    outfitLock,
+    regionalAppearance: regional,
     personality: String(character.personality || traits || 'story-consistent').trim(),
     storyRole: String(character.storyRole || character.role || 'lead').trim(),
     visualIdentity: visual.slice(0, 520)
   }
 
-  pipelineStageLog('character_dna_locked', { name: dna.name, gender: dna.gender })
+  pipelineStageLog('character_dna_locked', { name: dna.name, region: dna.regionalOrigin })
   return Object.freeze(dna)
 }
 
 /**
  * @param {Array<Record<string, unknown>>} characters
- * @param {{ country?: string, theme?: string }} [opts]
+ * @param {object} [opts]
  */
 export function buildAllCharacterDNA(characters = [], opts = {}) {
   if (!Array.isArray(characters)) return []
@@ -105,15 +120,22 @@ export function buildAllCharacterDNA(characters = [], opts = {}) {
  */
 export function characterDNAPromptBlock(dna) {
   if (!dna?.name) return ''
+  const regional = regionalAppearancePromptBlock(dna.regionalAppearance || {})
+  const outfit = outfitLockPromptBlock(dna.outfitLock)
   return (
-    `CHARACTER DNA LOCK — ${dna.name} (immutable): ` +
-    `${dna.gender}, age ${dna.age}, ${dna.ethnicity}, ${dna.race}, ${dna.skinTone}; ` +
-    `face ${dna.faceShape}, ${dna.eyeShape}, eyes ${dna.eyeColor}; ` +
-    `hair ${dna.hairstyle}${dna.hairColor ? ` (${dna.hairColor})` : ''}; ` +
-    `body ${dna.bodyType}, ${dna.height}; wardrobe ${dna.clothing}; ${dna.accessories}; ` +
-    `role ${dna.storyRole}; ${dna.personality}. ` +
-    `Never change age, gender, ethnicity, face, hair, or clothing unless script explicitly states outfit change.`
-  ).slice(0, 680)
+    [
+      `CHARACTER DNA LOCK — ${dna.name} (immutable):`,
+      `${dna.gender}, age ${dna.age}, ${dna.ethnicity}, origin ${dna.regionalOrigin}, ${dna.race}, ${dna.skinTone};`,
+      `face ${dna.facialStructure}, ${dna.eyeShape}, eyes ${dna.eyeColor};`,
+      `hair ${dna.hairstyle}${dna.hairColor ? ` (${dna.hairColor})` : ''}; body ${dna.bodyType}, ${dna.height};`,
+      `role ${dna.storyRole}; ${dna.personality}.`,
+      regional,
+      outfit,
+      'Never change age, gender, ethnicity, regional features, face, hair, or outfit unless script explicitly authorizes wardrobe change.'
+    ]
+      .filter(Boolean)
+      .join(' ')
+  ).slice(0, 900)
 }
 
 /**
@@ -134,7 +156,7 @@ export function assertCharacterDNAMatchesStory(dna, storyBlob = '') {
   }
 
   const eth = String(dna.ethnicity || '').toLowerCase()
-  if (eth.includes('nepali') && /\b(european|blonde|scandinavian)\b/.test(blob)) {
+  if (eth.includes('nepali') && /\b(european|blonde|scandinavian|blue-eyed american)\b/.test(blob)) {
     issues.push('ethnicity_story_mismatch')
   }
 
@@ -152,5 +174,12 @@ export function characterDNABlockForScene(dnaList = [], scriptRow = {}) {
     return n.length > 2 && blob.includes(n)
   })
   const cast = inScene.length ? inScene : dnaList.slice(0, 2)
-  return cast.map((d) => characterDNAPromptBlock(d)).filter(Boolean).join(' ')
+  return cast
+    .map((d) => {
+      const base = characterDNAPromptBlock(d)
+      const outfit = outfitLockPromptBlock(d.outfitLock, scriptRow)
+      return [base, outfit].filter(Boolean).join(' ')
+    })
+    .filter(Boolean)
+    .join(' ')
 }

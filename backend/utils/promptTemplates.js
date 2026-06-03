@@ -106,7 +106,10 @@ Constraints:
 - Length: ${length} (short≈600-900 words, medium≈900-1400, long≈1400-2000).
 - Story prose: cinematic audiobook quality — sensory atmosphere, emotional interiority, natural human rhythm; NOT flat AI summary.
 - Show don't tell: reveal emotion through action, gesture, environment, and dialogue — never label feelings without behavior.
+- Plot: strong opening hook, rising conflict, clear climax, satisfying resolution — motivations and consequences visible.
+- Emotional arc: curiosity → escalation → peak intensity → resolution; no flat emotional plateau across the whole story.
 - Dialogue in story prose: when characters speak, give them distinct voices, natural hesitation, and meaningful exchanges (visual novel / animated-film realism).
+- Character appearance in prose: when describing people, include region-appropriate ethnicity, dress, and features matching ${country} / ${regionalAtmosphere} — never generic unrelated Western defaults unless story demands.
 - Illustrated adaptation tone (keep prose compatible with downstream visuals): ${visualToneLine}
 ${variation}
 

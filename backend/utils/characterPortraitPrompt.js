@@ -4,6 +4,7 @@
 
 import { resolveStyleProfile, strictStylePromptLine } from './visualStyleLock.js'
 import { characterDNAPromptBlock, buildCharacterDNA } from '../cinematic/characterDNA.js'
+import { regionalAppearancePromptBlock } from '../cinematic/regionalAppearance.js'
 import { prepareLeonardoApiPrompts } from './leonardoPromptOptimizer.js'
 
 /**
@@ -18,9 +19,11 @@ export function buildCharacterPortraitPromptFromDNA(character = {}, input = {}) 
     theme: input.theme || input.seedLine
   })
   const dnaBlock = characterDNAPromptBlock(dna)
+  const regional = regionalAppearancePromptBlock(dna.regionalAppearance || {})
   const parts = [
     `STYLE LOCK — highest authority: ${style}`,
     dnaBlock,
+    regional,
     `CHARACTER PORTRAIT: ${dna.name} (${dna.gender}, ${dna.age}).`,
     `Wardrobe: ${dna.clothing}. Hair: ${dna.hairstyle}${dna.hairColor ? `, ${dna.hairColor}` : ''}.`,
     `Face: ${dna.faceShape}, ${dna.eyeShape}, eyes ${dna.eyeColor}, ${dna.skinTone}.`,

@@ -80,8 +80,10 @@ export async function runKathaVisualPipeline(opts = {}) {
   const storyCast = validateStoryForVisualPipeline(story, scriptFiltered, input)
   const castWithDNA = buildAllCharacterDNA(storyCast, {
     country: input.country,
-    theme: input.theme || input.seedLine
-  }).map((dna, i) => ({ ...storyCast[i], characterDNA: dna }))
+    theme: input.theme || input.seedLine,
+    setting: story?.setting,
+    storyLanguage: input.storyLanguage
+  }).map((dna, i) => ({ ...storyCast[i], characterDNA: dna, outfitLock: dna.outfitLock }))
   story.characters = castWithDNA
 
   if (onProgress) {

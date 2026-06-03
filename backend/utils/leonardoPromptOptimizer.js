@@ -12,6 +12,7 @@ import { TEXT_FREE_NEGATIVE } from '../cinematic/masterStoryContext.js'
 import { buildLeonardoNegativePrompt } from './leonardoPromptQuality.js'
 import { characterReferencePromptFromBible } from '../cinematic/storyBible.js'
 import { characterDNABlockForScene } from '../cinematic/characterDNA.js'
+import { outfitLockPromptBlock } from '../cinematic/outfitLock.js'
 
 export const LEONARDO_MAX_PROMPT = 1300
 export const LEONARDO_MAX_NEGATIVE = 500
@@ -133,12 +134,15 @@ export function buildCompactLeonardoScenePrompt(ctx = {}) {
     input.bibleCharacters || [],
     scriptRow
   )
-  const dnaBlock = characterDNABlockForScene(
-    input.__characterDNA || input.__storyBible?.characterDNA || [],
-    scriptRow
-  )
+  const dnaList = input.__characterDNA || input.__storyBible?.characterDNA || []
+  const dnaBlock = characterDNABlockForScene(dnaList, scriptRow)
+  const outfitBlock =
+    Array.isArray(dnaList) && dnaList[0]?.outfitLock
+      ? outfitLockPromptBlock(dnaList[0].outfitLock, scriptRow)
+      : ''
   const identity = [
     dnaBlock,
+    outfitBlock,
     cref,
     String(ctx.identityBlock || '').trim(),
     compactLeonardoIdentityBlock(scriptRow, castMemory)

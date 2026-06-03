@@ -96,6 +96,36 @@ export function sceneDepthBlock() {
 }
 
 /**
+ * Three-act plot structure for story + script generation.
+ */
+export function plotStructureBlock() {
+  return [
+    'PLOT STRUCTURE (mandatory — professional quality):',
+    '- OPENING: hook curiosity, establish stakes, introduce world and want within first beats.',
+    '- RISING ACTION: escalating conflict, consequences, suspense — each scene raises cost or reveals truth.',
+    '- CLIMAX: peak emotional and plot intensity — decisive confrontation or revelation.',
+    '- RESOLUTION: emotional payoff, consequence landing, closure that feels earned (not rushed summary).',
+    '- Every scene must connect causally to the next; no random detours without story purpose.'
+  ].join('\n')
+}
+
+/**
+ * Enforced emotional arc across the episode.
+ */
+export function emotionArcBlock() {
+  return [
+    'EMOTION ARC (mandatory — target strong progression):',
+    '- BEGINNING: curiosity, setup, gentle tension or wonder.',
+    '- MIDDLE: escalation, doubt, interpersonal friction, rising stakes.',
+    '- LATE MIDDLE: emotional conflict, consequences visible, audience investment peaks.',
+    '- CLIMAX: peak emotional intensity — fear, love, grief, triumph, or shock as story demands.',
+    '- ENDING: resolution and emotional payoff — relief, hope, grief, or bittersweet closure.',
+    '- Tag each scene emotionally: no flat same-tone streak across 3+ scenes; connect feeling to prior scene.',
+    '- Narration and dialogue must carry the arc — not labels alone; show through behavior and subtext.'
+  ].join('\n')
+}
+
+/**
  * Intelligent pacing — dialogue vs narration vs action.
  */
 export function intelligentPacingBlock() {
@@ -161,6 +191,8 @@ export function cinematicWritingBlueprintSection(input = {}) {
     ...genreNarrationStyle(genre, storyTone),
     `Language soul (${lang}): idiomatic, emotionally natural ${lang}; dialogue must sound spoken aloud by distinct real people.`,
     showDontTellBlock(),
+    plotStructureBlock(),
+    emotionArcBlock(),
     sceneDepthBlock(),
     intelligentPacingBlock(),
     naturalDialogueRulesBlock(lang),

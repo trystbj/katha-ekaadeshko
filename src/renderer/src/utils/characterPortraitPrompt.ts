@@ -15,9 +15,14 @@ function dnaPromptLine(ch: StoryCharacter): string {
       }
     | undefined
   if (!dna?.locked) return ''
+  const regional = String(
+    (dna as { regionalOrigin?: string }).regionalOrigin || dna.ethnicity || ''
+  ).trim()
   return (
-    `CHARACTER DNA LOCK: ${ch.name}; ${dna.ethnicity || ''}; hair ${dna.hairstyle || ''} ${dna.hairColor || ''}; ` +
-    `eyes ${dna.eyeColor || ''}; face ${dna.faceShape || ''}; skin ${dna.skinTone || ''}; wardrobe ${dna.clothing || ''}.`
+    `CHARACTER DNA LOCK: ${ch.name}; origin ${regional}; ${dna.ethnicity || ''}; ` +
+    `hair ${dna.hairstyle || ''} ${dna.hairColor || ''}; eyes ${dna.eyeColor || ''}; ` +
+    `face ${dna.faceShape || ''}; skin ${dna.skinTone || ''}; wardrobe ${dna.clothing || ''}; ` +
+    `no random Western/East Asian ethnicity swap.`
   )
 }
 

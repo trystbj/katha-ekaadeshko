@@ -111,9 +111,16 @@ function defaultVisualIdentityForCharacter(name, gender, role, traits, ethnicity
     gender === 'female' ? 'woman' : gender === 'male' ? 'man' : 'person'
   const roleBit = role ? `${role}, ` : ''
   const traitBit = traits ? `${traits}, ` : ''
+  const regionalDress =
+    ethnicity.includes('Nepali') || ethnicity.includes('Himalayan')
+      ? 'culturally appropriate Nepali/Himalayan clothing and accessories, '
+      : ethnicity.includes('South Asian')
+        ? 'region-appropriate South Asian dress, '
+        : ''
   return (
-    `${name}, ${figure}, ${ethnicity ? `${ethnicity}, ` : ''}${roleBit}${traitBit}distinct face, locked hairstyle and hair color, ` +
-    `consistent eye color, fixed wardrobe and accessories, same proportions in every scene`
+    `${name}, ${figure}, ${ethnicity ? `${ethnicity}, ` : ''}${roleBit}${traitBit}${regionalDress}` +
+    `distinct face matching regional origin, locked hairstyle and hair color, consistent eye color, ` +
+    `fixed primary outfit and accessories, same proportions in every scene`
   ).slice(0, 480)
 }
 

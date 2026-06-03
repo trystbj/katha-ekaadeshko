@@ -451,8 +451,10 @@ async function continuePipelineFromStory(
     )
     const castWithDNA = buildAllCharacterDNA(mergedCast, {
       country: pinnedInput.country,
-      theme: pinnedInput.theme
-    }).map((dna, i) => ({ ...mergedCast[i], characterDNA: dna }))
+      theme: pinnedInput.theme,
+      setting: finalStory?.setting,
+      storyLanguage: pinnedInput.storyLanguage
+    }).map((dna, i) => ({ ...mergedCast[i], characterDNA: dna, outfitLock: dna.outfitLock }))
     finalStory = {
       ...finalStory,
       characters: castWithDNA

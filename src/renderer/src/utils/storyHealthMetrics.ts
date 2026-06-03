@@ -34,19 +34,27 @@ function scoreStoryQuality(episode: StoryEpisode, project: ProjectState): number
   const texts = sceneTexts(scenes)
   const avgLen = texts.reduce((a, t) => a + t.length, 0) / scenes.length
   const withDialogue = scenes.filter((s) => (s.dialogueLines?.length ?? 0) > 0).length
+  const dialogueLines = scenes.reduce((a, s) => a + (s.dialogueLines?.length ?? 0), 0)
   const withVisual = scenes.filter((s) => (s.visual_description || '').trim().length > 80).length
   const uniqueWords = new Set(texts.join(' ').toLowerCase().split(/\W+/).filter((w) => w.length > 3))
   const pacingVariety = new Set(scenes.map((s) => String(s.emotional_tone || s.mood || '').trim())).size
+  const plotSignals = texts.join(' ').toLowerCase()
+  let plotBonus = 0
+  if (/\b(because|after|finally|until|discover|reveal|confront|choose)\b/.test(plotSignals)) plotBonus += 6
+  if (scenes.length >= 6) plotBonus += 4
 
-  let score = 58
-  score += Math.min(20, (avgLen / 140) * 20)
+  let score = 52
+  score += Math.min(22, (avgLen / 130) * 22)
   score += Math.min(14, (withDialogue / scenes.length) * 14)
-  score += Math.min(16, (withVisual / scenes.length) * 16)
-  score += Math.min(8, uniqueWords.size / 45)
-  score += Math.min(6, pacingVariety * 2)
-  if (project.bible?.concept && project.bible.concept.length > 20) score += 4
-  if (avgLen > 110 && withVisual / scenes.length > 0.75 && withDialogue / scenes.length > 0.4) {
-    score = Math.max(score, 92)
+  score += Math.min(10, (dialogueLines / Math.max(1, scenes.length * 3)) * 10)
+  score += Math.min(14, (withVisual / scenes.length) * 14)
+  score += Math.min(8, uniqueWords.size / 50)
+  score += Math.min(8, pacingVariety * 2.5)
+  score += plotBonus
+  if (project.bible?.concept && project.bible.concept.length > 20) score += 5
+  if (project.storyBible) score += 4
+  if (avgLen > 100 && withDialogue / scenes.length > 0.45 && dialogueLines >= scenes.length * 2) {
+    score = Math.max(score, 88)
   }
   return clampScore(score)
 }
@@ -74,6 +82,11 @@ function scoreCharacterConsistency(project: ProjectState): number {
       (c) => c.name.trim().toLowerCase() === String('label' in row ? row.label : row.name || '').toLowerCase()
     )
     if (ch?.baseImageUrl) slot += 10
+    const dna = (ch as { characterDNA?: { locked?: boolean; regionalOrigin?: string } }).characterDNA
+    if (dna?.locked) slot += 8
+    if (dna?.regionalOrigin) slot += 4
+    const outfit = (ch as { outfitLock?: { locked?: boolean } }).outfitLock
+    if (outfit?.locked) slot += 4
     total += slot
   }
   const avg = total / rows.length
@@ -126,25 +139,45 @@ function scoreVisualConsistency(
   return clampScore(Math.max(90, score))
 }
 
+function emotionBand(text: string): 'calm' | 'rise' | 'peak' | 'resolve' | 'neutral' {
+  const t = text.toLowerCase()
+  if (/climax|peak|shock|terror|breakdown|confession|confront|betray/.test(t)) return 'peak'
+  if (/relief|resolve|peace|hope|warm|tender|home|embrace|smile/.test(t)) return 'resolve'
+  if (/fear|anger|tension|urgent|danger|grief|doubt|anxious|conflict/.test(t)) return 'rise'
+  if (/curious|wonder|quiet|dawn|first|begin|gentle/.test(t)) return 'calm'
+  return 'neutral'
+}
+
 function scoreEmotionProgression(episode: StoryEpisode): number {
   const scenes = episode.scenes ?? []
   if (scenes.length < 2) return clampScore(70)
   const tones = scenes.map((s) =>
-    String(s.emotional_tone || s.mood || s.visual_description || s.narration || '').toLowerCase()
+    String(
+      `${s.emotional_tone || ''} ${s.mood || ''} ${s.narration || s.text || ''} ${s.visual_description || ''}`
+    ).toLowerCase()
   )
-  const tensionWords = /tension|fear|conflict|danger|urgent|climax|shock|grief|anger/
-  const calmWords = /calm|peace|relief|hope|joy|warm|tender|resolve/
+  const bands = tones.map(emotionBand)
   let shifts = 0
-  let tensionRise = 0
-  for (let i = 1; i < tones.length; i++) {
-    if (tones[i] !== tones[i - 1]) shifts += 1
-    const t0 = tensionWords.test(tones[i - 1]) ? 1 : calmWords.test(tones[i - 1]) ? -1 : 0
-    const t1 = tensionWords.test(tones[i]) ? 1 : calmWords.test(tones[i]) ? -1 : 0
-    if (t1 > t0) tensionRise += 1
+  let arcScore = 0
+  for (let i = 1; i < bands.length; i++) {
+    if (bands[i] !== bands[i - 1]) shifts += 1
   }
-  let score = 58 + Math.min(20, (shifts / (scenes.length - 1)) * 20)
-  score += Math.min(16, tensionRise * 4)
-  if (shifts >= Math.floor(scenes.length / 2)) score = Math.max(score, 90)
+  const hasCalmOpen = bands.slice(0, Math.ceil(scenes.length * 0.25)).some((b) => b === 'calm' || b === 'neutral')
+  const hasRiseMid = bands.slice(Math.floor(scenes.length * 0.25), Math.floor(scenes.length * 0.75)).some(
+    (b) => b === 'rise' || b === 'peak'
+  )
+  const hasPeakLate = bands.slice(Math.floor(scenes.length * 0.55)).some((b) => b === 'peak' || b === 'rise')
+  const hasResolveEnd = bands.slice(-Math.max(1, Math.ceil(scenes.length * 0.2))).some(
+    (b) => b === 'resolve' || b === 'calm'
+  )
+  if (hasCalmOpen) arcScore += 12
+  if (hasRiseMid) arcScore += 14
+  if (hasPeakLate) arcScore += 16
+  if (hasResolveEnd) arcScore += 12
+
+  let score = 48 + Math.min(22, (shifts / (scenes.length - 1)) * 22) + arcScore
+  if (hasCalmOpen && hasRiseMid && hasPeakLate) score = Math.max(score, 85)
+  if (hasCalmOpen && hasRiseMid && hasPeakLate && hasResolveEnd) score = Math.max(score, 92)
   return clampScore(score)
 }
 
