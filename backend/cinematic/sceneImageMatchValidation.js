@@ -13,7 +13,7 @@ const STYLE_MARKERS = {
   custom: /\b(style lock|custom)\b/i
 }
 
-const MATCH_THRESHOLD = Number(process.env.KATHA_IMAGE_MATCH_MIN_SCORE || 68)
+const MATCH_THRESHOLD = Number(process.env.KATHA_IMAGE_MATCH_MIN_SCORE || 95)
 
 function styleKeyBase(key = '') {
   return String(key).split('+')[0].trim()

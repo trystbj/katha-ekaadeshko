@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useUiText } from '../i18n/useAppI18n'
 import { Glyphs } from '../i18n/uiGlyphs'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { validatedScenePreviewUrl } from '../utils/validatedPreviewUrl'
 import type { StudioSeasonId } from '../constants/studioSeasonThemes'
 import { STUDIO_SEASON_PRESETS, normalizeStudioSeasonId } from '../constants/studioSeasonThemes'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -78,7 +79,17 @@ export function PreviewStage({
   const preset = STUDIO_SEASON_PRESETS[normalizeStudioSeasonId(seasonId)]
   const indexMax = Math.max(0, (sceneCount ?? sceneUrls.length) - 1)
   const safeIx = indexMax >= 0 ? Math.min(Math.max(0, carouselIndex), indexMax) : 0
-  const hero = heroUrl || sceneUrls[safeIx] || sceneUrls.find(Boolean) || ''
+  const heroCandidate = heroUrl || sceneUrls[safeIx] || sceneUrls.find(Boolean) || ''
+  const [hero, setHero] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    void validatedScenePreviewUrl(heroCandidate).then((url) => {
+      if (!cancelled) setHero(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [heroCandidate])
   const fitAxis = useCinematicImageFit(cinematicMedia ? hero : null)
   const pct = typeof jobProgress === 'number' ? Math.min(100, Math.max(0, jobProgress)) : undefined
   const blankIdle = Boolean(idleBlank && !hero)

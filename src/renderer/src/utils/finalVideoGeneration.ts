@@ -27,6 +27,17 @@ export function validateFinalVideoPrerequisites(
     errors.push(`Scene images incomplete (${gate.coverage.withImage}/${gate.coverage.total}).`)
   }
   if (!gate.narrationGenerated) errors.push('Narration audio is missing — generate visuals first.')
+
+  const ep = project.episodes.find((e) => e.number === epn)
+  const scenes = ep?.scenes ?? []
+  if (scenes.length) {
+    const indices = scenes.map((s) => s.index).filter((n) => n > 0)
+    const sorted = [...indices].sort((a, b) => a - b)
+    const monotonic = sorted.every((n, i) => i === 0 || n > sorted[i - 1])
+    if (!monotonic) errors.push('Scene order is invalid — renumber scenes before export.')
+    if (sorted[0] !== 1) errors.push('Scene timeline must start at scene 1.')
+  }
+
   return { ok: errors.length === 0, errors, episodeNumber: epn }
 }
 

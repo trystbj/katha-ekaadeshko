@@ -16,14 +16,15 @@ import {
   characterConsistencyPromptBlock
 } from '../services/cinematic/characterConsistencyEngine.js'
 import {
-  assertCharactersReadyForImageGeneration,
-  enrichStoryCharacterProfiles
-} from '../character/characterIdentityMemory.js'
-import {
   attachSceneVisualBriefsToScript,
   buildStoryBible
 } from '../cinematic/storyBible.js'
 import { buildAllCharacterDNA } from '../cinematic/characterDNA.js'
+import {
+  assertCharacterPortraitsReady,
+  ensureCharacterPortraits
+} from '../cinematic/characterPortraitPipeline.js'
+import { validateStoryForVisualPipeline } from '../cinematic/storyPipelineGate.js'
 import { enrichScriptRowsForVisuals } from '../utils/sceneVisualIntelligence.js'
 import { pipelineStageLog, isStrictImagePipeline } from '../utils/pipelineStageLog.js'
 import {
@@ -74,26 +75,33 @@ export async function runKathaVisualPipeline(opts = {}) {
   if (!storyCastRaw.length) {
     throw new Error('Character profiles are required before scene image generation.')
   }
-  const storyCast = assertCharactersReadyForImageGeneration(storyCastRaw, {
-    country: input.country,
-    theme: input.theme || input.seedLine
-  })
+  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null
+
+  const storyCast = validateStoryForVisualPipeline(story, scriptFiltered, input)
   const castWithDNA = buildAllCharacterDNA(storyCast, {
     country: input.country,
     theme: input.theme || input.seedLine
   }).map((dna, i) => ({ ...storyCast[i], characterDNA: dna }))
   story.characters = castWithDNA
 
-  const permanentProfiles = buildPermanentCharacterProfiles(castWithDNA)
+  if (onProgress) {
+    onProgress({ stage: 'character_portraits', progress: 2, message: 'Generating character portraits…' })
+  }
+  const castWithPortraits = await ensureCharacterPortraits(castWithDNA, input, onProgress)
+  story.characters = castWithPortraits
+  if (isStrictImagePipeline()) {
+    assertCharacterPortraitsReady(castWithPortraits)
+  }
+
+  const permanentProfiles = buildPermanentCharacterProfiles(castWithPortraits)
   pipelineStageLog('character_profiles_created', { count: permanentProfiles.length })
 
   const storyBible = buildStoryBible(story, input, scriptFiltered, region)
   const scriptBriefed = attachSceneVisualBriefsToScript(scriptFiltered, storyBible, {
-    bibleCharacters: castWithDNA
+    bibleCharacters: castWithPortraits
   })
   const script = enrichScriptRowsForVisuals(scriptBriefed, input, story)
   pipelineStageLog('scene_descriptions_created', { count: script.length })
-  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null
   const directives = normalizeProductionDirectives(
     opts.productionDirectives || opts.directives || input.__productionDirectives || {}
   )
@@ -112,7 +120,7 @@ export async function runKathaVisualPipeline(opts = {}) {
       Array.isArray(story?.characters) ? story.characters : input.bibleCharacters || [],
       input.characterVisualLocks
     ),
-    castWithDNA.length ? castWithDNA : input.bibleCharacters || []
+    castWithPortraits.length ? castWithPortraits : input.bibleCharacters || []
   )
   const characterBlock = characterConsistencyPromptBlock(characterLocks)
   const storyboardPlan = buildStoryboardDirectorPlan(script, directives)
@@ -135,7 +143,7 @@ export async function runKathaVisualPipeline(opts = {}) {
     ...input,
     __story: story,
     __storyBible: storyBible,
-    __characterDNA: storyBible.characterDNA || castWithDNA.map((c) => c.characterDNA),
+    __characterDNA: storyBible.characterDNA || castWithPortraits.map((c) => c.characterDNA),
     __permanentCharacterProfiles: permanentProfiles,
     seedLine: input.seedLine || input.theme,
     __masterStoryContext: masterCtx,
@@ -178,7 +186,7 @@ export async function runKathaVisualPipeline(opts = {}) {
       input: inputWithContinuity,
       region,
       onProgress,
-      characters: castWithDNA,
+      characters: castWithPortraits,
       sceneBlueprints,
       projectId: input.projectId || story.id,
       strict: isStrictImagePipeline(),
@@ -238,6 +246,7 @@ export async function runKathaVisualPipeline(opts = {}) {
       visualGeneration: true,
       ...(masterCtx ? { masterStoryContext: masterCtx } : {}),
       storyBible,
+      bibleCharacters: castWithPortraits,
       productionStage: 'narration_motion',
       productionDirectives: directives,
       sceneProductionStates,

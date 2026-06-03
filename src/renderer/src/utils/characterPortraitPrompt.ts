@@ -1,6 +1,26 @@
 import type { StoryCharacter } from '../types/story'
 import { clampLeonardoPromptPair } from '@shared/leonardoPromptLimits.js'
 
+function dnaPromptLine(ch: StoryCharacter): string {
+  const dna = (ch as StoryCharacter & { characterDNA?: Record<string, unknown> }).characterDNA as
+    | {
+        locked?: boolean
+        hairstyle?: string
+        hairColor?: string
+        eyeColor?: string
+        clothing?: string
+        faceShape?: string
+        skinTone?: string
+        ethnicity?: string
+      }
+    | undefined
+  if (!dna?.locked) return ''
+  return (
+    `CHARACTER DNA LOCK: ${ch.name}; ${dna.ethnicity || ''}; hair ${dna.hairstyle || ''} ${dna.hairColor || ''}; ` +
+    `eyes ${dna.eyeColor || ''}; face ${dna.faceShape || ''}; skin ${dna.skinTone || ''}; wardrobe ${dna.clothing || ''}.`
+  )
+}
+
 export function buildCharacterPortraitPrompt(
   ch: StoryCharacter,
   styleLock: string,
@@ -10,7 +30,8 @@ export function buildCharacterPortraitPrompt(
     ch.gender && String(ch.gender).toLowerCase() !== 'unknown' ? ch.gender : 'neutral'
   const appearance = String(ch.appearance || ch.visualIdentity || ch.personality || '').trim()
   const parts = [
-    `STYLE LOCK — single medium only: ${styleLock}`,
+    `STYLE LOCK — highest authority, single medium only: ${styleLock}`,
+    dnaPromptLine(ch),
     opts?.crefLine || '',
     `CHARACTER: ${ch.name} (${gender}, ${ch.age || 'adult'}).`,
     `Appearance: ${appearance}.`,

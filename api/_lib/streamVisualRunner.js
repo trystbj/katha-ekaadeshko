@@ -25,10 +25,12 @@ export async function runStreamVisualPipeline(opts) {
           pipelineYielded: true,
           pipelineCheckpoint: 'visuals_partial',
           pipelineResumable: true,
-          scenesCompleted: partial.images.length
+          scenesCompleted: partial.images.length,
+          partialError: e instanceof Error ? e.message : String(e)
         }
       }
     }
+    if (e instanceof PipelineYieldError) throw e
     throw e
   }
 }

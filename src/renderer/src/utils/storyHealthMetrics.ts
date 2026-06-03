@@ -116,7 +116,7 @@ function scoreVisualConsistency(
   score += visualDescScore * 8
   if (ratio < 1) return clampScore(score)
   const briefAligned =
-    episode.scenes.filter((s) => (s.visual_description || '').includes('PRIMARY STORY EVENT')).length /
+    episode.scenes.filter((s) => /\b(WHAT:|WHO:|Story event)/i.test(s.visual_description || '')).length /
     total
   if (briefAligned > 0.5) score += 6
   if (project.storyBible) score += 4

@@ -55,7 +55,13 @@ export function buildStoryBible(story, input = {}, script = [], region = '') {
       renderingRules: String(styleProfile.leonardoForbidden || '').slice(0, 400)
     },
     scenes,
-    masterStoryContext: master
+    masterStoryContext: master,
+    relationships: master.memory?.relationships || master.relationships || [],
+    characterMotivations: (story?.characters || []).map((c) => ({
+      name: c.name,
+      role: c.storyRole || c.role,
+      motivation: String(c.personality || c.traits || '').slice(0, 200)
+    }))
   }
 
   pipelineStageLog('story_bible_created', {
@@ -88,40 +94,30 @@ export function buildSceneVisualBrief(row, storyBible = {}, castMemory = []) {
       return `${m.label} (${g}): ${String(row.action || 'active in story beat').slice(0, 80)}; emotion ${String(row.mood || row.emotional_tone || 'story-true')}; look ${look}`
     })
 
-  const event = String(row.action || row.visual_description || '').trim()
-  const storyEvent = [
-    `PRIMARY STORY EVENT: ${event || 'single clear narrative beat with visible action'}.`,
-    'Image must show WHO is doing WHAT — not empty landscape.',
-    row.narration ? `Emotional beat (do not render text): ${String(row.mood || row.emotional_tone || 'cinematic')}.` : ''
+  const who = castLines.length
+    ? `WHO: ${castLines.join('; ')}.`
+    : 'WHO: locked cast only — no new faces.'
+  const what = `WHAT: ${String(row.action || eventCore(row)).trim() || 'clear story action with visible gesture'}.`
+  const where = `WHERE: ${String(row.environment || row.location || storyBible.story?.setting || 'story setting').trim()}.`
+  const when = `WHEN: ${String(row.time_of_day || 'story timeline').trim()}${row.weather ? `; weather ${row.weather}` : ''}.`
+  const why = `WHY: ${String(row.narration ? 'narrative beat advances plot' : 'scene advances story')}; purpose ${String(row.story_purpose || 'plot progression').trim()}.`
+  const emotion = `EMOTION: ${String(row.mood || row.emotional_tone || storyBible.story?.tone || 'cinematic')}.`
+  const visuals = [
+    'VISUALS:',
+    `Camera ${String(row.camera || row.camera_angle || 'motivated medium shot')};`,
+    `Lighting ${String(row.lighting || 'motivated cinematic')};`,
+    `Composition focal on action; Mood ${String(row.mood || 'story-true')};`,
+    `Style ${String(storyBible.visualStyle?.styleRules || 'locked')}.`,
+    dnaScene ? dnaScene.slice(0, 200) : ''
   ]
     .filter(Boolean)
     .join(' ')
 
-  const chars = [
-    castLines.length ? `CAST IN SHOT: ${castLines.join('; ')}.` : 'Only locked cast — no new faces.',
-    dnaScene ? dnaScene.slice(0, 280) : '',
-    'Readable pose, gesture, expression.'
-  ]
-    .filter(Boolean)
-    .join(' ')
+  return [what, who, emotion, where, when, why, visuals].filter(Boolean).join(' ').slice(0, 950)
+}
 
-  const env = [
-    `SUPPORTING ENVIRONMENT: ${String(row.environment || row.location || storyBible.story?.setting || '').trim() || 'story setting'}.`,
-    row.weather ? `Weather: ${row.weather}.` : '',
-    row.time_of_day ? `Time: ${row.time_of_day}.` : '',
-    `Atmosphere supports action — background secondary.`
-  ]
-    .filter(Boolean)
-    .join(' ')
-
-  const cinema = [
-    `Framing: ${String(row.camera || row.camera_angle || 'motivated medium shot')}.`,
-    `Lighting: ${String(row.lighting || 'motivated cinematic light')}.`,
-    `Focal point: character action and story beat.`,
-    `Style: ${String(storyBible.visualStyle?.styleRules || 'locked studio style')}.`
-  ].join(' ')
-
-  return [storyEvent, chars, env, cinema].filter(Boolean).join(' ').slice(0, 950)
+function eventCore(row) {
+  return String(row.visual_description || row.action || '').trim()
 }
 
 /**

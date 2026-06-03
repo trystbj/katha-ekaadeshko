@@ -699,11 +699,23 @@ export default function App() {
     if (busy || prev !== 'generating') return
     const p = useStudioStore.getState().project
     if (!p?.bible || !p.id) return
-    const need = charactersNeedingPortraits(p)
-    if (!need.length || hasAutoPortraitRun(p.id)) return
-    markAutoPortraitRun(p.id)
-    console.info('[katha:character]', 'auto_portrait_batch_start', { count: need.length })
     void (async () => {
+      const { auditCharacterPortraits } = await import('./utils/characterPortraitRecovery')
+      const audit = await auditCharacterPortraits(p)
+      const need = [
+        ...charactersNeedingPortraits(p),
+        ...audit.needsRegen
+          .map((n) => p.bible?.characters.find((c) => c.id === n.id))
+          .filter(Boolean)
+      ].filter(
+        (ch, i, arr) => ch && arr.findIndex((x) => x?.id === ch.id) === i
+      ) as NonNullable<ReturnType<typeof charactersNeedingPortraits>>[number][]
+      if (!need.length || hasAutoPortraitRun(p.id)) return
+      markAutoPortraitRun(p.id)
+      console.info('[katha:character]', 'auto_portrait_batch_start', {
+        count: need.length,
+        reasons: audit.needsRegen.map((r) => r.reason)
+      })
       for (const ch of need) {
         if (useStudioStore.getState().busy) break
         await generateCharacterBase(ch.id)

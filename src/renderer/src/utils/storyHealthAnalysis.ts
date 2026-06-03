@@ -40,6 +40,7 @@ export function buildEpisodeQualityBundle(project: ProjectState, episode: StoryE
   }
 }
 
+/** Evidence-based merge — no placeholder floors. */
 export function mergeStoryHealthWithQualityReport(
   local: StoryHealthMetrics,
   report: QualityReport | null | undefined,
@@ -47,26 +48,29 @@ export function mergeStoryHealthWithQualityReport(
 ): StoryHealthMetrics {
   if (!report?.version) return local
 
-  const base = toPct01(report.score, local.story)
+  const storyFromApi = toPct01(report.score, local.story)
   const narration = toPct01(report.narrationScore, local.narration)
   const continuity = toPct01(report.continuityScore, local.continuity)
-  const dialogueBoost = toPct01(report.dialogueScore, local.story)
+  const dialogue = toPct01(report.dialogueScore, local.story)
 
-  const story = clampScore(Math.max(local.story, base, dialogueBoost * 0.35 + base * 0.65))
-  const character = clampScore(Math.max(local.character, 90))
-  const emotion = clampScore(Math.max(local.emotion, story * 0.92))
+  const story = clampScore(storyFromApi * 0.5 + dialogue * 0.2 + local.story * 0.3)
+  const character = local.character
+  const emotion = clampScore(local.emotion * 0.55 + story * 0.45)
+
   let visual: StoryHealthVisualMetric = local.visual
   if (coverage.withImage > 0 && typeof local.visual === 'number') {
-    visual = clampScore(Math.max(local.visual, story * 0.88, continuity * 0.9))
+    const ratio = coverage.withImage / Math.max(1, coverage.total)
+    const alignPenalty = coverage.missing.length ? Math.min(25, coverage.missing.length * 5) : 0
+    visual = clampScore(local.visual * 0.6 + continuity * 0.2 + ratio * 20 - alignPenalty)
   }
 
   return {
-    story: Math.max(story, 90),
-    character: Math.max(character, 95),
-    narration: Math.max(narration, 90),
+    story,
+    character,
+    narration,
     visual,
-    emotion: Math.max(emotion, 90),
-    continuity: Math.max(continuity, 90)
+    emotion,
+    continuity
   }
 }
 

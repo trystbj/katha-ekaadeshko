@@ -26,7 +26,8 @@ const BodySchema = z.object({
   narratorId: z.string().optional(),
   characterReference: z.record(z.unknown()).optional(),
   bibleCharacters: z.array(z.record(z.unknown())).optional(),
-  masterStoryContext: z.record(z.unknown()).optional()
+  masterStoryContext: z.record(z.unknown()).optional(),
+  storyBible: z.record(z.unknown()).optional()
 })
 
 export default async function handler(req, res) {
@@ -101,7 +102,8 @@ export default async function handler(req, res) {
           narratorId: body.narratorId,
           characterReference: body.characterReference,
           bibleCharacters: body.bibleCharacters,
-          ...(body.masterStoryContext ? { masterStoryContext: body.masterStoryContext } : {})
+          ...(body.masterStoryContext ? { masterStoryContext: body.masterStoryContext } : {}),
+          ...(body.storyBible ? { __storyBible: body.storyBible, storyBible: body.storyBible } : {})
         }
       },
       req,
