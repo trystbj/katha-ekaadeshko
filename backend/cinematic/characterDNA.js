@@ -6,6 +6,11 @@ import { buildCharacterAppearanceProfile } from '../../shared/characterNamingPol
 import { pipelineStageLog } from '../utils/pipelineStageLog.js'
 import { resolveRegionalAppearanceContext, regionalAppearancePromptBlock } from './regionalAppearance.js'
 import { buildOutfitLock, outfitLockPromptBlock } from './outfitLock.js'
+import { buildLeonardoVisualPromptFromDNA } from '../utils/leonardoVisualPromptFromDNA.js'
+
+function hairColorHint(profile) {
+  return String(profile?.hairColor || profile?.hair || '').trim() || 'natural'
+}
 
 function extractTrait(blob, patterns, fallback = '') {
   const t = String(blob || '')
@@ -76,6 +81,30 @@ export function buildCharacterDNA(character = {}, opts = {}) {
     accessories: profile.accessories
   })
 
+  const occupation = String(character.occupation || character.role || character.storyRole || 'story character').trim()
+  const emotionalTraits = String(
+    character.emotionalTraits || character.traits || traits || 'expressive, story-driven'
+  ).trim()
+  const speakingStyle = String(
+    character.speakingStyle ||
+      (/\b(quiet|shy|soft-spoken)\b/i.test(blob)
+        ? 'soft-spoken, hesitant'
+        : /\b(bold|confident|commanding)\b/i.test(blob)
+          ? 'direct, confident'
+          : 'natural conversational')
+  ).trim()
+  const visualDistinguishingFeatures =
+    String(character.visualDistinguishingFeatures || '').trim() ||
+    [
+      profile.facialFeatures,
+      profile.accessories !== 'same accessories every scene' ? profile.accessories : '',
+      `${hairColorHint(profile)} hair`,
+      eyeShape !== 'consistent eye shape' ? `${eyeShape} eyes` : ''
+    ]
+      .filter(Boolean)
+      .join('; ')
+      .slice(0, 220)
+
   const dna = {
     locked: true,
     name,
@@ -98,7 +127,11 @@ export function buildCharacterDNA(character = {}, opts = {}) {
     outfitLock,
     regionalAppearance: regional,
     personality: String(character.personality || traits || 'story-consistent').trim(),
+    occupation,
     storyRole: String(character.storyRole || character.role || 'lead').trim(),
+    emotionalTraits,
+    speakingStyle,
+    visualDistinguishingFeatures,
     visualIdentity: visual.slice(0, 520)
   }
 
@@ -118,24 +151,17 @@ export function buildAllCharacterDNA(characters = [], opts = {}) {
 /**
  * @param {ReturnType<typeof buildCharacterDNA>} dna
  */
-export function characterDNAPromptBlock(dna) {
+export function characterDNAPromptBlock(dna, opts = {}) {
   if (!dna?.name) return ''
-  const regional = regionalAppearancePromptBlock(dna.regionalAppearance || {})
-  const outfit = outfitLockPromptBlock(dna.outfitLock)
-  return (
-    [
-      `CHARACTER DNA LOCK — ${dna.name} (immutable):`,
-      `${dna.gender}, age ${dna.age}, ${dna.ethnicity}, origin ${dna.regionalOrigin}, ${dna.race}, ${dna.skinTone};`,
-      `face ${dna.facialStructure}, ${dna.eyeShape}, eyes ${dna.eyeColor};`,
-      `hair ${dna.hairstyle}${dna.hairColor ? ` (${dna.hairColor})` : ''}; body ${dna.bodyType}, ${dna.height};`,
-      `role ${dna.storyRole}; ${dna.personality}.`,
-      regional,
-      outfit,
-      'Never change age, gender, ethnicity, regional features, face, hair, or outfit unless script explicitly authorizes wardrobe change.'
-    ]
-      .filter(Boolean)
-      .join(' ')
-  ).slice(0, 900)
+  const detailed = buildLeonardoVisualPromptFromDNA(dna, opts)
+  return detailed.prompt.slice(0, 900)
+}
+
+/**
+ * Full Leonardo pair for portraits / scenes.
+ */
+export function leonardoPromptsFromDNA(dna, opts = {}) {
+  return buildLeonardoVisualPromptFromDNA(dna, opts)
 }
 
 /**

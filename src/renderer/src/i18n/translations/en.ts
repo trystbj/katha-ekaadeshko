@@ -122,6 +122,8 @@ export const en = {
   scriptReviewGenerateAllVisuals: 'Generate full cinematic story',
   scriptReviewContinueNext: 'Next',
   scriptReviewGenerateScenes: 'Generate Scenes',
+  scriptReviewUseScenesTabGenerate:
+    'Use the Scenes tab → Generate all scene images when you are ready (single batch control).',
   scriptReviewGenerateAssets: 'Generate assets',
   scriptReviewGenerateApproved: 'Generate approved scenes',
   scriptReviewGenerateScene: 'Generate scene',

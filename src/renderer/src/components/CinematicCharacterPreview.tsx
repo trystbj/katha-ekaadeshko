@@ -33,8 +33,10 @@ export function CinematicCharacterPreview({
     <div className="cinematic-main-preview cinematic-main-preview--character storyboard-workspace storyboard-workspace--preview-focus studio-mock-preview-wrap workspace-premium__stage">
       <div className="cinematic-main-preview__stage storyboard-workspace__stage-wrap">
         <PreviewStage
+          key={activeCharacterId}
           sectionClassName="cinematic-main-preview__preview-stage storyboard-workspace__preview-stage preview-stage--maximize"
           cinematicMedia
+          instantHeroSwitch
           seasonId={seasonId}
           sceneUrls={portraitUrls}
           heroUrl={hero}

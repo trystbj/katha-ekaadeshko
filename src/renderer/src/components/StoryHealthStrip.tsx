@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import type { ProjectState, StoryEpisode } from '../types/story'
-import { computeStoryHealthMetrics } from '../utils/storyHealthMetrics'
-import { episodeSceneImageCoverage } from '../utils/storyboardWorkflow'
-import { fetchStoryHealthMetrics } from '../utils/storyHealthAnalysis'
+import { computeStableStoryHealth } from '../utils/stableStoryHealth'
 
 type Props = {
   project: ProjectState
@@ -17,27 +15,10 @@ function pct(n: number): string {
 export function StoryHealthStrip({ project, episode }: Props) {
   const uiText = useUiText()
 
-  const coverage = useMemo(
-    () => episodeSceneImageCoverage(project, episode.number),
-    [project, episode.number]
+  const health = useMemo(
+    () => computeStableStoryHealth(project, episode),
+    [project, episode]
   )
-
-  const localHealth = useMemo(
-    () => computeStoryHealthMetrics(project, episode, coverage),
-    [project, episode, coverage]
-  )
-
-  const [health, setHealth] = useState(localHealth)
-  useEffect(() => {
-    setHealth(localHealth)
-    let cancelled = false
-    void fetchStoryHealthMetrics(project, episode, coverage).then((next) => {
-      if (!cancelled) setHealth(next)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [localHealth, project, episode, coverage])
 
   const metrics = [
     { key: 'storyHealthStory', value: pct(health.story) },

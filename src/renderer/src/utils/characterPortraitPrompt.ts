@@ -1,29 +1,58 @@
 import type { StoryCharacter } from '../types/story'
 import { clampLeonardoPromptPair } from '@shared/leonardoPromptLimits.js'
 
-function dnaPromptLine(ch: StoryCharacter): string {
-  const dna = (ch as StoryCharacter & { characterDNA?: Record<string, unknown> }).characterDNA as
-    | {
-        locked?: boolean
-        hairstyle?: string
-        hairColor?: string
-        eyeColor?: string
-        clothing?: string
-        faceShape?: string
-        skinTone?: string
-        ethnicity?: string
-      }
-    | undefined
-  if (!dna?.locked) return ''
-  const regional = String(
-    (dna as { regionalOrigin?: string }).regionalOrigin || dna.ethnicity || ''
-  ).trim()
-  return (
-    `CHARACTER DNA LOCK: ${ch.name}; origin ${regional}; ${dna.ethnicity || ''}; ` +
-    `hair ${dna.hairstyle || ''} ${dna.hairColor || ''}; eyes ${dna.eyeColor || ''}; ` +
-    `face ${dna.faceShape || ''}; skin ${dna.skinTone || ''}; wardrobe ${dna.clothing || ''}; ` +
-    `no random Western/East Asian ethnicity swap.`
-  )
+type CharacterDNA = {
+  locked?: boolean
+  name?: string
+  age?: string
+  gender?: string
+  ethnicity?: string
+  regionalOrigin?: string
+  skinTone?: string
+  facialStructure?: string
+  faceShape?: string
+  eyeShape?: string
+  eyeColor?: string
+  hairstyle?: string
+  hairColor?: string
+  height?: string
+  bodyType?: string
+  clothing?: string
+  accessories?: string
+  personality?: string
+  occupation?: string
+  storyRole?: string
+  emotionalTraits?: string
+  speakingStyle?: string
+  visualDistinguishingFeatures?: string
+}
+
+function detailedPromptFromDna(ch: StoryCharacter, styleLock: string, emotionNote?: string): string {
+  const dna = (ch as StoryCharacter & { characterDNA?: CharacterDNA }).characterDNA
+  const gender =
+    ch.gender && String(ch.gender).toLowerCase() !== 'unknown' ? ch.gender : 'neutral'
+  if (!dna?.locked) {
+    return [
+      `STYLE LOCK: ${styleLock}`,
+      `CHARACTER: ${ch.name} (${gender}, ${ch.age || 'adult'}).`,
+      String(ch.appearance || ch.visualIdentity || ch.personality || '')
+    ].join(' ')
+  }
+  return [
+    `SELECTED STYLE: ${styleLock}.`,
+    `CHARACTER IDENTITY: ${dna.name}; ${dna.occupation || ch.role}; role ${dna.storyRole}.`,
+    `PHYSICAL: ${dna.gender}, age ${dna.age}, ${dna.bodyType}, ${dna.height}, ${dna.skinTone}.`,
+    `FACE: ${dna.facialStructure || dna.faceShape}, ${dna.eyeShape}, eyes ${dna.eyeColor}.`,
+    `HAIR: ${dna.hairstyle}${dna.hairColor ? `, ${dna.hairColor}` : ''}.`,
+    `CLOTHING: ${dna.clothing}; accessories ${dna.accessories}.`,
+    `REGIONAL: ${dna.regionalOrigin || dna.ethnicity}; ${dna.ethnicity}; culturally accurate features only.`,
+    `PERSONALITY: ${dna.personality}; emotions ${dna.emotionalTraits}; voice ${dna.speakingStyle}.`,
+    `DISTINGUISHING: ${dna.visualDistinguishingFeatures || ch.visualIdentity}.`,
+    emotionNote ? `EMOTION: ${emotionNote}.` : 'EMOTION: neutral portrait.',
+    'POSE: waist-up portrait, one person, clear face.',
+    'LIGHTING: soft motivated portrait light. CAMERA: portrait framing.',
+    'No text, no watermark, identity locked for all scenes.'
+  ].join(' ')
 }
 
 export function buildCharacterPortraitPrompt(
@@ -31,21 +60,14 @@ export function buildCharacterPortraitPrompt(
   styleLock: string,
   opts?: { emotionNote?: string; crefLine?: string }
 ): string {
-  const gender =
-    ch.gender && String(ch.gender).toLowerCase() !== 'unknown' ? ch.gender : 'neutral'
-  const appearance = String(ch.appearance || ch.visualIdentity || ch.personality || '').trim()
-  const parts = [
-    `STYLE LOCK — highest authority, single medium only: ${styleLock}`,
-    dnaPromptLine(ch),
+  const main = [
+    detailedPromptFromDna(ch, styleLock, opts?.emotionNote),
     opts?.crefLine || '',
-    `CHARACTER: ${ch.name} (${gender}, ${ch.age || 'adult'}).`,
-    `Appearance: ${appearance}.`,
-    ch.baseImagePrompt,
-    `Role: ${ch.role || 'story lead'}.`,
-    opts?.emotionNote ? `Expression: ${opts.emotionNote}` : 'Neutral expression, clear face.',
-    'Portrait or waist-up, one person only, no text, no watermark, same identity for all scenes.'
+    ch.baseImagePrompt || ''
   ]
-  return clampLeonardoPromptPair(parts.filter(Boolean).join(' '), '').prompt
+    .filter(Boolean)
+    .join(' ')
+  return clampLeonardoPromptPair(main, '').prompt
 }
 
 export function validateCharacterPortraitUrl(url: string): boolean {

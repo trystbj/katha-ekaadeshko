@@ -107,6 +107,7 @@ import {
   hasAutoPortraitRun,
   markAutoPortraitRun
 } from './utils/autoGenerateCharacterPortraits'
+import { openCharacterPreview } from './utils/openCharacterPreview'
 
 function splitStudioSubtitleGraphemes(text: string): string[] {
   if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
@@ -484,6 +485,10 @@ export default function App() {
   const exitCharacterPreview = useCallback(() => {
     setCharacterPreviewId(null)
     setEmbeddedHeroOverride(null)
+  }, [])
+
+  const selectCharacterPreview = useCallback((c: import('./types/story').StoryCharacter) => {
+    openCharacterPreview(c, setCharacterPreviewId, setEmbeddedHeroOverride)
   }, [])
 
   const pipelineSceneTotalEstimate = useMemo(() => {
@@ -1259,19 +1264,6 @@ export default function App() {
                     episodeNumber={selectedEpisode ?? project.episodes[0]?.number ?? 1}
                   />
                 </Suspense>
-              ) : showScriptReview && activeEpisode && project ? (
-                <ScriptReviewWorkspace
-                  project={project}
-                  episode={activeEpisode}
-                  busyLabel={busy}
-                  onApproveAndGenerateAll={approveAndGenerateAllSceneImages}
-                  onNextScene={(sceneIndex) => {
-                    const ix = activeEpisode.scenes.findIndex((s) => s.index === sceneIndex)
-                    const next = activeEpisode.scenes[ix + 1]
-                    if (next) setEmbeddedPreviewIndex(ix + 1)
-                  }}
-                  patchProject={patchProject}
-                />
               ) : characterPreviewChar && project?.bible ? (
                 <CinematicCharacterPreview
                   characters={project.bible.characters}
@@ -1280,10 +1272,20 @@ export default function App() {
                   busy={Boolean(busy)}
                   onCharacterIndexChange={(i) => {
                     const c = project.bible!.characters[i]
-                    if (!c) return
-                    setCharacterPreviewId(c.id)
-                    setEmbeddedHeroOverride(c.baseImageUrl ?? null)
+                    if (c) selectCharacterPreview(c)
                   }}
+                />
+              ) : showScriptReview && activeEpisode && project ? (
+                <ScriptReviewWorkspace
+                  project={project}
+                  episode={activeEpisode}
+                  busyLabel={busy}
+                  onNextScene={(sceneIndex) => {
+                    const ix = activeEpisode.scenes.findIndex((s) => s.index === sceneIndex)
+                    const next = activeEpisode.scenes[ix + 1]
+                    if (next) setEmbeddedPreviewIndex(ix + 1)
+                  }}
+                  patchProject={patchProject}
                 />
               ) : showStoryboardPreview && activeEpisode ? (
                 <StoryboardPreviewWorkspace
@@ -1838,11 +1840,7 @@ export default function App() {
                     busy={Boolean(busy)}
                     showReferenceControls
                     characterId={c.id}
-                    onPreview={() => {
-                      setCharacterPreviewId(c.id)
-                      setEmbeddedHeroOverride(c.baseImageUrl ?? null)
-                      console.info('[katha:preview]', 'character_preview_mode', { name: c.name })
-                    }}
+                    onPreview={() => selectCharacterPreview(c)}
                     onGeneratePortrait={() => void generateCharacterBase(c.id)}
                     onReplacePortrait={() => void generateCharacterBase(c.id)}
                     onNameChange={(name) =>

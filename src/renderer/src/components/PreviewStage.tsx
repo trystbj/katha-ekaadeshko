@@ -48,6 +48,8 @@ type Props = {
   showSceneNav?: boolean
   /** Smart fill (portrait→height, landscape→width) without letterbox waste. */
   cinematicMedia?: boolean
+  /** Character portrait mode — show hero immediately on click (no async gate). */
+  instantHeroSwitch?: boolean
 }
 
 /** Center cinematic viewport — idle seasonal art, scene rotator, or generating shimmer. */
@@ -72,7 +74,8 @@ export function PreviewStage({
   hideSceneCaption = false,
   hideCastLayer = false,
   showSceneNav = false,
-  cinematicMedia = false
+  cinematicMedia = false,
+  instantHeroSwitch = false
 }: Props) {
   const uiText = useUiText()
   const reduced = usePrefersReducedMotion()
@@ -80,8 +83,12 @@ export function PreviewStage({
   const indexMax = Math.max(0, (sceneCount ?? sceneUrls.length) - 1)
   const safeIx = indexMax >= 0 ? Math.min(Math.max(0, carouselIndex), indexMax) : 0
   const heroCandidate = heroUrl || sceneUrls[safeIx] || sceneUrls.find(Boolean) || ''
-  const [hero, setHero] = useState('')
+  const [hero, setHero] = useState(instantHeroSwitch ? heroCandidate : '')
   useEffect(() => {
+    if (instantHeroSwitch) {
+      setHero(heroCandidate)
+      return
+    }
     let cancelled = false
     void validatedScenePreviewUrl(heroCandidate).then((url) => {
       if (!cancelled) setHero(url)
@@ -89,7 +96,7 @@ export function PreviewStage({
     return () => {
       cancelled = true
     }
-  }, [heroCandidate])
+  }, [heroCandidate, instantHeroSwitch])
   const fitAxis = useCinematicImageFit(cinematicMedia ? hero : null)
   const pct = typeof jobProgress === 'number' ? Math.min(100, Math.max(0, jobProgress)) : undefined
   const blankIdle = Boolean(idleBlank && !hero)

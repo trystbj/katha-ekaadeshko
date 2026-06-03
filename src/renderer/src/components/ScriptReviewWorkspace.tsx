@@ -13,8 +13,6 @@ type Props = {
   project: ProjectState
   episode: StoryEpisode
   busyLabel: string | null
-  /** User finished review — queue and generate all scene images in sequence. */
-  onApproveAndGenerateAll: () => void
   onNextScene: (sceneIndex: number) => void
   patchProject: (fn: (p: ProjectState) => ProjectState) => void
 }
@@ -32,7 +30,6 @@ export function ScriptReviewWorkspace({
   project,
   episode,
   busyLabel,
-  onApproveAndGenerateAll,
   onNextScene,
   patchProject
 }: Props) {
@@ -125,16 +122,9 @@ export function ScriptReviewWorkspace({
         })}
       </nav>
 
-      <div className="script-review-workspace__actions script-review-workspace__actions--global">
-        <button
-          type="button"
-          className="btn btn-generate-cta"
-          disabled={busy}
-          onClick={() => onApproveAndGenerateAll()}
-        >
-          {busy ? uiText('storyboardRegeneratingImages') : uiText('scriptReviewGenerateScenes')}
-        </button>
-      </div>
+      <p className="script-review-workspace__batch-hint" role="status">
+        {uiText('scriptReviewUseScenesTabGenerate')}
+      </p>
 
       <div className="script-review-workspace__scenes" role="list">
         {episode.scenes.map((sc) => {

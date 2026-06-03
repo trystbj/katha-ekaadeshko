@@ -20,6 +20,7 @@ import {
   pipelineImagesFromStore,
   type PipelineImageRow
 } from '../utils/visualStreamRecovery'
+import { validateVisualGenerationPreflight } from '../utils/visualGenerationPreflight'
 
 type VisualGenResult = {
   images: PipelineImageRow[]
@@ -86,6 +87,13 @@ export function useVisualGeneration() {
       const payload = buildVisualPipelinePayload(p, epn)
       if (!payload) {
         setError(uiText('visualGenMissingScript'))
+        return
+      }
+
+      const preflight = validateVisualGenerationPreflight(p, epn)
+      if (!preflight.ok) {
+        console.warn('[katha:pipeline]', 'visual_preflight_failed', { errors: preflight.errors })
+        setError(`Visual generation blocked: ${preflight.errors.join(', ')}`)
         return
       }
 
