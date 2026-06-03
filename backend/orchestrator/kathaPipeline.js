@@ -444,7 +444,8 @@ async function continuePipelineFromStory(
   if (Array.isArray(finalStory?.characters)) {
     const sanitized = sanitizeStoryCharacters(finalStory.characters, namingPolicy)
     const mergedCast = enrichStoryCharacterProfiles(
-      mergeBibleCharactersIntoCast(sanitized, pinnedInput.bibleCharacters)
+      mergeBibleCharactersIntoCast(sanitized, pinnedInput.bibleCharacters),
+      { country: pinnedInput.country, theme: pinnedInput.theme }
     )
     finalStory = {
       ...finalStory,

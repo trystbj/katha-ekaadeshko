@@ -66,6 +66,19 @@
   overflow-y: auto;
 }
 
+.studio-script-workspace__video-hint,
+.studio-script-workspace__video-status {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(255, 252, 248, 0.88);
+}
+
+.studio-script-workspace__video-btn {
+  width: 100%;
+  max-width: 18rem;
+}
+
 .studio-scene-cards {
   list-style: none;
   margin: 0;

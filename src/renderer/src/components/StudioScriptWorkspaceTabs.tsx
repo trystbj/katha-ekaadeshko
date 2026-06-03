@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import type { ProjectState, StoryEpisode, StoryScene } from '../types/story'
 import { LiveScriptPreview } from './LiveScriptPreview'
@@ -7,9 +7,10 @@ import { StudioSceneSectionPanel } from './StudioSceneSectionPanel'
 import { StudioSceneSectionPlaceholder } from './StudioSceneSectionPlaceholder'
 import type { StreamRevealState } from '../store/useStudioStore'
 import type { SmartRegenAction } from './SmartSceneRegenMenu'
+import { deriveCinematicProductionGate } from '../utils/cinematicProductionGate'
 import '../styles/studio-script-workspace.css'
 
-export type StudioScriptTab = 'scenes' | 'script' | 'voice'
+export type StudioScriptTab = 'scenes' | 'script' | 'voice' | 'video'
 
 type Props = {
   project: ProjectState | null
@@ -54,10 +55,17 @@ export function StudioScriptWorkspaceTabs({
   const uiText = useUiText()
   const [tab, setTab] = useState<StudioScriptTab>(storyGenerated ? 'scenes' : 'script')
 
+  const productionGate = useMemo(
+    () =>
+      project && episode ? deriveCinematicProductionGate(project, episode.number) : null,
+    [project, episode]
+  )
+
   const tabs: { id: StudioScriptTab; label: string }[] = [
     { id: 'scenes', label: uiText('studioTabScenes') },
     { id: 'script', label: uiText('studioTabScript') },
-    { id: 'voice', label: uiText('studioTabVoice') }
+    { id: 'voice', label: uiText('studioTabVoice') },
+    { id: 'video', label: uiText('studioTabVideo') }
   ]
 
   const activeIx = activeSceneIndex ?? scenes[0]?.index ?? 1
@@ -112,6 +120,29 @@ export function StudioScriptWorkspaceTabs({
         {tab === 'voice' ? (
           <div className="studio-script-workspace__voice">
             <StoryGenerationDefaultsPicker embeddedInGeneratedDialog />
+          </div>
+        ) : null}
+
+        {tab === 'video' ? (
+          <div className="studio-script-workspace__voice">
+            <p className="studio-script-workspace__video-hint">{uiText('studioVideoTabHint')}</p>
+            <button
+              type="button"
+              className="btn btn-generate-cta studio-script-workspace__video-btn"
+              disabled={!productionGate?.canRenderFinalVideo || Boolean(busy)}
+              onClick={() => onGenerateFinalVideo?.()}
+            >
+              {uiText('storyboardGenerateFinalVideo')}
+            </button>
+            {!productionGate?.canRenderFinalVideo ? (
+              <p className="studio-script-workspace__video-status" role="status">
+                {!productionGate?.sceneImagesGenerated
+                  ? uiText('studioVideoNeedImages')
+                  : !productionGate?.narrationGenerated
+                    ? uiText('studioVideoNeedNarration')
+                    : uiText('studioVideoNeedValidation')}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>

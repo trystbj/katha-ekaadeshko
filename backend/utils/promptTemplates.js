@@ -236,9 +236,9 @@ Rules:
 - ${isServerlessRuntime() ? `Produce exactly ${serverlessMaxScriptScenes(input)} scenes (server-optimized batch — quality over quantity).` : '6–10 scenes (use LONG-STORY SCENE PLAN count when provided above).'}
 - Each scene must include:
   - scene (number)
-  - visual_description (2–3 rich sentences: location, atmosphere, weather/light, ambient detail, who is visible, body language, expressions, interactions, camera-friendly composition — NO text/subtitles/captions in frame)
-  - narration (cinematic voiceover for TTS — show-don't-tell; typically 3–6 sentences for important beats, 2–4 for brief beats; sensory + emotional; NOT robotic list tone)
-  - dialogue (array of { character, line } — natural human conversation when characters interact: typically 3–8 lines with back-and-forth, distinct voices, reactions, hesitation, interruptions; empty array ONLY for pure voiceover)
+  - visual_description (3–5 rich filmable sentences: location, weather/time, atmosphere, who is visible with locked appearance, pose, action, expression, story event, camera-friendly composition — NEVER title-only; NO text/subtitles/captions in frame)
+  - narration (cinematic voiceover for TTS — show-don't-tell; typically 4–7 sentences on key beats, 3–5 on brief beats; sensory + emotional depth; NOT robotic list tone)
+  - dialogue (array of { character, line } — natural human conversation when characters interact: typically 4–10 lines with back-and-forth, distinct voices, reactions, hesitation, interruptions; empty array ONLY for pure voiceover)
 - Write narration and every dialogue line in ${langDisp} unless USER SEED explicitly authorizes bilingual delivery (${langDisp} remains primary).
 - Narration carries atmosphere and visible emotion; dialogue carries distinct character voice — do not duplicate the same information in both.
 - Every scene needs clear purpose, plot/emotional progression, and a micro-turn ending; no filler vignettes.

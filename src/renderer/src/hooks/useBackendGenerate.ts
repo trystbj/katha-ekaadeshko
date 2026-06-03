@@ -29,6 +29,7 @@ import { defaultVideoStudioState } from '../types/videoStudio'
 import {
   analyzeNamingPolicy,
   buildCharacterIdentityMemory,
+  enrichStoryCharacterProfiles,
   sanitizeStoryCharacters
 } from '@shared/characterNamingPolicy.js'
 import {
@@ -473,28 +474,47 @@ export function useBackendGenerate() {
       const allowCustomName = namingPolicy.mode === 'names'
 
       const priorChars = wsProject?.bible?.characters ?? []
-      const baseChars = sanitizedCast.map(
-        (c: { name: string; role: string; traits: string }, i: number) => {
+      const enrichedCast = enrichStoryCharacterProfiles(
+        sanitizedCast.map((c: { name: string; role: string; traits: string }, i: number) => {
           const name0 = allowCustomName && i === 0 && mainChar ? mainChar : c.name
           const prior = priorChars.find(
             (p) => p.name.trim().toLowerCase() === name0.trim().toLowerCase()
           ) ?? priorChars[i]
           return {
-            id: prior?.id ?? `c${i + 1}`,
+            ...(prior || {}),
             name: name0,
-            personality: `${c.role}. ${c.traits}`.trim(),
-            visualIdentity: prior?.visualIdentity || `${c.traits}`.trim() || c.role,
-            baseImagePrompt: prior?.baseImagePrompt || `${name0}, ${c.role}, ${c.traits}`,
-            ...(prior?.referenceImages?.length ? { referenceImages: prior.referenceImages } : {}),
-            ...(prior?.gender ? { gender: prior.gender } : {}),
-            ...(prior?.age ? { age: prior.age } : {}),
-            ...(prior?.role || c.role ? { role: prior?.role || c.role } : {}),
-            ...(prior?.appearance ? { appearance: prior.appearance } : {}),
-            ...(prior?.baseImageUrl ? { baseImageUrl: prior.baseImageUrl } : {}),
-            ...(prior?.leonardoSeed != null ? { leonardoSeed: prior.leonardoSeed } : {})
+            role: prior?.role || c.role,
+            traits: c.traits,
+            personality: prior?.personality || `${c.role}. ${c.traits}`.trim()
           }
-        }
+        }),
+        { country, theme: backendTheme }
       )
+      const baseChars = enrichedCast.map((c, i) => {
+        const prior = priorChars.find(
+          (p) => p.name.trim().toLowerCase() === String(c.name).trim().toLowerCase()
+        ) ?? priorChars[i]
+        const gender =
+          String(c.gender || prior?.gender || 'neutral').toLowerCase() === 'unknown'
+            ? 'neutral'
+            : String(c.gender || prior?.gender || 'neutral')
+        return {
+          id: prior?.id ?? `c${i + 1}`,
+          name: String(c.name),
+          personality: String(c.personality || c.traits || '').trim(),
+          visualIdentity: String(c.visualIdentity || prior?.visualIdentity || '').trim(),
+          baseImagePrompt:
+            prior?.baseImagePrompt ||
+            `${c.name}, ${c.storyRole || c.role}, ${c.visualIdentity || c.traits}`.slice(0, 520),
+          gender,
+          age: String(c.age || prior?.age || 'adult'),
+          role: String(c.storyRole || c.role || c.name),
+          appearance: String(c.appearance || c.visualIdentity || '').trim(),
+          ...(prior?.referenceImages?.length ? { referenceImages: prior.referenceImages } : {}),
+          ...(prior?.baseImageUrl ? { baseImageUrl: prior.baseImageUrl } : {}),
+          ...(prior?.leonardoSeed != null ? { leonardoSeed: prior.leonardoSeed } : {})
+        }
+      })
       const characterIdentityMemory = buildCharacterIdentityMemory(
         baseChars
       ) as CharacterIdentitySlot[]

@@ -70,6 +70,19 @@ export const STYLE_DNA = {
   },
 }
 
+/** Single-line strict style enforcement for Leonardo (no mixed mediums). */
+export function strictStylePromptLine(profile) {
+  if (!profile) return ''
+  const hybrid = profile.key?.includes('+')
+  const core = String(profile.leonardoCore || '').trim()
+  const forbid = hybrid
+    ? 'Hybrid allowed only when user requested — still one cohesive frame.'
+    : String(profile.leonardoForbidden || '')
+        .replace(/^FORBIDDEN[^:]*:\s*/i, '')
+        .trim()
+  return `${core}${forbid ? ` FORBIDDEN: ${forbid}` : ''}`.slice(0, 320)
+}
+
 export function detectStyleHybridRequested(input = {}) {
   const blob = [input.customVisualPrompt, input.theme, input.seedLine, input.visualAccent]
     .filter(Boolean)

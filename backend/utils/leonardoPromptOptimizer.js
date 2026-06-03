@@ -2,7 +2,7 @@
  * Leonardo prompt length limits and priority-based compression (API max prompt 1500).
  */
 
-import { resolveStyleProfile } from './visualStyleLock.js'
+import { resolveStyleProfile, strictStylePromptLine } from './visualStyleLock.js'
 import { pipelineStageLog } from './pipelineStageLog.js'
 import {
   buildCharacterAppearanceProfile,
@@ -124,7 +124,7 @@ export function buildCompactLeonardoScenePrompt(ctx = {}) {
     String(scriptRow.lighting || blueprint?.lightingStyle || 'motivated cinematic light').trim(),
     85
   )
-  const style = truncate(String(profile.leonardoCore || '').trim(), 200)
+  const style = truncate(strictStylePromptLine(profile) || String(profile.leonardoCore || '').trim(), 280)
   const identity =
     String(ctx.identityBlock || '').trim() ||
     compactLeonardoIdentityBlock(scriptRow, castMemory)

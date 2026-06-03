@@ -18,6 +18,8 @@ export function deriveCinematicProductionGate(
   coverage: ReturnType<typeof episodeSceneImageCoverage>
   canRenderFinalVideo: boolean
   sceneImagesPartial: boolean
+  narrationGenerated: boolean
+  validationPassed: boolean
 } {
   const epn =
     episodeNumber ??
@@ -33,10 +35,14 @@ export function deriveCinematicProductionGate(
       (project?.characterIdentityMemory?.length ?? 0) > 0 ||
       (project?.assets ?? []).some((a) => a.kind === 'character' && a.url)
   )
+  const ep = project?.episodes.find((e) => e.number === epn) ?? project?.episodes[0]
+  const narrationGenerated = Boolean(ep?.narrationAudioUrl)
   const assetsReviewed = Boolean(project?.scriptReviewReady && !project?.storyboardPartial)
+  const validationPassed = sceneImagesGenerated && Boolean(project?.storyboardReady)
   const videoReady = Boolean(project?.lastRenderVideoUrl)
 
-  const canRenderFinalVideo = storyGenerated && sceneImagesGenerated && !videoReady
+  const canRenderFinalVideo =
+    storyGenerated && sceneImagesGenerated && narrationGenerated && validationPassed && !videoReady
 
   return {
     storyGenerated,
@@ -46,7 +52,9 @@ export function deriveCinematicProductionGate(
     videoReady,
     coverage,
     canRenderFinalVideo,
-    sceneImagesPartial
+    sceneImagesPartial,
+    narrationGenerated,
+    validationPassed
   }
 }
 

@@ -3,6 +3,10 @@ import type { AspectMode, StoryCharacter, VisualStyleId } from '../types/story'
 import { getStylePromptSuffix } from '../types/story'
 import { useStudioStore } from '../store/useStudioStore'
 import { getVisualPackExtraPrompt } from '../utils/visualThemePackExtras'
+import {
+  buildCharacterPortraitPrompt,
+  validateCharacterPortraitUrl
+} from '../utils/characterPortraitPrompt'
 
 function dims(aspect: AspectMode): { width: number; height: number } {
   return aspect === 'vertical_9_16'
@@ -36,23 +40,19 @@ export function useLeonardo() {
           cref?.images?.length
             ? `CHARACTER REFERENCE: match uploaded references (face, hairstyle, clothing, age, expression). Strength=${cref.strength || 'balanced'}.`
             : ''
-        const prompt = [
-          `VISUAL STYLE LOCK — single unified medium only: ${styleLock}.`,
-          vaccent ? `Ambient mood accent (preserve medium — no style swap): ${vaccent}` : '',
-          'Forbidden: mixing unrelated render families (e.g. photoreal face + unrelated cartoon body) unless idea explicitly requests hybrid blend.',
-          crefLine,
-          ch.baseImagePrompt,
-          emotionNote ? `expression: ${emotionNote}` : 'neutral expression, clear face',
-          'single character, waist-up or portrait, no text, no watermark'
-        ]
-          .filter(Boolean)
-          .join(' ')
+        const prompt = buildCharacterPortraitPrompt(ch, styleLock, {
+          emotionNote,
+          crefLine
+        })
         const res = await k.leonardoGenerate({
           prompt,
           width,
           height,
           seed: ch.leonardoSeed
         })
+        if (!validateCharacterPortraitUrl(res.imageUrl)) {
+          throw new Error('Character portrait failed validation — no valid image returned.')
+        }
         const seed = res.seed ?? ch.leonardoSeed
         useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
           if (!cur.bible) return cur

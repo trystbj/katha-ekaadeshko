@@ -41,7 +41,13 @@ export function StudioSceneSectionPanel({
   const castSummary = useMemo(() => {
     const mem = project.characterIdentityMemory ?? []
     if (!mem.length) return null
-    return mem.map((m) => `${m.label} (${m.gender})`).join(' · ')
+    return mem
+      .map((m) => {
+        const g =
+          m.gender && String(m.gender).toLowerCase() !== 'unknown' ? m.gender : 'neutral'
+        return `${m.label} (${g})`
+      })
+      .join(' · ')
   }, [project.characterIdentityMemory])
 
   const needsBatch = coverage.total > 0 && coverage.withImage < coverage.total

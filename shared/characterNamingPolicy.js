@@ -92,13 +92,27 @@ function inferAgeFromText(text = '') {
   return 'adult'
 }
 
-function defaultVisualIdentityForCharacter(name, gender, role, traits) {
+function inferEthnicityFromContext(blob = '', country = '') {
+  const t = `${blob} ${country}`.toLowerCase()
+  if (/\b(nepal|nepali|kathmandu|himalaya|himalayan)\b/.test(t)) return 'Nepali / Himalayan South Asian'
+  if (/\b(india|indian|delhi|mumbai|kolkata|sari|kurta)\b/.test(t)) return 'South Asian'
+  if (/\b(japan|japanese|tokyo)\b/.test(t)) return 'East Asian'
+  if (/\b(korea|korean|seoul)\b/.test(t)) return 'East Asian'
+  if (/\b(china|chinese|beijing)\b/.test(t)) return 'East Asian'
+  if (/\b(africa|african|nigeria|kenya)\b/.test(t)) return 'African'
+  if (/\b(middle east|arab|persian|turkish)\b/.test(t)) return 'Middle Eastern'
+  if (/\b(europe|european|british|french|german)\b/.test(t)) return 'European'
+  if (/\b(latin|hispanic|mexico|brazil)\b/.test(t)) return 'Latin American'
+  return 'regionally authentic to the story setting'
+}
+
+function defaultVisualIdentityForCharacter(name, gender, role, traits, ethnicity = '') {
   const figure =
     gender === 'female' ? 'woman' : gender === 'male' ? 'man' : 'person'
   const roleBit = role ? `${role}, ` : ''
   const traitBit = traits ? `${traits}, ` : ''
   return (
-    `${name}, ${figure}, ${roleBit}${traitBit}distinct face, locked hairstyle and hair color, ` +
+    `${name}, ${figure}, ${ethnicity ? `${ethnicity}, ` : ''}${roleBit}${traitBit}distinct face, locked hairstyle and hair color, ` +
     `consistent eye color, fixed wardrobe and accessories, same proportions in every scene`
   ).slice(0, 480)
 }
@@ -106,12 +120,14 @@ function defaultVisualIdentityForCharacter(name, gender, role, traits) {
 /**
  * Fill missing gender, age, and visual identity before image generation (no "unknown" cast).
  * @param {Array<Record<string, unknown>>} characters
+ * @param {{ country?: string, theme?: string }} [opts]
  */
-export function enrichStoryCharacterProfiles(characters = []) {
+export function enrichStoryCharacterProfiles(characters = [], opts = {}) {
   if (!Array.isArray(characters)) return []
+  const regionHint = String(opts.country || opts.theme || '').trim()
   return characters.map((c, i) => {
     const name = String(c?.name || `Character ${i + 1}`).trim()
-    const role = String(c?.role || '').trim()
+    const role = String(c?.role || c?.storyRole || '').trim()
     const traits = String(c?.traits || c?.personality || role || 'expressive, story-driven').trim()
     let visual = String(c?.visualIdentity || c?.appearance || '').trim()
     const blob = `${name} ${role} ${traits} ${visual}`
@@ -121,8 +137,11 @@ export function enrichStoryCharacterProfiles(characters = []) {
       gender = inferGenderFromNameAndRole(name, role)
     }
 
+    const ethnicity =
+      String(c?.ethnicity || '').trim() || inferEthnicityFromContext(blob, regionHint)
+
     if (!visual || visual.length < 24) {
-      visual = defaultVisualIdentityForCharacter(name, gender, role, traits)
+      visual = defaultVisualIdentityForCharacter(name, gender, role, traits, ethnicity)
     }
 
     const profile = buildCharacterAppearanceProfile(name, traits, visual)
@@ -132,8 +151,11 @@ export function enrichStoryCharacterProfiles(characters = []) {
       ...c,
       name,
       gender,
+      ethnicity,
+      storyRole: role || 'lead character',
       role: role || name,
       traits,
+      personality: String(c?.personality || traits).trim(),
       visualIdentity: visual,
       appearance: visual,
       age,
@@ -147,6 +169,26 @@ export function enrichStoryCharacterProfiles(characters = []) {
       personalityTraits: profile.identityTraits
     }
   })
+}
+
+/**
+ * Block Leonardo until every cast member has a complete visual profile.
+ * @param {Array<Record<string, unknown>>} characters
+ * @param {{ country?: string, theme?: string }} [opts]
+ */
+export function assertCharactersReadyForImageGeneration(characters = [], opts = {}) {
+  const enriched = enrichStoryCharacterProfiles(characters, opts)
+  const issues = []
+  for (const c of enriched) {
+    if (!String(c.name || '').trim()) issues.push('missing_name')
+    if (!c.gender || c.gender === 'unknown') issues.push(`gender:${c.name}`)
+    if (!String(c.visualIdentity || '').trim()) issues.push(`visual:${c.name}`)
+    if (!String(c.clothing || c.hairStyle || '').trim()) issues.push(`appearance:${c.name}`)
+  }
+  if (issues.length) {
+    throw new Error(`Character profiles incomplete — fix before image generation: ${issues.join(', ')}`)
+  }
+  return enriched
 }
 
 /**

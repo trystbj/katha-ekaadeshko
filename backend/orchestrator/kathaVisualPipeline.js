@@ -15,7 +15,10 @@ import {
   buildPermanentCharacterProfiles,
   characterConsistencyPromptBlock
 } from '../services/cinematic/characterConsistencyEngine.js'
-import { enrichStoryCharacterProfiles } from '../character/characterIdentityMemory.js'
+import {
+  assertCharactersReadyForImageGeneration,
+  enrichStoryCharacterProfiles
+} from '../character/characterIdentityMemory.js'
 import { enrichScriptRowsForVisuals } from '../utils/sceneVisualIntelligence.js'
 import { pipelineStageLog, isStrictImagePipeline } from '../utils/pipelineStageLog.js'
 import {
@@ -66,7 +69,10 @@ export async function runKathaVisualPipeline(opts = {}) {
   if (!storyCastRaw.length) {
     throw new Error('Character profiles are required before scene image generation.')
   }
-  const storyCast = enrichStoryCharacterProfiles(storyCastRaw)
+  const storyCast = assertCharactersReadyForImageGeneration(storyCastRaw, {
+    country: input.country,
+    theme: input.theme || input.seedLine
+  })
   story.characters = storyCast
 
   const permanentProfiles = buildPermanentCharacterProfiles(storyCast)

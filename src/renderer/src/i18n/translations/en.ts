@@ -206,6 +206,12 @@ export const en = {
   studioTabScenes: 'Scenes',
   studioTabScript: 'Script',
   studioTabVoice: 'Voice',
+  studioTabVideo: 'Generate Video',
+  studioVideoTabHint:
+    'Render the final episode video when story, narration, and all scene images are ready.',
+  studioVideoNeedImages: 'Generate all scene images before final video.',
+  studioVideoNeedNarration: 'Generate narration before final video.',
+  studioVideoNeedValidation: 'Complete storyboard validation before final video.',
   studioScriptWorkspaceAria: 'Story workspace',
   previewWorkspaceBackAria: 'Back to previous step',
   subtitleStudioOpacity: 'Opacity',

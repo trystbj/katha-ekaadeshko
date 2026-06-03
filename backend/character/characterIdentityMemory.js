@@ -2,6 +2,7 @@ export {
   analyzeNamingPolicy,
   sanitizeStoryCharacters,
   enrichStoryCharacterProfiles,
+  assertCharactersReadyForImageGeneration,
   buildCharacterAppearanceProfile,
   buildCharacterIdentityMemory,
   pickCastSlotsForScriptRow,

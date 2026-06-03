@@ -22,7 +22,8 @@ import {
   markSceneGenerationComplete,
   releaseSceneGenerationLock
 } from '../utils/sceneGenerationLock.js'
-import { validateSceneImage, validationFailureReason } from '../cinematic/sceneImageValidation.js'
+import { validateSceneImageMatch } from '../cinematic/sceneImageMatchValidation.js'
+import { resolveStyleProfile } from '../utils/visualStyleLock.js'
 import { TEXT_FREE_NEGATIVE } from '../cinematic/masterStoryContext.js'
 import {
   serverlessLeonardoParallelLimit,
@@ -99,6 +100,7 @@ export async function leonardoGenerateForScript({
   const modelId = process.env.LEONARDO_MODEL_ID || '7b592283-e8a7-4c5a-9ba6-d18c31f258b9'
   const { width, height } = leonardoDimensionsForAspectMode(input.aspectMode)
 
+  const styleProfile = resolveStyleProfile(input)
   const castMemory = buildCharacterIdentityMemory(Array.isArray(characters) ? characters : [])
   const crefPrompt = characterReferencePromptBlock(input.characterReference, characters)
   const inputWithRefs = crefPrompt
@@ -224,11 +226,12 @@ export async function leonardoGenerateForScript({
           hasUrl: Boolean(imageUrl),
           generationId: leonardoGenerationId
         })
-        lastValidation = validateSceneImage({
+        lastValidation = validateSceneImageMatch({
           scriptRow,
           prompt,
           imageUrl,
-          castMemory
+          castMemory,
+          styleKey: styleProfile.key
         })
         if (imageUrl) {
           const remote = await validateRemoteSceneImageUrl(imageUrl)
@@ -258,7 +261,9 @@ export async function leonardoGenerateForScript({
         })
       }
       if (!imageUrl || (lastValidation && !lastValidation.ok && lastValidation.shouldRegenerate)) {
-        throw new Error(validationFailureReason(lastValidation) || 'Scene image validation failed')
+        throw new Error(
+          lastValidation.failureReason || lastValidation.issues?.join(', ') || 'Scene image validation failed'
+        )
       }
       pipelineStageLog('image_cached', { scene: sceneKey, url: imageUrl.slice(0, 80) })
       pipelineStageLog('scene_completed', { scene: sceneKey })

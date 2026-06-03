@@ -34,16 +34,20 @@ function scoreStoryQuality(episode: StoryEpisode, project: ProjectState): number
   const texts = sceneTexts(scenes)
   const avgLen = texts.reduce((a, t) => a + t.length, 0) / scenes.length
   const withDialogue = scenes.filter((s) => (s.dialogueLines?.length ?? 0) > 0).length
-  const withVisual = scenes.filter((s) => (s.visual_description || '').trim().length > 50).length
+  const withVisual = scenes.filter((s) => (s.visual_description || '').trim().length > 80).length
   const uniqueWords = new Set(texts.join(' ').toLowerCase().split(/\W+/).filter((w) => w.length > 3))
+  const pacingVariety = new Set(scenes.map((s) => String(s.emotional_tone || s.mood || '').trim())).size
 
-  let score = 52
-  score += Math.min(18, (avgLen / 120) * 18)
-  score += Math.min(16, (withDialogue / scenes.length) * 16)
-  score += Math.min(14, (withVisual / scenes.length) * 14)
-  score += Math.min(10, uniqueWords.size / 40)
-  if (project.bible?.concept && project.bible.concept.length > 20) score += 6
-  if (avgLen > 90 && withVisual / scenes.length > 0.7) score = Math.max(score, 92)
+  let score = 58
+  score += Math.min(20, (avgLen / 140) * 20)
+  score += Math.min(14, (withDialogue / scenes.length) * 14)
+  score += Math.min(16, (withVisual / scenes.length) * 16)
+  score += Math.min(8, uniqueWords.size / 45)
+  score += Math.min(6, pacingVariety * 2)
+  if (project.bible?.concept && project.bible.concept.length > 20) score += 4
+  if (avgLen > 110 && withVisual / scenes.length > 0.75 && withDialogue / scenes.length > 0.4) {
+    score = Math.max(score, 92)
+  }
   return clampScore(score)
 }
 
@@ -53,19 +57,27 @@ function scoreCharacterConsistency(project: ProjectState): number {
   const rows = mem.length ? mem : bible
   if (!rows.length) return 0
 
-  let score = 48
+  let total = 0
   for (const row of rows) {
+    let slot = 50
     const gender = String('gender' in row ? row.gender : '').toLowerCase()
     const visual = String(
       ('visualIdentity' in row ? row.visualIdentity : '') ||
         ('appearance' in row ? row.appearance : '') ||
         ''
     ).trim()
-    if (gender && gender !== 'unknown') score += 10
-    if (visual.length > 40) score += 8
-    if (project.characterVisualLocks?.length) score += 4
+    if (gender && gender !== 'unknown') slot += 18
+    if (visual.length > 60) slot += 16
+    if (visual.length > 120) slot += 8
+    if (project.characterVisualLocks?.length) slot += 6
+    const ch = bible.find(
+      (c) => c.name.trim().toLowerCase() === String('label' in row ? row.label : row.name || '').toLowerCase()
+    )
+    if (ch?.baseImageUrl) slot += 10
+    total += slot
   }
-  return clampScore(score / rows.length + 38)
+  const avg = total / rows.length
+  return clampScore(avg > 88 ? avg : Math.min(98, avg + 8))
 }
 
 function scoreNarrationQuality(episode: StoryEpisode): number {
@@ -89,15 +101,21 @@ function scoreNarrationQuality(episode: StoryEpisode): number {
 
 function scoreVisualConsistency(
   episode: StoryEpisode,
+  project: ProjectState,
   coverage: { total: number; withImage: number; missing: number[] }
 ): StoryHealthVisualMetric {
   const total = coverage.total || episode.scenes.length
   if (!total) return 'pending'
   if (coverage.withImage === 0) return 'pending'
   const ratio = coverage.withImage / total
-  if (ratio < 1 && coverage.withImage > 0) return clampScore(68 + ratio * 28)
-  if (ratio >= 1) return clampScore(88 + Math.min(12, total * 2))
-  return 'pending'
+  let score = 62 + ratio * 28
+  if (project.storyboardReady && ratio >= 1) score += 10
+  if (project.bible?.styleId) score += 4
+  const visualDescScore =
+    episode.scenes.filter((s) => (s.visual_description || '').trim().length > 70).length / total
+  score += visualDescScore * 8
+  if (ratio < 1) return clampScore(score)
+  return clampScore(Math.max(90, score))
 }
 
 function scoreEmotionProgression(episode: StoryEpisode): number {
@@ -152,7 +170,7 @@ export function computeStoryHealthMetrics(
     story: scoreStoryQuality(episode, project),
     character: scoreCharacterConsistency(project),
     narration: scoreNarrationQuality(episode),
-    visual: scoreVisualConsistency(episode, coverage),
+    visual: scoreVisualConsistency(episode, project, coverage),
     emotion: scoreEmotionProgression(episode),
     continuity: scoreContinuity(episode, project)
   }
