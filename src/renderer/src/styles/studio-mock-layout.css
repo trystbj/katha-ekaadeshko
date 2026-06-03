@@ -4391,11 +4391,11 @@
     calc(var(--studio-mock-col1-width) + 4px)
   );
   top: 0;
-  max-width: min(440px, calc(100vw - var(--studio-mock-col1-width) - 32px));
+  max-width: min(calc(440px - 6mm), calc(100vw - var(--studio-mock-col1-width) - 32px - 6mm));
   width: max-content;
-  min-width: min(100%, 12rem);
+  min-width: min(100%, calc(12rem - 6mm));
   margin: 0 !important;
-  padding: 8px 12px !important;
+  padding: 8px calc(12px + 3mm) !important;
   font-size: 0.78rem !important;
   line-height: 1.4 !important;
   text-align: left;
@@ -4405,8 +4405,8 @@
     0 10px 32px rgba(0, 0, 0, 0.55),
     0 0 0 1px rgba(201, 76, 76, 0.35);
   word-break: break-word;
-  /* Error alert — 150mm left total; transform only, layout unchanged */
-  transform: translateX(-150mm);
+  /* Error alert — 145mm left total; transform only, layout unchanged */
+  transform: translateX(-145mm);
 }
 
 .studio-mock-col--story .error-banner,

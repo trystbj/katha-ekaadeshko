@@ -15,6 +15,7 @@ import {
   buildPermanentCharacterProfiles,
   characterConsistencyPromptBlock
 } from '../services/cinematic/characterConsistencyEngine.js'
+import { enrichStoryCharacterProfiles } from '../character/characterIdentityMemory.js'
 import { enrichScriptRowsForVisuals } from '../utils/sceneVisualIntelligence.js'
 import { pipelineStageLog, isStrictImagePipeline } from '../utils/pipelineStageLog.js'
 import {
@@ -57,14 +58,16 @@ export async function runKathaVisualPipeline(opts = {}) {
   }
 
   const story = opts.story && typeof opts.story === 'object' ? opts.story : {}
-  const storyCast = Array.isArray(story.characters)
+  const storyCastRaw = Array.isArray(story.characters)
     ? story.characters
     : Array.isArray(input.bibleCharacters)
       ? input.bibleCharacters
       : []
-  if (!storyCast.length) {
+  if (!storyCastRaw.length) {
     throw new Error('Character profiles are required before scene image generation.')
   }
+  const storyCast = enrichStoryCharacterProfiles(storyCastRaw)
+  story.characters = storyCast
 
   const permanentProfiles = buildPermanentCharacterProfiles(storyCast)
   pipelineStageLog('character_profiles_created', { count: permanentProfiles.length })

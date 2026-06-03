@@ -40,7 +40,11 @@ import {
 } from '../storyIntelligence/longStoryOrchestrator.js'
 import { normalizeScriptJson } from '../utils/normalizeScriptJson.js'
 import { attachComposedNarrationToScript } from '../cinematic/cinematicStoryWriting.js'
-import { analyzeNamingPolicy, sanitizeStoryCharacters } from '../character/characterIdentityMemory.js'
+import {
+  analyzeNamingPolicy,
+  enrichStoryCharacterProfiles,
+  sanitizeStoryCharacters
+} from '../character/characterIdentityMemory.js'
 import { mergeBibleCharactersIntoCast } from '../utils/mergeBibleCharacters.js'
 import { safeLog } from '../../api/_lib/log.js'
 import { analyzeProductionIntent } from '../services/ai-director/intentAnalyzer.js'
@@ -439,7 +443,9 @@ async function continuePipelineFromStory(
   const namingPolicy = analyzeNamingPolicy(pinnedInput.seedLine || '', pinnedInput.theme || '')
   if (Array.isArray(finalStory?.characters)) {
     const sanitized = sanitizeStoryCharacters(finalStory.characters, namingPolicy)
-    const mergedCast = mergeBibleCharactersIntoCast(sanitized, pinnedInput.bibleCharacters)
+    const mergedCast = enrichStoryCharacterProfiles(
+      mergeBibleCharactersIntoCast(sanitized, pinnedInput.bibleCharacters)
+    )
     finalStory = {
       ...finalStory,
       characters: mergedCast

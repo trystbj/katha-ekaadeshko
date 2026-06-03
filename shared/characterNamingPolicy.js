@@ -59,10 +59,94 @@ export function analyzeNamingPolicy(seedLine = '', theme = '') {
 
 function inferGenderFromText(text = '') {
   const t = String(text).toLowerCase()
-  if (/\b(woman|female|girl|wife|mother|sister|daughter|queen|lady|bride|widow|goddess)\b/.test(t)) return 'female'
-  if (/\b(man|male|boy|husband|father|brother|son|king|lord|gentleman|groom|widower)\b/.test(t)) return 'male'
+  if (/\b(woman|female|girl|wife|mother|sister|daughter|queen|lady|bride|widow|goddess|she|her)\b/.test(t))
+    return 'female'
+  if (/\b(man|male|boy|husband|father|brother|son|king|lord|gentleman|groom|widower|he|him)\b/.test(t))
+    return 'male'
   if (/\b(nonbinary|non-binary|they\/them)\b/.test(t)) return 'neutral'
   return 'unknown'
+}
+
+function inferGenderFromNameAndRole(name = '', role = '') {
+  const blob = `${name} ${role}`.toLowerCase()
+  const fromText = inferGenderFromText(blob)
+  if (fromText !== 'unknown') return fromText
+  if (/\b(mysterious caller|stranger|figure|voice)\b/.test(blob)) return 'neutral'
+  const first = String(name).trim().split(/\s+/)[0] || ''
+  if (/^(maya|sita|priya|anita|devi|lakshmi|kavya|meera|nisha|radha|geeta|aisha|sara|emma|mia)/i.test(first))
+    return 'female'
+  if (/^(anil|arjun|ravi|raj|amit|vikram|mohan|rahul|dev|omar|liam|noah|james|john)/i.test(first))
+    return 'male'
+  return 'neutral'
+}
+
+function inferAgeFromText(text = '') {
+  const t = String(text).toLowerCase()
+  if (/\b(child|kid|boy|girl|teen|teenager|youth)\b/.test(t)) return 'teen'
+  if (/\b(elder|elderly|old man|old woman|grandfather|grandmother)\b/.test(t)) return 'elder'
+  if (/\b(young man|young woman|young adult)\b/.test(t)) return 'young adult'
+  if (/\b(\d{1,2})\s*years?\s*old\b/.test(t)) {
+    const m = t.match(/\b(\d{1,2})\s*years?\s*old\b/)
+    return m ? `${m[1]} years` : 'adult'
+  }
+  return 'adult'
+}
+
+function defaultVisualIdentityForCharacter(name, gender, role, traits) {
+  const figure =
+    gender === 'female' ? 'woman' : gender === 'male' ? 'man' : 'person'
+  const roleBit = role ? `${role}, ` : ''
+  const traitBit = traits ? `${traits}, ` : ''
+  return (
+    `${name}, ${figure}, ${roleBit}${traitBit}distinct face, locked hairstyle and hair color, ` +
+    `consistent eye color, fixed wardrobe and accessories, same proportions in every scene`
+  ).slice(0, 480)
+}
+
+/**
+ * Fill missing gender, age, and visual identity before image generation (no "unknown" cast).
+ * @param {Array<Record<string, unknown>>} characters
+ */
+export function enrichStoryCharacterProfiles(characters = []) {
+  if (!Array.isArray(characters)) return []
+  return characters.map((c, i) => {
+    const name = String(c?.name || `Character ${i + 1}`).trim()
+    const role = String(c?.role || '').trim()
+    const traits = String(c?.traits || c?.personality || role || 'expressive, story-driven').trim()
+    let visual = String(c?.visualIdentity || c?.appearance || '').trim()
+    const blob = `${name} ${role} ${traits} ${visual}`
+
+    let gender = String(c?.gender || '').toLowerCase()
+    if (!gender || gender === 'unknown') {
+      gender = inferGenderFromNameAndRole(name, role)
+    }
+
+    if (!visual || visual.length < 24) {
+      visual = defaultVisualIdentityForCharacter(name, gender, role, traits)
+    }
+
+    const profile = buildCharacterAppearanceProfile(name, traits, visual)
+    const age = c?.age ? String(c.age) : inferAgeFromText(blob) || profile.age
+
+    return {
+      ...c,
+      name,
+      gender,
+      role: role || name,
+      traits,
+      visualIdentity: visual,
+      appearance: visual,
+      age,
+      hairStyle: profile.hair,
+      hairColor: profile.hairColor || profile.hair,
+      eyeColor: profile.eyeColor,
+      clothing: profile.clothing,
+      accessories: profile.accessories,
+      facialFeatures: profile.facialFeatures,
+      bodyType: profile.bodyType,
+      personalityTraits: profile.identityTraits
+    }
+  })
 }
 
 /**
@@ -151,15 +235,20 @@ export function buildCharacterAppearanceProfile(label, traits, visual) {
  * @param {Array<{ name?: string, role?: string, traits?: string, visualIdentity?: string, baseImagePrompt?: string }>} characters
  */
 export function buildCharacterIdentityMemory(characters = []) {
-  return characters.map((c, i) => {
+  const enriched = enrichStoryCharacterProfiles(characters)
+  return enriched.map((c, i) => {
     const label = String(c.name || `Character ${i + 1}`).trim()
     const traits = String(c.traits || c.role || '').trim()
     const visual = String(c.visualIdentity || traits).trim()
     const profile = buildCharacterAppearanceProfile(label, traits, visual)
+    const gender =
+      String(c.gender || profile.gender || '').toLowerCase() === 'unknown'
+        ? 'neutral'
+        : String(c.gender || profile.gender || 'neutral').toLowerCase()
     return {
       slot: i + 1,
       label,
-      gender: profile.gender,
+      gender,
       role: String(c.role || '').trim(),
       visualIdentity: visual,
       baseImagePrompt: String(c.baseImagePrompt || `${label}, ${traits}, ${visual}`).trim().slice(0, 520),
@@ -205,8 +294,14 @@ export function pickCastSlotsForScriptRow(scriptRow, memory) {
  */
 function characterProfileLine(m) {
   const p = m.appearanceProfile || buildCharacterAppearanceProfile(m.label, m.role || '', m.visualIdentity)
+  const gender =
+    m.gender && String(m.gender).toLowerCase() !== 'unknown'
+      ? m.gender
+      : p.gender && p.gender !== 'unknown'
+        ? p.gender
+        : 'neutral'
   return [
-    `${m.label} (${p.gender}): PERMANENT VISUAL PROFILE —`,
+    `${m.label} (${gender}): PERMANENT VISUAL PROFILE —`,
     `hair ${p.hair}${p.hairColor ? `, ${p.hairColor}` : ''};`,
     `eyes ${p.eyeColor}; age ${p.age}; body ${p.bodyType};`,
     `clothing ${p.clothing}; accessories ${p.accessories}; face ${p.facialFeatures};`,

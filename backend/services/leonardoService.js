@@ -1,10 +1,9 @@
 import { buildLeonardoScenePrompt } from '../utils/visualStyleLock.js'
+import { verifySceneCharacterProfilesForLeonardo } from '../utils/leonardoPromptQuality.js'
 import {
-  assembleLeonardoScenePrompt,
-  buildLeonardoNegativePrompt,
-  rebuildLeonardoPromptInPriorityOrder,
-  verifySceneCharacterProfilesForLeonardo
-} from '../utils/leonardoPromptQuality.js'
+  buildOptimizedLeonardoScenePrompts,
+  prepareLeonardoApiPrompts
+} from '../utils/leonardoPromptOptimizer.js'
 import { pipelineStageLog, isStrictImagePipeline } from '../utils/pipelineStageLog.js'
 import { validateRemoteSceneImageUrl } from '../cinematic/sceneImageFetchValidation.js'
 import { buildProfessionalSceneVisualDescription } from '../utils/sceneVisualIntelligence.js'
@@ -178,27 +177,28 @@ export async function leonardoGenerateForScript({
               directives: inputWithRefs.__productionDirectives,
               continuityPack: inputWithRefs.__continuityPack
             })
-      let prompt = assembleLeonardoScenePrompt({
-        scriptRow,
-        input: inputWithRefs,
-        blueprint: bp,
-        identityBlock,
-        script,
-        sceneIndex: i,
-        characters: Array.isArray(characters) ? characters : [],
-        leonardoPromptFromBlueprint,
-        buildLeonardoScenePrompt
+      pipelineStageLog('visual_description_generated', {
+        scene: sceneKey,
+        chars: String(scriptRow.visual_description || '').length
       })
-      prompt = rebuildLeonardoPromptInPriorityOrder({
-        input: inputWithRefs,
-        scriptRow,
-        blueprint: bp,
-        identityBlock,
-        sceneIndex: i
+      const optimized = buildOptimizedLeonardoScenePrompts(
+        {
+          input: inputWithRefs,
+          scriptRow,
+          blueprint: bp,
+          identityBlock,
+          castMemory,
+          sceneIndex: i
+        },
+        inputWithRefs
+      )
+      let prompt = optimized.prompt
+      const negativePrompt = optimized.negative_prompt
+      pipelineStageLog('prompt_generated', {
+        scene: sceneKey,
+        mainLen: optimized.meta.mainLen,
+        negLen: optimized.meta.negLen
       })
-      prompt = `${prompt} FORBIDDEN: ${TEXT_FREE_NEGATIVE}.`
-      const negativePrompt = buildLeonardoNegativePrompt(inputWithRefs)
-      pipelineStageLog('image_prompt_generated', { scene: sceneKey, promptChars: prompt.length })
 
       let imageUrl = ''
       let seed
@@ -212,7 +212,8 @@ export async function leonardoGenerateForScript({
           negative_prompt: negativePrompt,
           modelId,
           width,
-          height
+          height,
+          scene: sceneKey
         })
         imageUrl = gen.imageUrl
         seed = gen.seed
@@ -244,6 +245,8 @@ export async function leonardoGenerateForScript({
               shouldRegenerate: true,
               issues: [...(lastValidation?.issues || []), ...remote.issues]
             }
+          } else {
+            pipelineStageLog('image_decoded', { scene: sceneKey, bytes: remote.bytes, mime: remote.mime })
           }
         }
         if (lastValidation.ok) break
@@ -258,6 +261,7 @@ export async function leonardoGenerateForScript({
         throw new Error(validationFailureReason(lastValidation) || 'Scene image validation failed')
       }
       pipelineStageLog('image_cached', { scene: sceneKey, url: imageUrl.slice(0, 80) })
+      pipelineStageLog('scene_completed', { scene: sceneKey })
       const row = {
         scene: sceneKey,
         image_url: imageUrl,
@@ -349,8 +353,10 @@ export async function leonardoGenerateOne({ prompt, width, height, seed, aspectM
     typeof width === 'number' && typeof height === 'number'
       ? { width, height }
       : leonardoDimensionsForAspectMode(aspectMode)
+  const prepared = prepareLeonardoApiPrompts({ prompt, negativePrompt: TEXT_FREE_NEGATIVE })
   const r = await generateOne({
-    prompt,
+    prompt: prepared.prompt,
+    negative_prompt: prepared.negative_prompt,
     modelId,
     width: dims.width,
     height: dims.height,
@@ -359,7 +365,11 @@ export async function leonardoGenerateOne({ prompt, width, height, seed, aspectM
   return { imageUrl: r.imageUrl, seed: r.seed ?? seed }
 }
 
-async function generateOne({ prompt, negative_prompt, modelId, width, height, seed }) {
+async function generateOne({ prompt, negative_prompt, modelId, width, height, seed, scene }) {
+  const prepared = prepareLeonardoApiPrompts({ prompt, negativePrompt: negative_prompt, scene })
+  prompt = prepared.prompt
+  negative_prompt = prepared.negative_prompt
+
   const key = requireKey()
   const modelName = String(process.env.LEONARDO_MODEL_NAME || '').toLowerCase().trim()
   // Some Leonardo models (e.g. Kino 2.1) don't support Alchemy.

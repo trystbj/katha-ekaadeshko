@@ -4,12 +4,8 @@
 
 import { leonardoGenerateOne } from '../services/leonardoService.js'
 import { ttsGenerateForScene } from '../services/ttsService.js'
-import { buildLeonardoScenePrompt } from '../utils/visualStyleLock.js'
-import { assembleLeonardoScenePrompt } from '../utils/leonardoPromptQuality.js'
-import {
-  buildSceneVisualBlueprint,
-  leonardoPromptFromBlueprint
-} from '../services/cinematic/cinematicVisualBlueprint.js'
+import { buildOptimizedLeonardoScenePrompts } from '../utils/leonardoPromptOptimizer.js'
+import { buildSceneVisualBlueprint } from '../services/cinematic/cinematicVisualBlueprint.js'
 import { characterReferencePromptBlock } from '../utils/characterReferencePrompt.js'
 import {
   buildCharacterIdentityMemory,
@@ -37,8 +33,8 @@ export async function executeRegenerationPlan(plan, episode, studioInput = {}) {
           results.push({ slot, status: 'skipped', reason: 'no_visual_description' })
           continue
         }
-        const memory = buildCharacterIdentityMemory(studioInput.characters || [])
-        const identity = leonardoIdentityBlockForScriptRow({ visual_description: visual }, memory)
+        const memoryEnriched = buildCharacterIdentityMemory(studioInput.characters || [])
+        const identity = leonardoIdentityBlockForScriptRow({ visual_description: visual }, memoryEnriched)
         const crefPrompt = characterReferencePromptBlock(
           studioInput.characterReference,
           studioInput.characters || []
@@ -48,18 +44,21 @@ export async function executeRegenerationPlan(plan, episode, studioInput = {}) {
           scene: scene?.index ?? sceneIndex + 1
         }
         const input = crefPrompt ? { ...studioInput, __characterReferencePrompt: crefPrompt } : studioInput
-        const bp = buildSceneVisualBlueprint(scriptRow, input, { index: sceneIndex, castMemory: memory })
-        const prompt = assembleLeonardoScenePrompt({
-          scriptRow,
-          input,
-          blueprint: bp,
-          identityBlock: identity,
-          script: [scriptRow],
-          sceneIndex: 0,
-          characters: studioInput.characters || [],
-          leonardoPromptFromBlueprint,
-          buildLeonardoScenePrompt
+        const bp = buildSceneVisualBlueprint(scriptRow, input, {
+          index: sceneIndex,
+          castMemory: memoryEnriched
         })
+        const { prompt } = buildOptimizedLeonardoScenePrompts(
+          {
+            input,
+            scriptRow,
+            blueprint: bp,
+            identityBlock: identity,
+            castMemory: memoryEnriched,
+            sceneIndex: 0
+          },
+          input
+        )
         const { imageUrl } = await leonardoGenerateOne({
           prompt,
           aspectMode: studioInput.aspectMode || 'vertical_9_16'

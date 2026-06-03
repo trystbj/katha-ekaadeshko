@@ -1334,6 +1334,7 @@ export const en = {
   storyHealthVisual: 'Visual consistency',
   storyHealthEmotion: 'Emotion progression',
   storyHealthContinuity: 'Continuity score',
+  storyHealthVisualPending: 'Pending Image Generation',
   consistencyLocksTitle: 'Character consistency lock',
   consistencyLockFace: 'Lock face',
   consistencyLockHair: 'Lock hair',
