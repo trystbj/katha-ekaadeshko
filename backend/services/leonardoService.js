@@ -1,4 +1,8 @@
 import { buildLeonardoScenePrompt } from '../utils/visualStyleLock.js'
+import {
+  assembleLeonardoScenePrompt,
+  buildLeonardoNegativePrompt
+} from '../utils/leonardoPromptQuality.js'
 import { characterReferencePromptBlock } from '../utils/characterReferencePrompt.js'
 import {
   buildCharacterIdentityMemory,
@@ -127,14 +131,19 @@ export async function leonardoGenerateForScript({
               directives: inputWithRefs.__productionDirectives,
               continuityPack: inputWithRefs.__continuityPack
             })
-      const sceneCtxBlock = Array.isArray(inputWithRefs.__sceneMasterContextBlocks)
-        ? String(inputWithRefs.__sceneMasterContextBlocks[i] || '').trim()
-        : ''
-      let prompt = sceneBlueprints?.length
-        ? leonardoPromptFromBlueprint(bp, inputWithRefs, identityBlock)
-        : buildLeonardoScenePrompt(s, inputWithRefs, identityBlock)
-      if (sceneCtxBlock) prompt = `${prompt} ${sceneCtxBlock}`.trim()
+      let prompt = assembleLeonardoScenePrompt({
+        scriptRow: s,
+        input: inputWithRefs,
+        blueprint: bp,
+        identityBlock,
+        script,
+        sceneIndex: i,
+        characters: Array.isArray(characters) ? characters : [],
+        leonardoPromptFromBlueprint,
+        buildLeonardoScenePrompt
+      })
       prompt = `${prompt} FORBIDDEN: ${TEXT_FREE_NEGATIVE}.`
+      const negativePrompt = buildLeonardoNegativePrompt(inputWithRefs)
 
       let imageUrl = ''
       let seed
@@ -144,6 +153,7 @@ export async function leonardoGenerateForScript({
       for (let attempt = 1; attempt <= SCENE_IMAGE_MAX_ATTEMPTS; attempt++) {
         const gen = await generateOneWithRetry({
           prompt,
+          negative_prompt: negativePrompt,
           modelId,
           width,
           height
@@ -263,7 +273,7 @@ export async function leonardoGenerateOne({ prompt, width, height, seed, aspectM
   return { imageUrl: r.imageUrl, seed: r.seed ?? seed }
 }
 
-async function generateOne({ prompt, modelId, width, height, seed }) {
+async function generateOne({ prompt, negative_prompt, modelId, width, height, seed }) {
   const key = requireKey()
   const modelName = String(process.env.LEONARDO_MODEL_NAME || '').toLowerCase().trim()
   // Some Leonardo models (e.g. Kino 2.1) don't support Alchemy.
@@ -278,7 +288,7 @@ async function generateOne({ prompt, modelId, width, height, seed }) {
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt,
-        negative_prompt: TEXT_FREE_NEGATIVE,
+        negative_prompt: negative_prompt || TEXT_FREE_NEGATIVE,
         modelId,
         num_images: 1,
         width,

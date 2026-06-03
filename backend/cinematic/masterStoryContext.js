@@ -4,8 +4,9 @@
  */
 
 import { regionalCultureLabel } from '../../shared/outputLanguageLock.js'
-import { buildCharacterIdentityMemory } from '../character/characterIdentityMemory.js'
+import { buildCharacterIdentityMemory, buildCharacterAppearanceProfile } from '../../shared/characterNamingPolicy.js'
 import { getRegionForCountry } from '../utils/regionData.js'
+import { resolveStyleProfile } from '../utils/visualStyleLock.js'
 
 const TEXT_FREE_NEGATIVE =
   'no text, no subtitle, no captions, no words, no UI, no watermark, no narration text, no dialogue bubbles, no speech bubbles, no logos, no readable letters, no scene labels'
@@ -23,18 +24,20 @@ export function buildMasterStoryContextDeterministic(story, input = {}, region =
     const name = String(c.name || '').trim()
     const traits = String(c.traits || c.role || '').trim()
     const visual = String(c.visualIdentity || traits).trim()
+    const p = buildCharacterAppearanceProfile(name, traits, visual)
     return {
       name,
-      faceStructure: visual.slice(0, 200) || 'consistent with regional cast',
-      eyeShape: 'locked — same as scene 1',
-      hairstyle: (visual.match(/\b(hair|braid|bun|locks)[^.]{0,60}/i) || [''])[0] || 'locked hairstyle',
+      faceStructure: p.facialFeatures || visual.slice(0, 200) || 'consistent with regional cast',
+      eyeShape: p.eyeColor || 'locked — same as scene 1',
+      hairstyle: p.hair || 'locked hairstyle',
+      hairColor: p.hairColor || 'locked hair color',
       skinTone: 'locked — regional authenticity',
-      bodyType: 'locked body proportions',
-      age: String(c.age || 'as established in scene 1'),
-      clothingPalette: (visual.match(/\b(dress|sari|kurta|coat|robe|jacket|shawl)[^.]{0,80}/i) || [''])[0] || 'locked wardrobe palette',
-      accessories: 'same accessories every scene unless script states change',
+      bodyType: p.bodyType || 'locked body proportions',
+      age: p.age || String(c.age || 'as established in scene 1'),
+      clothingPalette: p.clothing || 'locked wardrobe palette',
+      accessories: p.accessories || 'same accessories every scene unless script states change',
       ethnicityRegional: region || input.country || 'regional appearance lock',
-      emotionalBehavior: traits.slice(0, 120) || 'personality-consistent reactions'
+      emotionalBehavior: p.identityTraits || traits.slice(0, 120) || 'personality-consistent reactions'
     }
   })
 
@@ -66,7 +69,7 @@ export function buildMasterStoryContextDeterministic(story, input = {}, region =
     moodPalette: String(input.storyTone || input.genre || 'cinematic emotional').trim(),
     timePeriod: 'consistent with regional setting — no era jumps',
     cinematicCameraStyle: String(input.__productionDirectives?.cameraStyle || 'motivated cinematic framing'),
-    artStyle: String(input.styleId || 'studio_default'),
+    artStyle: resolveStyleProfile(input).shortLabel || String(input.styleId || 'studio_default'),
     emotionalPacing: String(input.storyTone || 'natural arc — tension and release'),
     visualConsistencyRules: [
       'Same cast faces and wardrobe unless script explicitly changes outfit',
@@ -108,7 +111,7 @@ export function masterStoryContextPromptBlock(ctx) {
     'CHARACTER LOCKS (never redesign):',
     ...(ctx.characterAppearanceProfiles || []).map(
       (p) =>
-        `- ${p.name}: face ${p.faceStructure}; hair ${p.hairstyle}; skin ${p.skinTone}; clothes ${p.clothingPalette}; age ${p.age}`
+        `- ${p.name}: face ${p.faceStructure}; hair ${p.hairstyle}${p.hairColor ? ` (${p.hairColor})` : ''}; eyes ${p.eyeShape}; skin ${p.skinTone}; body ${p.bodyType}; clothes ${p.clothingPalette}; accessories ${p.accessories}; age ${p.age}`
     ),
     ctx.mainCharacterReference
       ? `MAIN CHARACTER REFERENCE: ${ctx.mainCharacterReference.name} — identical in every shot.`

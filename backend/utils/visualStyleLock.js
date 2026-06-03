@@ -14,59 +14,59 @@ const HYBRID_HINT =
 /** Base DNA presets — Leonardo + script use different facets of the same profile. */
 export const STYLE_DNA = {
   soft_anime_fantasy: {
-    shortLabel: 'painterly cinematic fantasy illustration',
+    shortLabel: 'soft anime illustration',
     storyHint:
-      'cozy emotional fantasy — warm cinematic light, dreamlike Nepal-inspired scenery, slow emotional pacing; one cohesive painterly look',
+      'soft anime storytelling — warm colors, emotional expressions, gentle lighting, cozy fantasy atmosphere; one anime dialect only',
     leonardoCore:
-      'STYLE LOCK — painterly cinematic fantasy ONLY: cozy emotional lighting, warm cinematic atmosphere, soft glowing environments, dreamy diffused light, elegant painterly textures, rich fantasy composition, emotional depth, lush Nepal-inspired nature backdrops',
+      'STYLE LOCK — soft anime illustration ONLY: warm colors, emotional anime expressions, gentle lighting, detailed anime backgrounds, cinematic anime composition, clean anime character design, cozy fantasy atmosphere, high-quality anime storytelling visuals, consistent cast likeness',
     leonardoForbidden:
-      'FORBIDDEN unless hybrid mode: photoreal DSLR skin, harsh HDR, western 3D CGI, flat corporate vector, gritty horror grime',
+      'FORBIDDEN unless hybrid mode: photoreal DSLR skin, harsh HDR, western 3D CGI, flat corporate vector, gritty horror grime, unrelated storybook watercolor as dominant finish',
     scriptGuidance:
-      'Every shot must read as the same cozy cinematic fantasy painting: warm light, soft contours, emotional ambience, consistent costume rendering.'
+      'Every shot stays soft anime: warm palette, gentle light, clean character design, emotional faces, detailed backgrounds — never mix photoreal or unrelated mediums.'
   },
   cozy_storybook: {
-    shortLabel: 'cozy hand-drawn storybook animation',
+    shortLabel: 'cozy hand-drawn storybook illustration',
     storyHint:
-      'cozy storybook animation — calm expressive motion, soft nature ambience, peaceful pacing; single storybook dialect',
+      'cozy storybook — whimsical hand-drawn worlds, warm lighting, charming details, peaceful nature; single storybook dialect',
     leonardoCore:
-      'STYLE LOCK — cozy storybook animation ONLY: hand-drawn storybook feeling, soft watercolor or gouache washes, friendly expressive faces, simple emotional motion, warm cozy transitions, nature-focused movement, peaceful pacing, readable storybook textures',
+      'STYLE LOCK — cozy hand-drawn storybook illustration ONLY: cozy environments, whimsical atmosphere, storybook character design, warm lighting, charming details, children\'s book quality artwork, peaceful nature elements, soft illustrated textures, consistent character likeness',
     leonardoForbidden:
-      'FORBIDDEN unless hybrid mode: photoreal actors, harsh noir contrast, glossy 3D CGI, hyper-detailed cinematic anime unless hybrid requested',
+      'FORBIDDEN unless hybrid mode: photoreal actors, harsh noir contrast, glossy 3D CGI, hyper-polished anime blockbuster look',
     scriptGuidance:
-      'Describe beats like a cozy illustrated storybook — gentle motion, nature ambience, warm friendly staging — avoid contradictory polished blockbuster anime.'
+      'Describe cozy storybook beats — hand-drawn warmth, whimsical staging, nature charm — avoid photoreal or unrelated anime/CGI finishes.'
   },
   cinematic_anime: {
-    shortLabel: 'cinematic anime cinematography',
+    shortLabel: 'cinematic concept art',
     storyHint:
-      'dynamic anime cinematography — emotional closeups, strong lighting contrast, dramatic framing; one illustrated medium',
+      'cinematic film visuals — movie-like composition, dramatic lighting, emotional storytelling, professional scene design; one cinematic dialect',
     leonardoCore:
-      'STYLE LOCK — cinematic anime ONLY: emotional closeups, strong lighting contrast, dramatic camera framing, anime-inspired cinematic compositions, volumetric light, depth-of-field, rich painted textures, cohesive anime facial anatomy',
+      'STYLE LOCK — cinematic concept art ONLY: movie-like composition, dramatic lighting, realistic depth, wide environmental shots, cinematic framing, emotional storytelling visuals, high-detail environments, professional film-quality scene design, consistent character identity',
     leonardoForbidden:
-      'FORBIDDEN unless hybrid mode: pure live-action photorealism, Pixar-style smooth 3D, flat western cartoon, unrelated watercolor impressionism',
+      'FORBIDDEN unless hybrid mode: flat sticker cartoon, random anime chibi, unrelated watercolor storybook as dominant finish, split-panel collage',
     scriptGuidance:
-      'Describe anime characters with cinematic lighting grammar — rim light, atmospheric haze, lens-aware framing — never contradict with photoreal documentary language.'
+      'Describe cinematic film beats — motivated lighting, depth, wide/medium/close framing by emotion — keep one professional cinematic look; no contradictory flat cartoon or unrelated mediums.'
   },
   comic_panel: {
-    shortLabel: 'motion comic illustration',
+    shortLabel: 'comic book illustration',
     storyHint:
-      'motion comic aesthetic — stylized panels, dynamic transitions, dramatic posing; consistent comic language',
+      'comic / graphic novel — bold outlines, dynamic poses, stylized environments; consistent comic language',
     leonardoCore:
-      'STYLE LOCK — motion comic ONLY: stylized panel framing, bold ink outlines, dynamic transitions, dramatic posing, vibrant saturated palette, halftone accents, strong visual storytelling',
+      'STYLE LOCK — comic book illustration ONLY: graphic novel quality, bold outlines, expressive characters, comic-style rendering, visual storytelling panels, dynamic poses, stylized environments, professional comic artwork, consistent character likeness',
     leonardoForbidden:
-      'FORBIDDEN unless hybrid mode: soft watercolor anime wash, hyperreal pores, cinematic film grain realism, painterly oil realism',
+      'FORBIDDEN unless hybrid mode: soft watercolor anime wash, hyperreal photographic pores, unrelated painterly oil realism as dominant finish',
     scriptGuidance:
-      'Storyboard each beat like a polished comic panel — inked contours, dynamic silhouettes, comic color fills — avoid mismatched painterly anime softness.'
+      'Storyboard comic beats — inked contours, bold lines, dynamic poses — avoid mismatched soft anime or photoreal finishes.'
   },
   cinematic_realistic: {
-    shortLabel: 'cinematic photorealistic realism',
+    shortLabel: 'realistic cinematic photography',
     storyHint:
-      'cinematic photorealistic realism — natural human anatomy, film lighting, real-world environments, emotion-driven camera; single photoreal dialect',
+      'realistic visual storytelling — natural lighting, believable anatomy, photographic quality; single photoreal dialect',
     leonardoCore:
-      'STYLE LOCK — cinematic photorealistic realism ONLY: photorealistic human characters, natural facial anatomy, realistic skin texture and eyes, film-quality lighting, cinematic depth of field, real-world environment detail, natural color grading, consistent character identity, hairstyle and wardrobe continuity, realistic villages cities and interiors, natural weather, physically believable lighting',
+      'STYLE LOCK — realistic cinematic photography ONLY: realistic characters, realistic environments, natural lighting, realistic materials, photographic quality, believable anatomy, real-world textures, realistic cinematic composition, high-resolution visual storytelling, consistent hairstyle clothing and facial identity',
     leonardoForbidden:
       'FORBIDDEN unless hybrid mode: anime cel shading, flat cartoon, sticker emoji art, exaggerated toon proportions, unrelated watercolor impressionism as dominant finish',
     scriptGuidance:
-      'Describe photoreal film beats — motivated lighting, shallow depth of field, natural skin and wardrobe continuity, closeups medium shots and wide shots chosen by scene emotion — no contradictory illustrated-anime or flat cartoon language.'
+      'Describe photoreal beats — natural light, believable materials, identity-locked wardrobe and faces — no illustrated-anime or flat cartoon language.'
   },
 }
 
@@ -239,16 +239,24 @@ export function buildLeonardoScenePrompt(scene, input = {}, identityBlock = '') 
   const sceneCue = sceneVisualCues(scene)
   const crefBlock = String(input.__characterReferencePrompt || '').trim()
 
+  const storyPurpose = String(scene.scene_purpose || scene.narrative_context || '').trim()
+  const bodyLang = String(scene.body_language || scene.action || '').trim()
+
   return [
     imagePromptEnglishLockLine(),
     core,
     identityBlock ? String(identityBlock).trim() : '',
     crefBlock,
-    `Story genre mood (do not override medium): ${genre}. Context cues: ${themeCue}`,
+    `Story genre mood (do not override locked medium): ${genre}. Context: ${themeCue}`,
     Number.isFinite(sceneNum) ? `Scene ${sceneNum} — illustrate ONLY this beat; no unrelated locations or cast swaps.` : '',
     framing,
     sceneCue || `Scene action & staging: ${scene.visual_description || 'cinematic story beat'}`,
-    'Series continuity: identical illustrated universe, persistent costume colors, consistent facial likeness hooks, unified shadow softness.',
+    storyPurpose ? `Narrative purpose: ${storyPurpose}.` : '',
+    bodyLang ? `Body language: ${bodyLang}.` : '',
+    'Camera direction: motivated shot scale (wide / medium / close-up) chosen for emotional storytelling.',
+    'Lighting: motivated cinematic light — sunlight, moonlight, ambient, or dramatic volumetric as scene requires.',
+    'Series continuity: identical universe, persistent costume colors, consistent facial likeness, unified medium.',
+    'Quality: highly detailed, professional artwork, consistent character design, high-quality visual storytelling.',
     'No readable text, captions, logos, or watermarks.',
     accentLine
   ]

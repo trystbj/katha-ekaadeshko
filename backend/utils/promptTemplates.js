@@ -23,7 +23,8 @@ function longStoryScriptSection(inputLike) {
 LONG-STORY SCENE PLAN (mandatory):
 - Produce between 6 and ${n} scenes (prefer the upper end when the story supports it; stay within this range so JSON stays valid).
 - Honor scene emotional beats and continuity from the seed analysis.
-- Each scene: cinematic narration (may be 2–5 sentences when emotional beats need depth) + 0–3 natural dialogue lines in dialogue[].
+- Each scene: cinematic narration (typically 3–6 sentences when emotional beats need depth; show-don't-tell) + natural dialogue exchanges in dialogue[] (3–8 lines when characters interact; not one-liner robots).
+- visual_description per scene: 2–3 rich filmable sentences (environment, light, body language, camera-friendly staging) for downstream illustration.
 - Avoid repeated narration lines and emotional resets between scenes; vary sentence openings and rhythm.
 ${outline ? `Planned beats:\n${outline}\n` : ''}`
 }
@@ -104,6 +105,8 @@ Constraints:
 - Avoid repetition vs memory below.
 - Length: ${length} (short≈600-900 words, medium≈900-1400, long≈1400-2000).
 - Story prose: cinematic audiobook quality — sensory atmosphere, emotional interiority, natural human rhythm; NOT flat AI summary.
+- Show don't tell: reveal emotion through action, gesture, environment, and dialogue — never label feelings without behavior.
+- Dialogue in story prose: when characters speak, give them distinct voices, natural hesitation, and meaningful exchanges (visual novel / animated-film realism).
 - Illustrated adaptation tone (keep prose compatible with downstream visuals): ${visualToneLine}
 ${variation}
 
@@ -141,6 +144,7 @@ Rules:
 - DO NOT rewrite creatively or swap genres (no injecting comedy beats into non-comedy locks, etc.).
 - Fix contradictions, timeline issues, character inconsistency, unclear causality.
 - Remove redundancy and repeated lines.
+- Flag and fix robotic dialogue, identical character voices, and tell-not-show emotion labels (replace with visible behavior).
 - Keep culture and meaning unchanged.
 
 Return JSON ONLY with EXACT keys (same as story schema):
@@ -175,8 +179,10 @@ Rules:
 - Obey GENERATION BLUEPRINT locks: never contradict genre, region, language, or USER SEED priorities.
 - Do NOT paste unrelated tonal additives (e.g., slapstick, rom-com banter, Hollywood teaser clichés) unless GENRE/SEED explicitly blends them.
 - Do NOT change core plot meaning, major events, or outcomes.
-- Deepen dialogue and atmosphere while staying in ${langDisp} — make lines sound spoken, emotionally believable, relationship-aware.
-- Expand emotional moments with sensory detail (weather, silence, faces, gestures) where it heightens immersion; remove robotic filler.
+- Deepen dialogue while staying in ${langDisp} — natural human speech, distinct character voices, longer meaningful exchanges, interruptions and reactions; never robotic or overly formal.
+- Show don't tell: replace emotion labels with visible behavior, environment, and subtext.
+- Expand emotional moments with sensory detail (weather, silence, faces, gestures, sound) where it heightens immersion; remove robotic filler.
+- Target 2–3× richer scene-level prose in the story body where beats warrant depth — professional animated-feature / visual-novel quality.
 - Add culturally grounded details (food, architecture, social norms, folklore texture) without stereotypes.
 - Keep logical consistency and smooth emotional flow between paragraphs.
 
@@ -230,12 +236,13 @@ Rules:
 - ${isServerlessRuntime() ? `Produce exactly ${serverlessMaxScriptScenes(input)} scenes (server-optimized batch — quality over quantity).` : '6–10 scenes (use LONG-STORY SCENE PLAN count when provided above).'}
 - Each scene must include:
   - scene (number)
-  - visual_description (shot + key actions + setting + visible emotion/body language — NO text, subtitles, or captions in the frame)
-  - narration (cinematic voiceover for TTS — immersive, emotional, varied rhythm; 1–4 sentences; NOT robotic list tone)
-  - dialogue (array of { character, line } — natural spoken lines when characters talk; include reactions, interruptions, questions; empty array only if scene is pure voiceover)
+  - visual_description (2–3 rich sentences: location, atmosphere, weather/light, ambient detail, who is visible, body language, expressions, interactions, camera-friendly composition — NO text/subtitles/captions in frame)
+  - narration (cinematic voiceover for TTS — show-don't-tell; typically 3–6 sentences for important beats, 2–4 for brief beats; sensory + emotional; NOT robotic list tone)
+  - dialogue (array of { character, line } — natural human conversation when characters interact: typically 3–8 lines with back-and-forth, distinct voices, reactions, hesitation, interruptions; empty array ONLY for pure voiceover)
 - Write narration and every dialogue line in ${langDisp} unless USER SEED explicitly authorizes bilingual delivery (${langDisp} remains primary).
-- Narration carries atmosphere; dialogue carries character voice — do not duplicate the same information in both.
-- Emotional flow: each scene's tone must follow logically from the previous scene (build-up, peak, cooldown).
+- Narration carries atmosphere and visible emotion; dialogue carries distinct character voice — do not duplicate the same information in both.
+- Every scene needs clear purpose, plot/emotional progression, and a micro-turn ending; no filler vignettes.
+- Emotional flow: each scene's tone must follow logically from the previous scene (build-up, peak, cooldown); let key moments breathe.
 - Anti-AI phrasing: avoid "In a surprising turn", "Little did they know", "The air was thick with tension" every scene — vary language.
 - Ensure continuity across scenes.
 - Keep it original; do not add copyrighted references.

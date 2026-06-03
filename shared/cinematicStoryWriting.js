@@ -25,7 +25,7 @@ function genreNarrationStyle(genre, storyTone) {
   }
   if (g.includes('fantasy') || g.includes('myth') || g.includes('folk')) {
     lines.push(
-      'Fantasy/folk register: immersive world texture, mythic wonder, grounded sensory magic, oral-storytelling rhythm with varied sentence length.'
+      'Fantasy/folk register: immersive world texture, mythic wonder, grounded sensory magic, oral-storytelling rhythm with varied sentence length — storybook / feature-film warmth when tone fits.'
     )
   }
   if (g.includes('comedy') || g.includes('humor') || tone.includes('whimsical')) {
@@ -40,10 +40,87 @@ function genreNarrationStyle(genre, storyTone) {
   }
   if (!lines.length) {
     lines.push(
-      'Cinematic register: emotionally directed prose with atmosphere, character interiority, and filmic pacing — not Wikipedia summary tone.'
+      'Cinematic register: emotionally directed prose with atmosphere, character interiority, and filmic pacing — authored like animated features, visual novels, or story-driven games — not Wikipedia summary tone.'
     )
   }
   return lines
+}
+
+/**
+ * Natural human dialogue — anti-robot rules for dialogue[].
+ */
+export function naturalDialogueRulesBlock(lang = 'English') {
+  return [
+    'NATURAL HUMAN DIALOGUE (mandatory — dialogue[] only):',
+    `- Every spoken line in ${lang} must sound like a real person talking — animated film, TV drama, visual novel, or story-game quality.`,
+    '- Characters react emotionally to what was JUST said; use subtext, not exposition ("As you know…" is forbidden).',
+    '- Give each character a DISTINCT voice: vocabulary, rhythm, hesitation, humor, bluntness, warmth — never interchangeable generic AI tone.',
+    '- Allow natural speech: interruptions, trailing off ("I just…"), questions, pushback, awkward pauses, laughter, sighs, quiet denials.',
+    '- Characters do NOT explain obvious facts to each other; they speak from motivation, fear, hope, pride, shame, affection.',
+    '- Avoid: robotic politeness, repetitive phrasing, overly formal lecture tone, one-line exchanges that end the moment instantly.',
+    '- When two or more characters share a scene, write MEANINGFUL back-and-forth (typically 3–8 lines total unless pure voiceover) — reactions, counter-questions, emotional beats.',
+    '- Match quality bar: professional animated films, novels, visual novels, television dramas, story-driven games.'
+  ].join('\n')
+}
+
+/**
+ * Show don't tell — narration + visual_description.
+ */
+export function showDontTellBlock() {
+  return [
+    'SHOW INSTEAD OF TELL (mandatory):',
+    '- NEVER state emotions as labels alone ("He was sad," "She was angry") without visible behavior.',
+    '- SHOW through body language, pause, gaze, breath, hands, posture, environment reaction.',
+    '- BAD narration: "The village was beautiful."',
+    '- GOOD narration: "Warm lanterns glowed between wooden cottages while distant laughter drifted through the evening air."',
+    '- BAD: "He was nervous."',
+    '- GOOD: "He turned the cup in his hands twice before answering, eyes on the floor."',
+    '- Let the audience infer feeling from action, sound, light, and silence — filmable moments.'
+  ].join('\n')
+}
+
+/**
+ * Scene depth — environment, activity, emotion (2–3× richer beats).
+ */
+export function sceneDepthBlock() {
+  return [
+    'SCENE DEPTH (2–3× richer than minimal summaries — mandatory):',
+    'Each scene must feel ALIVE. Pack detail into narration + visual_description (no new JSON keys required).',
+    'ENVIRONMENT — include when relevant: specific location, atmosphere, weather, ambient sound, lighting quality, surrounding textures.',
+    'CHARACTER ACTIVITY — visible body language, movement, facial expression, gestures, who interacts with whom.',
+    'EMOTIONAL CONTEXT — mood, tension, curiosity, fear, joy, grief; what changed since the last scene.',
+    'STORY PURPOSE — every scene advances plot OR deepens character; include purpose, progression, emotional movement.',
+    'Avoid repeating the same information in narration and dialogue; avoid vignettes that do not move the story forward.',
+    'End each scene on a micro-turn (choice, reveal, silence, touch, departure) that pulls into the next beat.'
+  ].join('\n')
+}
+
+/**
+ * Intelligent pacing — dialogue vs narration vs action.
+ */
+export function intelligentPacingBlock() {
+  return [
+    'INTELLIGENT PACING (mandatory):',
+    '- Balance dialogue, narration, action, and emotional stillness — do not rush turning points.',
+    '- Let important moments breathe: reunions, betrayals, confessions, losses, discoveries earn 3–6 narration sentences when needed.',
+    '- Do not jump emotional states without on-screen cause; connective travel may be shorter, but climax and intimacy are longer.',
+    '- Dialogue-heavy scenes: prioritize conversation rhythm; action-heavy scenes: kinetic visual_description + shorter lines.',
+    '- Avoid machine-like beat lists ("Then X. Then Y."); weave cause and effect through sensory continuity.'
+  ].join('\n')
+}
+
+/**
+ * Leonardo-ready visual_description density.
+ */
+export function visualDescriptionForImagesBlock() {
+  return [
+    'VISUAL_DESCRIPTION FOR IMAGE GENERATION (mandatory — 2–3 sentences minimum when scene has characters):',
+    '- Describe WHO is visible, WHERE they are, WHAT they are doing, and the EMOTIONAL atmosphere.',
+    '- Include: environment storytelling, weather/light, camera-friendly composition (wide / medium / close), cinematic framing hints.',
+    '- Include: body language, expressions, key props, time of day — this field directly drives illustration; be concrete and filmable.',
+    '- NO readable text, subtitles, captions, logos, or UI in frame.',
+    '- Do not paste narration verbatim; stage the single illustrated moment clearly.'
+  ].join('\n')
 }
 
 /**
@@ -52,14 +129,16 @@ function genreNarrationStyle(genre, storyTone) {
 export function screenplayQualityRulesBlock(lang = 'English') {
   return [
     'SCREENPLAY QUALITY (professional — mandatory):',
-    `- Visible script language: ${lang} only in narration, dialogue, and visual_description (regional culture in names/places/tone, not foreign script systems).`,
-    '- Scene pacing: each scene = one clear story beat; open with image/action, not abstract summary; end on a micro-turn (reveal, choice, shock, tenderness).',
-    '- Narration: cinematic audiobook voice — sensory, emotional, present-tense friendly; vary sentence length; never repeat the same opener across scenes.',
-    '- Dialogue: subtext and conflict; characters respond to what was JUST said; no exposition dumps ("As you know…"); include beats, hesitation, and silence when appropriate.',
-    '- Continuity: props, weather, time-of-day, injuries, and relationships carry forward unless the story changes them on-screen.',
-    '- visual_description: filmable staging only — who is visible, what they do, environment, light, emotion on faces; NEVER subtitles, captions, or readable text in frame.',
-    '- Forbidden filler: "Meanwhile," "Suddenly," "In a surprising turn," "The air was thick with tension" in every scene; "He/She felt sad" without showing why.',
-    '- No disconnected vignettes: every scene advances plot or deepens character; no random emotional jumps.'
+    `- Visible script language: ${lang} only in narration, dialogue, and visual_description.`,
+    '- Scene length upgrade: target 2–3× the detail of thin AI summaries — richer setting, action, and emotion per scene.',
+    '- Scene pacing: one clear story beat per scene; open with image/action; end on emotional or plot micro-turn.',
+    '- Narration: 3–6 sentences when the beat needs depth (2–4 minimum for quiet beats); cinematic audiobook voice; vary rhythm.',
+    '- Dialogue: naturalHumanDialogue rules apply; empty dialogue[] only for pure voiceover montage scenes.',
+    '- Continuity: props, weather, time-of-day, injuries, relationships carry forward unless changed on-screen.',
+    '- Professional structure: purpose + progression + character development + visual storytelling in every scene.',
+    '- Forbidden filler: "Meanwhile," "Suddenly," "In a surprising turn," generic tension clichés every scene.',
+    '- No disconnected vignettes or random emotional resets.',
+    visualDescriptionForImagesBlock()
   ].join('\n')
 }
 
@@ -73,19 +152,18 @@ export function cinematicWritingBlueprintSection(input = {}) {
 
   return [
     'CINEMATIC STORYTELLING INTELLIGENCE (screenplay-grade — mandatory):',
-    '- Write like a professional film narrator + screenplay writer, NOT like generic AI exposition.',
-    '- Emotional progression: each scene must know what the audience should FEEL next; build tension, release, contrast, and cooldown intentionally.',
-    '- Vary rhythm: mix short punchy lines with longer atmospheric passages; use silence, weather, sound, and body language.',
-    '- Anti-robot rules: NEVER open multiple scenes with "Meanwhile," "Suddenly," "In that moment," "Little did they know," or identical transition templates.',
-    '- Avoid list-like summary ("He did X. Then Y. Then Z."); show lived moments with sensory and emotional detail.',
-    '- Scenes must feel alive: environment, faces, gestures, ambient sound, emotional tension, subtle thoughts when appropriate.',
-    '- Relationship-aware: dialogue and reactions must reflect who these people are to each other RIGHT NOW.',
+    '- Write like a professional storyteller for animated features, visual novels, story-driven games, and cinematic short films — NOT generic AI exposition.',
+    '- Quality bar: authored, emotionally engaging, culturally grounded — stories should feel human-written.',
+    '- Emotional progression: each scene must know what the audience should FEEL next; build tension, release, contrast, cooldown.',
+    '- Vary rhythm: short punchy lines + longer atmospheric passages; silence, weather, sound, body language.',
+    '- Anti-robot rules: NEVER open multiple scenes with "Meanwhile," "Suddenly," "In that moment," "Little did they know," or identical templates.',
+    '- Relationship-aware: dialogue and reactions reflect who these people are to each other RIGHT NOW.',
     ...genreNarrationStyle(genre, storyTone),
-    `Language soul (${lang}): idiomatic, emotionally natural ${lang} wording — regional culture informs names, customs, and setting only; dialogue must sound spoken aloud by real people in that cultural context while staying in ${lang}.`,
-    'Character conversations: include natural spoken lines in dialogue[] — interruptions, questions, emotional responses, pauses — not narration-only puppet shows.',
-    'Narration may be longer when the emotional beat needs room; never pad with empty adjectives — every sentence must earn its place.',
-    'Smart expansion: linger on turning points, climax, goodbye, betrayal, reunion; move faster through connective travel only when needed.',
-    'Continuity: emotional tone must flow from previous scene — no random resets to neutral exposition.',
+    `Language soul (${lang}): idiomatic, emotionally natural ${lang}; dialogue must sound spoken aloud by distinct real people.`,
+    showDontTellBlock(),
+    sceneDepthBlock(),
+    intelligentPacingBlock(),
+    naturalDialogueRulesBlock(lang),
     screenplayQualityRulesBlock(lang)
   ].join('\n')
 }
@@ -98,13 +176,23 @@ export function characterPersonalityWritingBlock(characters = []) {
   const lines = characters.map((c, i) => {
     const label = String(c.name || `Character ${i + 1}`).trim()
     const traits = String(c.traits || c.role || '').trim()
-    return `- ${label}: ${traits} — LOCK speaking style (vocabulary, hesitation, directness, warmth) across ALL scenes; personality only shifts when story events justify it.`
+    const role = String(c.role || '').trim()
+    return [
+      `- ${label}:`,
+      `  traits: ${traits || 'define clearly'}`,
+      role ? `  role: ${role}` : '',
+      '  LOCK: unique speech pattern (word choice, sentence length, humor, formality), motivations, strengths, weaknesses, emotional triggers',
+      '  Dialogue must be recognizable as THIS character without name tags in tone alone'
+    ]
+      .filter(Boolean)
+      .join('\n')
   })
   return [
-    'CHARACTER PERSONALITY MEMORY (dialogue + reactions):',
+    'CHARACTER PERSONALITY MEMORY (dialogue + reactions — mandatory):',
     ...lines,
-    '- Shy/calm characters do not become aggressive without a motivated story beat; loud characters can soften only with cause.',
-    '- Each dialogue line must sound like THAT person, not generic AI voice.'
+    '- No two characters share the same voice; shy stays shy unless story motivates change; bold can soften with cause.',
+    '- Responses must reflect personality: impatient characters interrupt; thoughtful characters pause; proud characters deflect.',
+    '- Each line: context-realistic reaction, not generic assistant politeness.'
   ].join('\n')
 }
 
@@ -137,8 +225,7 @@ export function composeScenePlaybackText(row) {
  * @param {{ characters?: Array<{ name?: string; role?: string; traits?: string }> }} [story]
  */
 export function attachComposedNarrationToScript(script, story) {
-  const castBlock = characterPersonalityWritingBlock(story?.characters || [])
-  void castBlock
+  void characterPersonalityWritingBlock(story?.characters || [])
   return script.map((row, i) => {
     const composed = composeScenePlaybackText(row)
     return {

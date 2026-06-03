@@ -92,6 +92,61 @@ export function sanitizeStoryCharacters(characters, policy) {
   })
 }
 
+function extractVisualTrait(visual, patterns) {
+  const blob = String(visual || '')
+  for (const re of patterns) {
+    const m = blob.match(re)
+    if (m && m[0]) return m[0].trim().slice(0, 100)
+  }
+  return ''
+}
+
+/**
+ * Permanent visual profile fields for cross-scene Leonardo locks.
+ * @param {string} label
+ * @param {string} traits
+ * @param {string} visual
+ */
+export function buildCharacterAppearanceProfile(label, traits, visual) {
+  const blob = `${traits} ${visual} ${label}`
+  const gender = inferGenderFromText(blob)
+  const hair =
+    extractVisualTrait(visual, [/\b(hair|hairstyle|braid|bun|locks|curly|straight hair|ponytail)[^.]{0,90}/i]) ||
+    'locked hairstyle from scene 1'
+  const hairColor =
+    extractVisualTrait(visual, [/\b(black|brown|blonde|red|auburn|silver|gray|dark|fair)\s+hair\b/i]) || ''
+  const eyeColor = extractVisualTrait(visual, [/\b(brown|blue|green|hazel|dark|amber)\s+eyes?\b/i]) || 'locked eye color'
+  const clothing =
+    extractVisualTrait(visual, [
+      /\b(dress|sari|kurta|coat|shirt|robe|jacket|shawl|outfit|wardrobe)[^.]{0,90}/i
+    ]) || 'locked wardrobe from scene 1'
+  const age =
+    extractVisualTrait(visual, [/\b(child|teen|young|elder|old|middle-aged|\d{1,2}\s+years?\s+old)\b/i]) ||
+    extractVisualTrait(traits, [/\b(child|teen|young|elder|old)\b/i]) ||
+    'age locked from scene 1'
+  const bodyType =
+    extractVisualTrait(visual, [/\b(slender|tall|petite|stocky|athletic|frail)\b/i]) || 'consistent body proportions'
+  const accessories =
+    extractVisualTrait(visual, [/\b(necklace|earring|hat|scarf|bindi|glasses|bracelet|ring)[^.]{0,60}/i]) ||
+    'same accessories unless script changes outfit'
+  const facial =
+    extractVisualTrait(visual, [/\b(round face|sharp jaw|freckles|beard|mustache|dimples)[^.]{0,60}/i]) ||
+    'consistent facial structure'
+  return {
+    label,
+    gender,
+    hair,
+    hairColor,
+    eyeColor,
+    age,
+    bodyType,
+    clothing,
+    accessories,
+    facialFeatures: facial,
+    identityTraits: traits.slice(0, 160) || 'personality-consistent behavior'
+  }
+}
+
 /**
  * @param {Array<{ name?: string, role?: string, traits?: string, visualIdentity?: string, baseImagePrompt?: string }>} characters
  */
@@ -100,16 +155,24 @@ export function buildCharacterIdentityMemory(characters = []) {
     const label = String(c.name || `Character ${i + 1}`).trim()
     const traits = String(c.traits || c.role || '').trim()
     const visual = String(c.visualIdentity || traits).trim()
-    const gender = inferGenderFromText(`${label} ${traits} ${visual}`)
+    const profile = buildCharacterAppearanceProfile(label, traits, visual)
     return {
       slot: i + 1,
       label,
-      gender,
+      gender: profile.gender,
       role: String(c.role || '').trim(),
       visualIdentity: visual,
-      baseImagePrompt: String(c.baseImagePrompt || `${label}, ${traits}`).trim().slice(0, 520),
-      hair: (visual.match(/\b(hair|braid|bun|locks|curly|straight hair)[^.]{0,80}/i) || [''])[0],
-      clothing: (visual.match(/\b(dress|sari|kurta|coat|shirt|robe|jacket|shawl)[^.]{0,80}/i) || [''])[0]
+      baseImagePrompt: String(c.baseImagePrompt || `${label}, ${traits}, ${visual}`).trim().slice(0, 520),
+      appearanceProfile: profile,
+      hair: profile.hair,
+      hairColor: profile.hairColor,
+      eyeColor: profile.eyeColor,
+      age: profile.age,
+      bodyType: profile.bodyType,
+      clothing: profile.clothing,
+      accessories: profile.accessories,
+      facialFeatures: profile.facialFeatures,
+      identityTraits: profile.identityTraits
     }
   })
 }
@@ -140,22 +203,34 @@ export function pickCastSlotsForScriptRow(scriptRow, memory) {
 /**
  * Leonardo identity paragraph for one scene.
  */
+function characterProfileLine(m) {
+  const p = m.appearanceProfile || buildCharacterAppearanceProfile(m.label, m.role || '', m.visualIdentity)
+  return [
+    `${m.label} (${p.gender}): PERMANENT VISUAL PROFILE —`,
+    `hair ${p.hair}${p.hairColor ? `, ${p.hairColor}` : ''};`,
+    `eyes ${p.eyeColor}; age ${p.age}; body ${p.bodyType};`,
+    `clothing ${p.clothing}; accessories ${p.accessories}; face ${p.facialFeatures};`,
+    `traits ${p.identityTraits}.`,
+    `Expression/body language must match scene emotion. SAME face and wardrobe every scene unless script explicitly changes outfit.`,
+    `Base lock: ${m.baseImagePrompt}`
+  ].join(' ')
+}
+
 export function leonardoIdentityBlockForScriptRow(scriptRow, memory) {
   const slots = pickCastSlotsForScriptRow(scriptRow, memory)
+  const emotion = String(scriptRow?.emotional_tone || scriptRow?.mood || '').trim()
   const lines = slots
     .map((s) => memory.find((m) => m.slot === s))
     .filter(Boolean)
-    .map(
-      (m) =>
-        `${m.label} (${m.gender}): SAME person every shot — ${m.visualIdentity}. Wardrobe/hair/age/ethnicity LOCKED: ${m.baseImagePrompt}`
-    )
+    .map((m) => characterProfileLine(m))
   if (!lines.length && memory[0]) {
-    const m = memory[0]
-    lines.push(`${m.label} (${m.gender}): ${m.baseImagePrompt}`)
+    lines.push(characterProfileLine(memory[0]))
   }
   return [
     'CHARACTER IDENTITY LOCK (non-negotiable — same cast in every frame):',
     ...lines,
+    emotion ? `Scene emotional state for cast: ${emotion}.` : '',
+    'Prevent: changing hairstyles, random clothing swaps, age shifts, face redesign, new unnamed faces.',
     'Do NOT swap genders. Do NOT introduce new faces. Male stays male; female stays female.'
   ].join(' ')
 }

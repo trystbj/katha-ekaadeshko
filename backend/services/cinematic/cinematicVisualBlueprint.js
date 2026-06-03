@@ -35,6 +35,18 @@ function seedGuardrails(seedBlob = '') {
   const blob = String(seedBlob).toLowerCase()
   const forbidden = [
     TEXT_FREE_NEGATIVE,
+    'blurry',
+    'low quality',
+    'extra fingers',
+    'extra limbs',
+    'duplicate people',
+    'duplicate faces',
+    'cropped heads',
+    'bad anatomy',
+    'distorted hands',
+    'malformed eyes',
+    'floating objects',
+    'random artifacts',
     'readable text',
     'subtitles',
     'scene scripts',
@@ -48,6 +60,8 @@ function seedGuardrails(seedBlob = '') {
     'duplicate panels',
     'malformed faces',
     'duplicate characters',
+    'inconsistent character appearance',
+    'mismatched clothing',
     'unrelated scenery'
   ]
   if (/\b(nordic|scandinavian|forest creature|gentle white|snow forest|frost)\b/.test(blob)) {
@@ -175,7 +189,8 @@ export function leonardoPromptFromBlueprint(bp, input = {}, identityBlock = '') 
     cref,
     `Genre atmosphere (do not change render medium): ${genre}.`,
     framing,
-    'Same exact character from previous scenes — identical face, hair, clothing, skin tone, and age.',
+    'Same exact character from previous scenes — identical face, hair, hair color, eye color, clothing, skin tone, age, body type, and accessories.',
+    'Quality: highly detailed, professional artwork, cinematic composition, consistent character design, high-quality visual storytelling.',
     'Single illustrated frame — no comic panels, no duplicate thumbnails, no text, no subtitles, no captions, no watermark, no UI, no words.',
     bp.negativePrompt ? `FORBIDDEN: ${bp.negativePrompt}.` : '',
     bp.directorNote ? `Director: ${bp.directorNote}` : ''

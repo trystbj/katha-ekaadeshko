@@ -411,7 +411,7 @@ export const STYLE_PRESETS: Record<
       'linear-gradient(180deg, rgba(255,200,140,0.22) 0%, rgba(40,28,60,0.55) 45%, rgba(8,12,28,0.88) 100%)',
     previewImageUrl: '/style-previews/soft.png',
     promptSuffix:
-      'painterly cinematic fantasy illustration, cozy emotional lighting, warm cinematic atmosphere, soft glowing environments, dreamlike Nepal-inspired scenery, slow emotional pacing, rich fantasy composition, emotional depth and ambience, consistent character design'
+      'soft anime illustration, warm colors, emotional anime expressions, gentle lighting, detailed anime backgrounds, cinematic anime composition, clean anime character design, cozy fantasy atmosphere, high-quality anime storytelling visuals, consistent character design'
   },
   cozy_storybook: {
     labelKey: 'style.cozyStorybook',
@@ -419,21 +419,21 @@ export const STYLE_PRESETS: Record<
       'linear-gradient(180deg, rgba(255,220,140,0.18) 0%, rgba(80,120,90,0.35) 50%, rgba(12,20,16,0.82) 100%)',
     previewImageUrl: '/style-previews/cartoon.png',
     promptSuffix:
-      'cozy hand-drawn storybook animation, calm simple expressive motion, soft nature ambience, friendly visual storytelling, warm cozy transitions, simple emotional expressions, nature-focused movement, storybook vibe, peaceful pacing, consistent character likeness'
+      'hand-drawn storybook illustration, cozy environments, whimsical atmosphere, storybook character design, warm lighting, charming details, children\'s book quality artwork, peaceful nature elements, soft illustrated textures, consistent character likeness'
   },
   cinematic_anime: {
     labelKey: 'style.cinematicAnime',
     previewGradient: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.82))',
     previewImageUrl: '/style-previews/cinematic.png',
     promptSuffix:
-      'cinematic anime cinematography, emotional closeups, strong lighting contrast, dramatic camera framing, anime-inspired cinematic compositions, emotional action pacing, film grain, consistent character'
+      'cinematic concept art, movie-like composition, dramatic lighting, realistic depth, wide environmental shots, cinematic framing, emotional storytelling visuals, high-detail environments, professional film-quality scene design, consistent character'
   },
   comic_panel: {
     labelKey: 'style.comicPanel',
     previewGradient: 'linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.68))',
     previewImageUrl: '/style-previews/comic.png',
     promptSuffix:
-      'motion comic aesthetic, stylized panels and framing, dynamic transitions, comic-style dramatic posing, bold ink lines, strong visual storytelling, consistent character likeness'
+      'comic book illustration, graphic novel quality, bold outlines, expressive characters, comic-style rendering, visual storytelling panels, dynamic poses, stylized environments, professional comic artwork, consistent character likeness'
   },
   cinematic_realistic: {
     labelKey: 'styleRealistic',
@@ -441,7 +441,7 @@ export const STYLE_PRESETS: Record<
       'linear-gradient(180deg, transparent 0%, transparent 72%, rgba(0, 0, 0, 0.32) 100%)',
     previewImageUrl: '/style-previews/cinematic-realistic.png?v=1',
     promptSuffix:
-      'cinematic photorealistic realism, photorealistic human characters, natural facial anatomy, realistic skin texture and eyes, film-quality lighting, cinematic depth of field, real-world environment detail, natural color grading, preserve character identity across scenes, consistent hairstyle clothing and facial features, realistic villages cities and interiors, natural weather, cinematic atmosphere, physically believable lighting, human-like movement, natural blinking and breathing, emotional body language, realistic gestures, mood-based lighting, emotion-driven closeups medium shots and wide shots, realistic cinematic framing'
+      'realistic characters, realistic environments, natural lighting, realistic materials, photographic quality, believable anatomy, real-world textures, realistic cinematic composition, high-resolution visual storytelling, preserve character identity across scenes, consistent hairstyle clothing and facial features'
   },
   custom: {
     labelKey: 'styleCustomVisual',

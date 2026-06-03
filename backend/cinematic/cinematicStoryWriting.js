@@ -3,5 +3,10 @@ export {
   characterPersonalityWritingBlock,
   composeScenePlaybackText,
   attachComposedNarrationToScript,
-  screenplayQualityRulesBlock
+  screenplayQualityRulesBlock,
+  naturalDialogueRulesBlock,
+  showDontTellBlock,
+  sceneDepthBlock,
+  intelligentPacingBlock,
+  visualDescriptionForImagesBlock
 } from '../../shared/cinematicStoryWriting.js'

@@ -1,6 +1,7 @@
 export {
   analyzeNamingPolicy,
   sanitizeStoryCharacters,
+  buildCharacterAppearanceProfile,
   buildCharacterIdentityMemory,
   pickCastSlotsForScriptRow,
   leonardoIdentityBlockForScriptRow

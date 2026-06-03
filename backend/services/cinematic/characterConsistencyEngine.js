@@ -63,14 +63,22 @@ export function attachPortraitUrlsToLocks(locks, bibleCharacters = []) {
  */
 export function characterConsistencyPromptBlock(locks = []) {
   if (!locks.length) return ''
-  const lines = locks.map(
-    (c) =>
-      `${c.label} (${c.gender}): SAME face/proportions/outfit every scene. Face lock: ${c.faceReference || c.baseImagePrompt}. Outfit: ${c.outfitReference || 'locked wardrobe'}. Style: ${c.styleReference || c.visualIdentity}.`
-  )
+  const lines = locks.map((c) => {
+    const vi = String(c.visualIdentity || c.styleReference || '').trim()
+    const hair = (vi.match(/\b(hair|braid|bun|locks)[^.]{0,70}/i) || ['locked hairstyle'])[0]
+    const outfit = c.outfitReference || (vi.match(/\b(dress|sari|kurta|coat|robe|jacket)[^.]{0,70}/i) || [''])[0] || 'locked wardrobe'
+    return [
+      `${c.label} (${c.gender}) — PERMANENT PROFILE:`,
+      `hair ${hair}; outfit ${outfit};`,
+      `face ref ${c.faceReference || c.basePortrait || 'scene-1 likeness'};`,
+      `visual identity ${vi || c.baseImagePrompt}.`
+    ].join(' ')
+  })
   return [
     'CHARACTER CONSISTENCY ENGINE — non-negotiable:',
     ...lines,
-    'Same exact character from previous scenes in every frame — facial structure, hairstyle, clothing, skin tone, age, and accessories must match scene 1.',
-    'Never swap genders, age, species, or art style between scenes. Reuse the same cast only.'
+    'Store and reuse this profile in every scene prompt automatically.',
+    'Same exact character from previous scenes — hair style, hair color, eye color, age, gender, clothing, body type, accessories, facial features unchanged.',
+    'Never swap genders, age, face structure, or art style between scenes. Reuse the same cast only.'
   ].join('\n')
 }
