@@ -6,8 +6,9 @@
 import { resolveStyleProfile } from './visualStyleLock.js'
 import { TEXT_FREE_NEGATIVE } from '../cinematic/masterStoryContext.js'
 import {
+  buildCharacterAppearanceProfile,
   buildCharacterIdentityMemory,
-  leonardoIdentityBlockForScriptRow
+  pickCastSlotsForScriptRow
 } from '../character/characterIdentityMemory.js'
 import {
   buildCharacterVisualLocks,
@@ -122,6 +123,131 @@ export function mergeCharacterPromptLayers(opts = {}) {
   return blocks.filter(Boolean).join('\n\n')
 }
 
+/**
+ * Verify cast + permanent profiles exist before Leonardo.
+ * @param {object} opts
+ */
+export function verifySceneCharacterProfilesForLeonardo(opts = {}) {
+  const { scriptRow, castMemory = [], characters = [] } = opts
+  const issues = []
+  const memory =
+    Array.isArray(castMemory) && castMemory.length
+      ? castMemory
+      : buildCharacterIdentityMemory(Array.isArray(characters) ? characters : [])
+
+  if (!memory.length) {
+    issues.push('no_character_profiles')
+    return { ok: false, issues, castMemory: memory, slots: [] }
+  }
+
+  const visual = String(scriptRow?.visual_description || scriptRow?.action || '').trim()
+  if (visual.length < 40) issues.push('scene_description_too_short')
+
+  const slots = pickCastSlotsForScriptRow(scriptRow, memory)
+  for (const slot of slots) {
+    const m = memory.find((x) => x.slot === slot)
+    if (!m) {
+      issues.push('missing_character_slot')
+      continue
+    }
+    const p =
+      m.appearanceProfile ||
+      buildCharacterAppearanceProfile(m.label, m.role || '', m.visualIdentity || '')
+    if (!String(p.hair || '').trim() || !String(p.clothing || '').trim()) {
+      issues.push(`incomplete_profile_${m.label}`)
+    }
+  }
+
+  const explicitCast = Array.isArray(scriptRow?.characters_in_shot)
+    ? scriptRow.characters_in_shot.map((c) => String(c).trim()).filter(Boolean)
+    : []
+  if (explicitCast.length) {
+    const blob = visual.toLowerCase()
+    for (const name of explicitCast) {
+      if (name.length > 2 && blob.length > 10 && !blob.includes(name.toLowerCase())) {
+        issues.push(`scene_missing_cast_${name}`)
+      }
+    }
+  }
+
+  return { ok: issues.length === 0, issues, castMemory: memory, slots }
+}
+
+/**
+ * Audit prompt layers (priority: user → story → characters → scene → style).
+ * @param {string} prompt
+ */
+export function auditLeonardoPromptCompliance(prompt, ctx = {}) {
+  const p = String(prompt || '').toLowerCase()
+  const missing = []
+  const { input = {} } = ctx
+  if (String(input.seedLine || input.theme || '').trim() && !/user prompt|highest priority/i.test(p)) {
+    missing.push('user')
+  }
+  if (
+    String(input.__masterStoryContextBlock || input.theme || '').trim() &&
+    !/story context|master story|narrative|continuity/i.test(p)
+  ) {
+    missing.push('story')
+  }
+  if (!/character (identity|consistency|profile)|permanent profile|same exact character/i.test(p)) {
+    missing.push('character')
+  }
+  if (!/scene \d|what:|where:|visual blueprint|composition:/i.test(p)) {
+    missing.push('scene')
+  }
+  if (!/style lock|leonardocore|visual style lock/i.test(p)) {
+    missing.push('style')
+  }
+  return { ok: missing.length === 0, missing }
+}
+
+/**
+ * Rebuild Leonardo prompt in required priority order (deterministic).
+ * @param {object} ctx
+ */
+export function rebuildLeonardoPromptInPriorityOrder(ctx = {}) {
+  const { input = {}, scriptRow = {}, blueprint, identityBlock = '', sceneIndex = 0 } = ctx
+  const profile = resolveStyleProfile(input)
+  const seed = String(input.seedLine || input.theme || '').trim()
+  const storyBlock = String(input.__masterStoryContextBlock || input.theme || '').trim().slice(0, 500)
+  const sceneNum = Number(scriptRow.scene) > 0 ? Number(scriptRow.scene) : sceneIndex + 1
+  const sceneDesc = String(
+    scriptRow.visual_description || blueprint?.cinematicComposition || scriptRow.action || ''
+  ).trim()
+  const mood = String(scriptRow.mood || scriptRow.emotional_tone || blueprint?.emotion || '').trim()
+  const where = String(
+    scriptRow.environment ||
+      scriptRow.location ||
+      blueprint?.environment ||
+      input.theme ||
+      ''
+  ).trim()
+  const id = String(identityBlock || '').trim()
+
+  const blocks = []
+  if (seed) blocks.push(`USER PROMPT (highest priority): ${seed}.`)
+  if (storyBlock) blocks.push(`STORY CONTEXT: ${storyBlock}.`)
+  if (id) {
+    blocks.push(`CHARACTER PROFILES (locked — inject every scene):\n${id}`)
+  }
+  blocks.push(
+    [
+      `SCENE ${sceneNum} — WHO: only cast from character profiles; no new faces.`,
+      `WHAT IS HAPPENING: ${sceneDesc || 'single clear story beat with readable action'}.`,
+      where ? `WHERE: ${where}.` : 'WHERE: environment matches story setting and architecture.',
+      mood ? `EMOTIONAL ATMOSPHERE: ${mood}.` : 'EMOTIONAL ATMOSPHERE: matches story beat.',
+      'ENVIRONMENTAL DETAILS: weather, surroundings, architecture, time of day as implied by story.',
+      `VISUAL STORYTELLING: focal point on story action; camera ${String(scriptRow.camera || blueprint?.cameraAngle || 'motivated cinematic medium shot')}; lighting ${String(scriptRow.lighting || blueprint?.lightingStyle || 'motivated cinematic light')}.`
+    ].join(' ')
+  )
+  blocks.push(`STYLE LOCK (apply last): ${profile.leonardoCore} ${profile.leonardoForbidden || ''}`.trim())
+
+  let prompt = blocks.join('\n\n')
+  prompt = enrichLeonardoPrompt(prompt, { input, scene: scriptRow, blueprint, identityBlock })
+  return prompt.trim()
+}
+
 const SECTION_CHECKS = [
   { key: 'style', re: /STYLE LOCK|visual style lock|leonardoCore/i },
   { key: 'character', re: /CHARACTER (IDENTITY|CONSISTENCY)|SAME person|character profile/i },
@@ -225,5 +351,15 @@ export function assembleLeonardoScenePrompt(opts = {}) {
     blueprint,
     identityBlock
   })
+  const compliance = auditLeonardoPromptCompliance(prompt, { input })
+  if (!compliance.ok) {
+    prompt = rebuildLeonardoPromptInPriorityOrder({
+      input,
+      scriptRow,
+      blueprint,
+      identityBlock,
+      sceneIndex
+    })
+  }
   return prompt.trim()
 }

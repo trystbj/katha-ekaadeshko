@@ -53,6 +53,7 @@ import {
   mergeMasterStoryContext,
   masterStoryContextPromptBlock
 } from '../cinematic/masterStoryContext.js'
+import { pipelineStageLog } from '../utils/pipelineStageLog.js'
 
 const PROVIDERS = [
   {
@@ -296,6 +297,10 @@ export async function runKathaPipeline(input, req, opts = {}) {
   })
   providersUsed.story = storyProvider
   budget.checkpoint('story', { story })
+  pipelineStageLog('story_generated', {
+    provider: storyProvider,
+    characters: Array.isArray(story?.characters) ? story.characters.length : 0
+  })
 
   // Anti-repetition: fingerprint and reject if too similar
   const fp = fingerprintStory(story)
@@ -444,6 +449,7 @@ async function continuePipelineFromStory(
       count: finalStory.characters.length,
       withRefs: mergedCast.filter((c) => Array.isArray(c.referenceImages) && c.referenceImages.length).length
     })
+    pipelineStageLog('character_profiles_created', { count: finalStory.characters.length })
   }
 
   // Stage 3b — Master story context + character identity memory (before screenplay)
@@ -550,6 +556,7 @@ async function continuePipelineFromStory(
     scenes: script.length,
     withDialogue: script.filter((r) => Array.isArray(r.dialogue) && r.dialogue.length > 0).length
   })
+  pipelineStageLog('scene_descriptions_created', { count: script.length })
   providersUsed.script = scriptProvider
 
   if (masterStoryContext?.memory) {

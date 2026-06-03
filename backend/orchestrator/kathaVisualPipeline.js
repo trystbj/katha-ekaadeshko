@@ -12,8 +12,11 @@ import { buildAllSceneVisualBlueprints } from '../services/cinematic/cinematicVi
 import {
   attachPortraitUrlsToLocks,
   buildCharacterVisualLocks,
+  buildPermanentCharacterProfiles,
   characterConsistencyPromptBlock
 } from '../services/cinematic/characterConsistencyEngine.js'
+import { enrichScriptRowsForVisuals } from '../utils/sceneVisualIntelligence.js'
+import { pipelineStageLog, isStrictImagePipeline } from '../utils/pipelineStageLog.js'
 import {
   buildStoryboardDirectorPlan,
   storyboardDirectorPromptBlock
@@ -41,7 +44,7 @@ export async function runKathaVisualPipeline(opts = {}) {
   const scriptAll = Array.isArray(opts.script) ? opts.script : []
   const wanted = Array.isArray(opts.sceneIndices) ? new Set(opts.sceneIndices.map(Number)) : null
 
-  const script = wanted?.size
+  const scriptFiltered = wanted?.size
     ? scriptAll.filter((row, i) => {
         const n = Number(row?.scene)
         const key = Number.isFinite(n) && n > 0 ? n : i + 1
@@ -49,11 +52,25 @@ export async function runKathaVisualPipeline(opts = {}) {
       })
     : scriptAll
 
-  if (!script.length) {
+  if (!scriptFiltered.length) {
     throw new Error('No script scenes to generate visuals for.')
   }
 
   const story = opts.story && typeof opts.story === 'object' ? opts.story : {}
+  const storyCast = Array.isArray(story.characters)
+    ? story.characters
+    : Array.isArray(input.bibleCharacters)
+      ? input.bibleCharacters
+      : []
+  if (!storyCast.length) {
+    throw new Error('Character profiles are required before scene image generation.')
+  }
+
+  const permanentProfiles = buildPermanentCharacterProfiles(storyCast)
+  pipelineStageLog('character_profiles_created', { count: permanentProfiles.length })
+
+  const script = enrichScriptRowsForVisuals(scriptFiltered, input, story)
+  pipelineStageLog('scene_descriptions_created', { count: script.length })
   const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null
   const directives = normalizeProductionDirectives(
     opts.productionDirectives || opts.directives || input.__productionDirectives || {}
@@ -94,6 +111,9 @@ export async function runKathaVisualPipeline(opts = {}) {
 
   const inputWithContinuity = {
     ...input,
+    __story: story,
+    __permanentCharacterProfiles: permanentProfiles,
+    seedLine: input.seedLine || input.theme,
     __masterStoryContext: masterCtx,
     __masterStoryContextBlock: masterBlock,
     __sceneMasterContextBlocks: sceneMasterBlocks,
@@ -126,6 +146,8 @@ export async function runKathaVisualPipeline(opts = {}) {
     onProgress({ stage: 'visuals', progress: 5, message: 'Starting cinematic visuals…' })
   }
 
+  pipelineStageLog('image_prompts_queued', { scenes: script.length })
+
   const [images, audio] = await Promise.all([
     leonardoGenerateForScript({
       script,
@@ -134,7 +156,8 @@ export async function runKathaVisualPipeline(opts = {}) {
       onProgress,
       characters: story.characters || [],
       sceneBlueprints,
-      projectId: input.projectId || story.id
+      projectId: input.projectId || story.id,
+      strict: isStrictImagePipeline()
     }),
     ttsGenerateForScript({
       script,
@@ -145,9 +168,17 @@ export async function runKathaVisualPipeline(opts = {}) {
     })
   ])
 
+  const imageList = Array.isArray(images) ? images : []
+  if (isStrictImagePipeline() && imageList.length < script.length) {
+    throw new Error(
+      `Visual generation incomplete: ${imageList.length}/${script.length} scene images succeeded.`
+    )
+  }
+
   if (onProgress) {
     onProgress({ stage: 'done', progress: 100, message: 'Visual generation complete' })
   }
+  pipelineStageLog('generation_completed', { scenes: imageList.length, scriptScenes: script.length })
 
   const continuityPackFinal = buildSmartContinuityPack({
     story,

@@ -13,6 +13,7 @@ import { formatApiError, readHttpErrorResponse } from '../utils/formatApiError'
 import { markScenesQueued } from '../utils/sceneGenerationLock'
 import { applySceneImagePatch, markSceneGenerating } from '../utils/applySceneImagePatch'
 import { sceneIndexFromPipelineRow } from '../utils/sceneAssetMap'
+import { probeSceneImagesFromPipeline } from '../utils/probeSceneImageUrl'
 
 type VisualGenResult = {
   images: { scene?: string | number; image_url?: string; imageUrl?: string; prompt?: string }[]
@@ -198,10 +199,31 @@ export function useVisualGeneration() {
             ?.remainingSceneIndices
         }
 
-        const assetsFromPipeline = buildSceneAssetsFromPipeline(out.images ?? [])
+        const pipelineImages = out.images ?? []
+        const probe = await probeSceneImagesFromPipeline(pipelineImages)
+        if (!probe.ok) {
+          console.warn('[katha:pipeline]', 'image_rendered', { failed: probe.failedScenes, reasons: probe.reasons })
+          throw new Error(
+            `Scene images failed display validation: ${probe.reasons.slice(0, 4).join('; ')}`
+          )
+        }
+        console.info('[katha:pipeline]', 'image_rendered', { scenes: pipelineImages.length })
+
+        const assetsFromPipeline = buildSceneAssetsFromPipeline(pipelineImages)
         const narrationAudioUrl = (out.audio ?? [])
           .map((r) => r?.audio_url)
           .find((u) => typeof u === 'string' && u.length > 0)
+
+        const draftProject = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
+        if (draftProject?.bible) {
+          const mergedForCov = mergeProjectAssets(draftProject.assets, assetsFromPipeline)
+          const covPre = episodeSceneImageCoverage({ ...draftProject, assets: mergedForCov }, epn)
+          if (covPre.missing.length > 0) {
+            throw new Error(
+              `Scene image generation incomplete — missing scenes: ${covPre.missing.join(', ')}`
+            )
+          }
+        }
 
         useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
           if (!cur.bible) return cur
@@ -224,7 +246,12 @@ export function useVisualGeneration() {
             )
           })
           const cov = episodeSceneImageCoverage(withVisual, epn)
+          if (cov.missing.length > 0) return withVisual
           const meta = (out as { metadata?: Record<string, unknown> }).metadata
+          console.info('[katha:pipeline]', 'generation_completed', {
+            scenes: cov.withImage,
+            total: cov.total
+          })
           return withStoryboardReady(
             {
               ...withVisual,
@@ -244,8 +271,8 @@ export function useVisualGeneration() {
                 : {})
             },
             {
-              partial: cov.missing.length > 0,
-              missingSceneIndices: cov.missing,
+              partial: false,
+              missingSceneIndices: [],
               episodeNumber: epn
             }
           )

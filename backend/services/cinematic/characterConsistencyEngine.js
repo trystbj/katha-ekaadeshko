@@ -2,12 +2,44 @@
  * Persistent character visual locks for cross-scene Leonardo generation.
  */
 
-import { buildCharacterIdentityMemory } from '../../character/characterIdentityMemory.js'
+import {
+  buildCharacterAppearanceProfile,
+  buildCharacterIdentityMemory
+} from '../../character/characterIdentityMemory.js'
 
 /**
  * @param {Array<Record<string, unknown>>} bibleCharacters
  * @param {Array<Record<string, unknown>>} [existingLocks]
  */
+/**
+ * Permanent profiles after story generation (name, age, gender, hair, eyes, clothing, …).
+ * @param {Array<Record<string, unknown>>} bibleCharacters
+ */
+export function buildPermanentCharacterProfiles(bibleCharacters = []) {
+  const memory = buildCharacterIdentityMemory(bibleCharacters)
+  return memory.map((m) => {
+    const p =
+      m.appearanceProfile ||
+      buildCharacterAppearanceProfile(m.label, m.role || '', m.visualIdentity || '')
+    return {
+      name: m.label,
+      slot: m.slot,
+      age: p.age,
+      gender: p.gender,
+      hairStyle: p.hair,
+      hairColor: p.hairColor,
+      eyeColor: p.eyeColor,
+      clothing: p.clothing,
+      accessories: p.accessories,
+      facialStructure: p.facialFeatures,
+      bodyType: p.bodyType,
+      specialTraits: p.identityTraits,
+      visualIdentity: m.visualIdentity,
+      baseImagePrompt: m.baseImagePrompt
+    }
+  })
+}
+
 export function buildCharacterVisualLocks(bibleCharacters = [], existingLocks = []) {
   const memory = buildCharacterIdentityMemory(bibleCharacters)
   const byLabel = new Map(

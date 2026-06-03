@@ -84,12 +84,22 @@ export function validateSceneImage(opts = {}) {
 
 
 
+  const visualDesc = String(row.visual_description || row.action || '').trim()
+  if (visualDesc.length > 0 && visualDesc.length < 40) {
+    issues.push('scene_description_too_short')
+  }
+  const titleOnly =
+    visualDesc.length > 0 &&
+    visualDesc.length < 60 &&
+    !/\b(in|at|on|with|while|as|through|beneath|under|over)\b/i.test(visualDesc)
+  if (titleOnly && !String(row.narration || row.action || '').trim()) {
+    issues.push('scene_description_title_only')
+  }
+
   const emotion = String(row.emotional_tone || row.mood || '').trim()
 
   if (!emotion && !String(row.visual_description || row.narration || '').trim()) {
-
     issues.push('weak_scene_emotion')
-
   }
 
 
@@ -103,9 +113,13 @@ export function validateSceneImage(opts = {}) {
 
 
   const hardFail = issues.some((i) =>
-
-    ['missing_image_url', 'prompt_text_leak', 'character_alignment_low'].includes(i)
-
+    [
+      'missing_image_url',
+      'prompt_text_leak',
+      'character_alignment_low',
+      'scene_description_too_short',
+      'scene_description_title_only'
+    ].includes(i)
   )
 
 

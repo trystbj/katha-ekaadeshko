@@ -1,8 +1,13 @@
 import { buildLeonardoScenePrompt } from '../utils/visualStyleLock.js'
 import {
   assembleLeonardoScenePrompt,
-  buildLeonardoNegativePrompt
+  buildLeonardoNegativePrompt,
+  rebuildLeonardoPromptInPriorityOrder,
+  verifySceneCharacterProfilesForLeonardo
 } from '../utils/leonardoPromptQuality.js'
+import { pipelineStageLog, isStrictImagePipeline } from '../utils/pipelineStageLog.js'
+import { validateRemoteSceneImageUrl } from '../cinematic/sceneImageFetchValidation.js'
+import { buildProfessionalSceneVisualDescription } from '../utils/sceneVisualIntelligence.js'
 import { characterReferencePromptBlock } from '../utils/characterReferencePrompt.js'
 import {
   buildCharacterIdentityMemory,
@@ -68,15 +73,27 @@ export async function leonardoGenerateForScript({
   onProgress,
   characters,
   sceneBlueprints,
-  projectId
+  projectId,
+  strict: strictOpt
 }) {
+  const strict = strictOpt !== false && isStrictImagePipeline()
   // Serverless-safe: Leonardo returns hosted URLs; no local storage required.
-  // You can disable explicitly if desired.
-  if (process.env.KATHA_DISABLE_LEONARDO === '1') return []
-  // Sequential scene polls exceed Vercel ~60s — story/script still return; images can be added later.
-  if (isServerlessRuntime() && process.env.KATHA_SERVERLESS_LEONARDO !== '1') return []
-  // If no key, just return empty array (backend still returns story/script/audio).
-  if (!process.env.LEONARDO_API_KEY) return []
+  if (process.env.KATHA_DISABLE_LEONARDO === '1') {
+    if (strict) throw new Error('Leonardo is disabled (KATHA_DISABLE_LEONARDO) — scene images are required.')
+    return []
+  }
+  if (isServerlessRuntime() && process.env.KATHA_SERVERLESS_LEONARDO !== '1') {
+    if (strict) {
+      throw new Error(
+        'Scene image generation is unavailable in serverless mode. Set KATHA_SERVERLESS_LEONARDO=1 or use the worker.'
+      )
+    }
+    return []
+  }
+  if (!process.env.LEONARDO_API_KEY) {
+    if (strict) throw new Error('LEONARDO_API_KEY is missing — cannot generate scene images.')
+    return []
+  }
   const modelId = process.env.LEONARDO_MODEL_ID || '7b592283-e8a7-4c5a-9ba6-d18c31f258b9'
   const { width, height } = leonardoDimensionsForAspectMode(input.aspectMode)
 
@@ -121,18 +138,45 @@ export async function leonardoGenerateForScript({
       })
     }
     try {
-      const identityBlock = leonardoIdentityBlockForScriptRow(s, castMemory)
+      let scriptRow = s
+      let charVerify = verifySceneCharacterProfilesForLeonardo({
+        scriptRow,
+        castMemory,
+        characters: Array.isArray(characters) ? characters : []
+      })
+      if (!charVerify.ok) {
+        scriptRow = {
+          ...scriptRow,
+          visual_description: buildProfessionalSceneVisualDescription(
+            scriptRow,
+            inputWithRefs,
+            inputWithRefs.__story || {}
+          )
+        }
+        charVerify = verifySceneCharacterProfilesForLeonardo({
+          scriptRow,
+          castMemory: charVerify.castMemory,
+          characters: Array.isArray(characters) ? characters : []
+        })
+      }
+      if (!charVerify.ok) {
+        throw new Error(
+          `Character-to-scene verification failed: ${charVerify.issues.join(', ')}`
+        )
+      }
+
+      const identityBlock = leonardoIdentityBlockForScriptRow(scriptRow, castMemory)
       const bp =
         Array.isArray(sceneBlueprints) && sceneBlueprints[i]
           ? sceneBlueprints[i]
-          : buildSceneVisualBlueprint(s, inputWithRefs, {
+          : buildSceneVisualBlueprint(scriptRow, inputWithRefs, {
               index: i,
               castMemory,
               directives: inputWithRefs.__productionDirectives,
               continuityPack: inputWithRefs.__continuityPack
             })
       let prompt = assembleLeonardoScenePrompt({
-        scriptRow: s,
+        scriptRow,
         input: inputWithRefs,
         blueprint: bp,
         identityBlock,
@@ -142,8 +186,16 @@ export async function leonardoGenerateForScript({
         leonardoPromptFromBlueprint,
         buildLeonardoScenePrompt
       })
+      prompt = rebuildLeonardoPromptInPriorityOrder({
+        input: inputWithRefs,
+        scriptRow,
+        blueprint: bp,
+        identityBlock,
+        sceneIndex: i
+      })
       prompt = `${prompt} FORBIDDEN: ${TEXT_FREE_NEGATIVE}.`
       const negativePrompt = buildLeonardoNegativePrompt(inputWithRefs)
+      pipelineStageLog('image_prompt_generated', { scene: sceneKey, promptChars: prompt.length })
 
       let imageUrl = ''
       let seed
@@ -151,6 +203,7 @@ export async function leonardoGenerateForScript({
       let leonardoGenerationId
       let lastValidation = null
       for (let attempt = 1; attempt <= SCENE_IMAGE_MAX_ATTEMPTS; attempt++) {
+        pipelineStageLog('leonardo_request_sent', { scene: sceneKey, attempt })
         const gen = await generateOneWithRetry({
           prompt,
           negative_prompt: negativePrompt,
@@ -162,12 +215,34 @@ export async function leonardoGenerateForScript({
         seed = gen.seed
         leonardoImageId = gen.leonardoImageId
         leonardoGenerationId = gen.leonardoGenerationId
+        pipelineStageLog('leonardo_response_received', {
+          scene: sceneKey,
+          hasUrl: Boolean(imageUrl),
+          generationId: leonardoGenerationId
+        })
         lastValidation = validateSceneImage({
-          scriptRow: s,
+          scriptRow,
           prompt,
           imageUrl,
           castMemory
         })
+        if (imageUrl) {
+          const remote = await validateRemoteSceneImageUrl(imageUrl)
+          pipelineStageLog('image_downloaded', {
+            scene: sceneKey,
+            ok: remote.ok,
+            bytes: remote.bytes,
+            mime: remote.mime,
+            issues: remote.issues
+          })
+          if (!remote.ok) {
+            lastValidation = {
+              ok: false,
+              shouldRegenerate: true,
+              issues: [...(lastValidation?.issues || []), ...remote.issues]
+            }
+          }
+        }
         if (lastValidation.ok) break
         if (!lastValidation.shouldRegenerate || attempt >= SCENE_IMAGE_MAX_ATTEMPTS) break
         console.warn('[katha:leonardo]', 'scene_validation_regen', {
@@ -179,6 +254,7 @@ export async function leonardoGenerateForScript({
       if (!imageUrl || (lastValidation && !lastValidation.ok && lastValidation.shouldRegenerate)) {
         throw new Error(validationFailureReason(lastValidation) || 'Scene image validation failed')
       }
+      pipelineStageLog('image_cached', { scene: sceneKey, url: imageUrl.slice(0, 80) })
       const row = {
         scene: sceneKey,
         image_url: imageUrl,
@@ -252,6 +328,13 @@ export async function leonardoGenerateForScript({
       scenes: failures.map((f) => f.scene).join(',')
     })
   }
+  if (strict && out.length < total) {
+    const detail = failures.map((f) => `scene ${f.scene}: ${f.message}`).join('; ')
+    throw new Error(
+      `Scene image generation incomplete (${out.length}/${total})${detail ? ` — ${detail}` : ''}`
+    )
+  }
+  pipelineStageLog('generation_completed', { scenes: out.length, total })
   return out
 }
 
