@@ -39,6 +39,7 @@ import {
   enrichContextMemoryFromOutputs
 } from '../storyIntelligence/longStoryOrchestrator.js'
 import { normalizeScriptJson } from '../utils/normalizeScriptJson.js'
+import { buildFallbackScriptFromStory } from '../../shared/fallbackScriptFromStory.js'
 import { attachComposedNarrationToScript } from '../cinematic/cinematicStoryWriting.js'
 import {
   analyzeNamingPolicy,
@@ -221,7 +222,7 @@ export async function runKathaPipeline(input, req, opts = {}) {
   let longStoryPlan = { active: false }
   const storyOnlyPhase = pipelinePhase === 'story'
   try {
-    if (!isServerlessRuntime() || !storyOnlyPhase) {
+    if (!resumeStory && (!isServerlessRuntime() || !storyOnlyPhase)) {
       longStoryPlan = runLongStoryIntelligence(pinnedInput, { onProgress })
     }
     if (longStoryPlan?.active && longStoryPlan.blueprintBlock) {
@@ -383,6 +384,7 @@ async function continuePipelineFromStory(
 ) {
   const budget = opts.budget || createPipelineBudget()
   const pipelinePhase = String(pinnedInput.pipelinePhase || 'full').trim() || 'full'
+  const scriptResumePhase = pipelinePhase === 'script'
   const fast = serverlessFastPipeline()
   let finalStory = story
 
@@ -423,14 +425,16 @@ async function continuePipelineFromStory(
     if (onProgress) onProgress({ stage: 'merge', progress: 35, message: 'Merging results' })
     finalStory = mergeResults(story, validated, enhanced)
 
-    finalStory = await maybeBlueprintRepairStory({
-      pinnedInput,
-      region,
-      memory,
-      finalStory,
-      providersUsed,
-      onProgress
-    })
+    if (!scriptResumePhase) {
+      finalStory = await maybeBlueprintRepairStory({
+        pinnedInput,
+        region,
+        memory,
+        finalStory,
+        providersUsed,
+        onProgress
+      })
+    }
   }
 
   const longPlan = pinnedInput.__longStoryIntelligence
@@ -508,26 +512,11 @@ async function continuePipelineFromStory(
 
   budget.checkpoint('master_context', { story: finalStory, masterStoryContext })
 
-  if (pipelinePhase === 'story' || (isServerlessRuntime() && budget.shouldStop())) {
-    throw new PipelineYieldError(
-      buildYieldResult(
-        { story: finalStory, script: [] },
-        pinnedInput,
-        region,
-        providersUsed,
-        {
-          checkpoint: 'story_ready',
-          masterStoryContext,
-          outputLanguage: 'English',
-          regionalContext: masterStoryContext.regionalContext,
-          productionStage: 'writing'
-        }
-      ),
-      'story_ready'
-    )
-  }
+  const yieldStoryOnly =
+    pipelinePhase === 'story' ||
+    (isServerlessRuntime() && budget.shouldStop() && !scriptResumePhase)
 
-  if (budget.shouldStop()) {
+  if (yieldStoryOnly) {
     throw new PipelineYieldError(
       buildYieldResult(
         { story: finalStory, script: [] },
@@ -563,7 +552,24 @@ async function continuePipelineFromStory(
   })
   let script = normalizeScriptJson(scriptRaw)
   if (!script.length) {
-    throw new Error('Script generation returned no scenes. Tap Generate again to continue.')
+    safeLog('warn', 'script_normalize_empty', { provider: scriptProvider })
+    const { json: scriptRetryRaw, provider: scriptRetryProvider } = await aiJsonAuto({
+      purpose: 'script',
+      schemaHint: 'Script',
+      prompt: `${buildScriptPrompt({ story: finalStory, input: pinnedInput, region })}\n\nReturn ONLY a JSON array of 6-8 objects. Each object MUST include: scene (number), narration (string), visual_description (string), dialogue (array of {character,line}).`,
+      order: ['openai', 'gemini', 'deepseek']
+    })
+    script = normalizeScriptJson(scriptRetryRaw)
+    if (script.length) providersUsed.script = scriptRetryProvider
+  }
+  if (!script.length) {
+    const targetN =
+      Number(pinnedInput.__longStoryIntelligence?.targetSceneCount) ||
+      Number(longPlan?.targetSceneCount) ||
+      8
+    script = buildFallbackScriptFromStory(finalStory, targetN)
+    providersUsed.script = 'fallback_deterministic'
+    safeLog('warn', 'script_fallback_from_story', { scenes: script.length })
   }
   const maxScenes = serverlessMaxScriptScenes(pinnedInput)
   script = capScriptScenes(script, maxScenes)

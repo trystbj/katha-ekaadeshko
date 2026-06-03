@@ -36,6 +36,7 @@ import {
   buildProjectMemoryPatch,
   mergeProjectMemoryIntoPreferences
 } from '@shared/projectMemory.js'
+import { buildFallbackScriptFromStory } from '@shared/fallbackScriptFromStory.js'
 import { mergeProjectAssets } from '../utils/sceneAssetMap'
 import { withScriptReviewReady } from '../utils/productionWorkflow'
 import { formatApiError } from '../utils/formatApiError'
@@ -409,11 +410,27 @@ export function useBackendGenerate() {
       }
 
       const needsScriptPhase =
-        pipelineResult.story &&
-        (!Array.isArray(pipelineResult.script) || pipelineResult.script.length === 0) &&
-        (pipelineResult.metadata?.pipelineCheckpoint === 'story_ready' ||
-          pipelineResult.metadata?.pipelineYielded === true ||
-          Boolean(savedResume?.story))
+        Boolean(pipelineResult.story) &&
+        (!Array.isArray(pipelineResult.script) || pipelineResult.script.length === 0)
+
+      const slimResumeStory = (story: JobsStreamGenerateResult['story']) => ({
+        title: story?.title,
+        setting: story?.setting,
+        story: story?.story,
+        characters: Array.isArray(story?.characters)
+          ? story.characters.map((c) => ({
+              name: c.name,
+              role: c.role,
+              traits: c.traits,
+              personality: c.personality,
+              visualIdentity: c.visualIdentity,
+              appearance: c.appearance,
+              gender: c.gender,
+              age: c.age,
+              characterDNA: (c as { characterDNA?: unknown }).characterDNA
+            }))
+          : []
+      })
 
       if (needsScriptPhase && pipelineResult.story) {
         savePipelineResume(resumePayloadFromResult(pipelineResult.story, pipelineResult.metadata))
@@ -424,23 +441,31 @@ export function useBackendGenerate() {
           log: [uiText('liveGenSseScriptResume')]
         })
         try {
-          const resScript = await fetch('/api/jobs-stream-generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: ac.signal,
-            body: JSON.stringify({
-              ...streamRequestBase,
-              pipelinePhase: 'script',
-              resumeStory: pipelineResult.story,
-              ...(pipelineResult.metadata?.masterStoryContext
-                ? { masterStoryContext: pipelineResult.metadata.masterStoryContext }
-                : {})
+          const scriptBody = {
+            ...streamRequestBase,
+            pipelinePhase: 'script' as const,
+            resumeStory: slimResumeStory(pipelineResult.story),
+            ...(pipelineResult.metadata?.masterStoryContext
+              ? { masterStoryContext: pipelineResult.metadata.masterStoryContext }
+              : {})
+          }
+          let lastScriptPhase: JobsStreamGenerateResult | null = null
+          for (let attempt = 0; attempt < 2; attempt++) {
+            const resScript = await fetch('/api/jobs-stream-generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              signal: ac.signal,
+              body: JSON.stringify(scriptBody)
             })
-          })
-          const scriptPhase = await consumeStream(resScript)
+            const scriptPhase = await consumeStream(resScript)
+            lastScriptPhase = scriptPhase
+            if (Array.isArray(scriptPhase.script) && scriptPhase.script.length > 0) break
+            console.warn('[katha:generate] script_phase_empty', { attempt: attempt + 1 })
+          }
+          if (!lastScriptPhase) throw new Error(uiText('generateResumeScriptStep'))
           pipelineResult = {
-            ...scriptPhase,
-            story: scriptPhase.story || pipelineResult.story
+            ...lastScriptPhase,
+            story: lastScriptPhase.story || pipelineResult.story
           }
         } catch (scriptErr) {
           savePipelineResume(resumePayloadFromResult(pipelineResult.story, pipelineResult.metadata))
@@ -538,11 +563,21 @@ export function useBackendGenerate() {
         narration: narrationDraft
       }
 
-      const scriptRows = Array.isArray(pipelineResult.script) ? pipelineResult.script : []
-      if (!scriptRows.length) {
-        throw new Error(
-          'Story finished but the screenplay was empty. Try again with a shorter seed or different length.'
+      let scriptRows = Array.isArray(pipelineResult.script) ? pipelineResult.script : []
+      if (!scriptRows.length && pipelineResult.story) {
+        const targetN =
+          Number(
+            (pipelineResult.metadata?.longStoryIntelligence as { targetSceneCount?: number } | undefined)
+              ?.targetSceneCount
+          ) || 8
+        scriptRows = buildFallbackScriptFromStory(
+          pipelineResult.story as Record<string, unknown>,
+          targetN
         )
+        console.warn('[katha:generate] client_script_fallback', { scenes: scriptRows.length })
+      }
+      if (!scriptRows.length) {
+        throw new Error(uiText('generateScreenplayEmpty'))
       }
 
       const targetSceneCount = Math.min(

@@ -1031,6 +1031,8 @@ export const en = {
     'Generation paused — your progress was saved. Tap Generate again to continue.',
   generateResumeScriptStep:
     'Your story is saved. Tap Generate again to finish the screenplay (server time limit).',
+  generateScreenplayEmpty:
+    'Story finished but the screenplay was empty. Tap Generate again — we will retry the screenplay step automatically.',
   liveGenPause: 'Pause typing',
   liveGenContinue: 'Continue',
   liveGenSkipReveal: 'Skip to end',

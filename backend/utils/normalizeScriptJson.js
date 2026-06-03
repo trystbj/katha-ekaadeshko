@@ -10,6 +10,9 @@ export function normalizeScriptJson(json) {
     if (Array.isArray(o.scenes)) return o.scenes.filter(Boolean)
     if (Array.isArray(o.script)) return o.script.filter(Boolean)
     if (Array.isArray(o.rows)) return o.rows.filter(Boolean)
+    if (Array.isArray(o.data)) return o.data.filter(Boolean)
+    if (Array.isArray(o.scene_list)) return o.scene_list.filter(Boolean)
+    if (Array.isArray(o.screenplay)) return o.screenplay.filter(Boolean)
   }
   return []
 }
