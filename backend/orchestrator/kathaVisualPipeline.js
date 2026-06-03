@@ -19,6 +19,10 @@ import {
   assertCharactersReadyForImageGeneration,
   enrichStoryCharacterProfiles
 } from '../character/characterIdentityMemory.js'
+import {
+  attachSceneVisualBriefsToScript,
+  buildStoryBible
+} from '../cinematic/storyBible.js'
 import { enrichScriptRowsForVisuals } from '../utils/sceneVisualIntelligence.js'
 import { pipelineStageLog, isStrictImagePipeline } from '../utils/pipelineStageLog.js'
 import {
@@ -78,7 +82,11 @@ export async function runKathaVisualPipeline(opts = {}) {
   const permanentProfiles = buildPermanentCharacterProfiles(storyCast)
   pipelineStageLog('character_profiles_created', { count: permanentProfiles.length })
 
-  const script = enrichScriptRowsForVisuals(scriptFiltered, input, story)
+  const storyBible = buildStoryBible(story, input, scriptFiltered, region)
+  const scriptBriefed = attachSceneVisualBriefsToScript(scriptFiltered, storyBible, {
+    bibleCharacters: storyCast
+  })
+  const script = enrichScriptRowsForVisuals(scriptBriefed, input, story)
   pipelineStageLog('scene_descriptions_created', { count: script.length })
   const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null
   const directives = normalizeProductionDirectives(
@@ -99,7 +107,7 @@ export async function runKathaVisualPipeline(opts = {}) {
       Array.isArray(story?.characters) ? story.characters : input.bibleCharacters || [],
       input.characterVisualLocks
     ),
-    input.bibleCharacters || []
+    storyCast.length ? storyCast : input.bibleCharacters || []
   )
   const characterBlock = characterConsistencyPromptBlock(characterLocks)
   const storyboardPlan = buildStoryboardDirectorPlan(script, directives)
@@ -121,6 +129,7 @@ export async function runKathaVisualPipeline(opts = {}) {
   const inputWithContinuity = {
     ...input,
     __story: story,
+    __storyBible: storyBible,
     __permanentCharacterProfiles: permanentProfiles,
     seedLine: input.seedLine || input.theme,
     __masterStoryContext: masterCtx,
@@ -222,6 +231,7 @@ export async function runKathaVisualPipeline(opts = {}) {
       sceneCount: script.length,
       visualGeneration: true,
       ...(masterCtx ? { masterStoryContext: masterCtx } : {}),
+      storyBible,
       productionStage: 'narration_motion',
       productionDirectives: directives,
       sceneProductionStates,

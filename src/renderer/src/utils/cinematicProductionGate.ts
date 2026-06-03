@@ -38,7 +38,7 @@ export function deriveCinematicProductionGate(
   const ep = project?.episodes.find((e) => e.number === epn) ?? project?.episodes[0]
   const narrationGenerated = Boolean(ep?.narrationAudioUrl)
   const assetsReviewed = Boolean(project?.scriptReviewReady && !project?.storyboardPartial)
-  const validationPassed = sceneImagesGenerated && Boolean(project?.storyboardReady)
+  const validationPassed = sceneImagesGenerated
   const videoReady = Boolean(project?.lastRenderVideoUrl)
 
   const canRenderFinalVideo =

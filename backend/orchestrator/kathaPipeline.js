@@ -58,6 +58,7 @@ import {
   masterStoryContextPromptBlock
 } from '../cinematic/masterStoryContext.js'
 import { pipelineStageLog } from '../utils/pipelineStageLog.js'
+import { buildStoryBible } from '../cinematic/storyBible.js'
 
 const PROVIDERS = [
   {
@@ -457,6 +458,7 @@ async function continuePipelineFromStory(
       withRefs: mergedCast.filter((c) => Array.isArray(c.referenceImages) && c.referenceImages.length).length
     })
     pipelineStageLog('character_profiles_created', { count: finalStory.characters.length })
+    pinnedInput.__storyBible = buildStoryBible(finalStory, pinnedInput, [], region)
   }
 
   // Stage 3b — Master story context + character identity memory (before screenplay)
@@ -731,6 +733,7 @@ async function continuePipelineFromStory(
       outputLanguage: masterStoryContext?.outputLanguage || 'English',
       regionalContext: masterStoryContext?.regionalContext,
       masterStoryContext,
+      ...(pinnedInput.__storyBible ? { storyBible: pinnedInput.__storyBible } : {}),
       generationBlueprint: pinnedInput.__generationBlueprintMeta,
       aiProviders: providersUsed,
       ambientBedUrl,

@@ -268,6 +268,9 @@ export function useVisualGeneration() {
                 : {}),
               ...(meta?.masterStoryContext
                 ? { masterStoryContext: meta.masterStoryContext as Record<string, unknown> }
+                : {}),
+              ...(meta?.storyBible
+                ? { storyBible: meta.storyBible as Record<string, unknown> }
                 : {})
             },
             {

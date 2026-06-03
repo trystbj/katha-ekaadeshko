@@ -207,6 +207,12 @@ export async function leonardoGenerateForScript({
       let leonardoImageId
       let leonardoGenerationId
       let lastValidation = null
+      const namesInShot = Array.isArray(scriptRow.characters_in_shot) ? scriptRow.characters_in_shot : []
+      const castChar = (Array.isArray(characters) ? characters : []).find((c) =>
+        namesInShot.some((n) => String(n).toLowerCase() === String(c.name || '').toLowerCase())
+      )
+      const castSeed = typeof castChar?.leonardoSeed === 'number' ? castChar.leonardoSeed : undefined
+
       for (let attempt = 1; attempt <= SCENE_IMAGE_MAX_ATTEMPTS; attempt++) {
         pipelineStageLog('leonardo_request_sent', { scene: sceneKey, attempt })
         const gen = await generateOneWithRetry({
@@ -215,7 +221,8 @@ export async function leonardoGenerateForScript({
           modelId,
           width,
           height,
-          scene: sceneKey
+          scene: sceneKey,
+          ...(attempt === 1 && castSeed != null ? { seed: castSeed } : {})
         })
         imageUrl = gen.imageUrl
         seed = gen.seed

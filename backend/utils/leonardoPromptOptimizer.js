@@ -10,6 +10,7 @@ import {
 } from '../character/characterIdentityMemory.js'
 import { TEXT_FREE_NEGATIVE } from '../cinematic/masterStoryContext.js'
 import { buildLeonardoNegativePrompt } from './leonardoPromptQuality.js'
+import { characterReferencePromptFromBible } from '../cinematic/storyBible.js'
 
 export const LEONARDO_MAX_PROMPT = 1300
 export const LEONARDO_MAX_NEGATIVE = 500
@@ -95,12 +96,13 @@ export function buildCompactLeonardoScenePrompt(ctx = {}) {
   const profile = resolveStyleProfile(input)
   const sceneNum = Number(scriptRow.scene) > 0 ? Number(scriptRow.scene) : sceneIndex + 1
 
+  const brief = String(scriptRow.__sceneVisualBrief || '').trim()
   const visual = truncate(
-    String(scriptRow.visual_description || blueprint?.cinematicComposition || scriptRow.action || '').trim(),
-    360
+    brief ||
+      String(scriptRow.visual_description || blueprint?.cinematicComposition || scriptRow.action || '').trim(),
+    380
   )
-  const action = truncate(String(scriptRow.action || '').trim(), 140)
-  const sceneBeat = action && action.length > 12 && !visual.includes(action.slice(0, 20)) ? `${visual} ${action}` : visual
+  const sceneBeat = visual
 
   const environment = truncate(
     String(
@@ -125,9 +127,18 @@ export function buildCompactLeonardoScenePrompt(ctx = {}) {
     85
   )
   const style = truncate(strictStylePromptLine(profile) || String(profile.leonardoCore || '').trim(), 280)
-  const identity =
-    String(ctx.identityBlock || '').trim() ||
+  const cref = characterReferencePromptFromBible(
+    input.__storyBible || {},
+    input.bibleCharacters || [],
+    scriptRow
+  )
+  const identity = [
+    cref,
+    String(ctx.identityBlock || '').trim(),
     compactLeonardoIdentityBlock(scriptRow, castMemory)
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   const sections = {
     character: truncate(stripLeonardoPromptBloat(identity), MAIN_SECTION_PRIORITY[0].max),

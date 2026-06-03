@@ -29,8 +29,22 @@ export const LEONARDO_QUALITY_NEGATIVE =
  * @param {object} input normalized studio input
  * @returns {string}
  */
+const STYLE_ANTI_BLEED = {
+  soft_anime_fantasy:
+    'photorealistic, live action, DSLR photo, realistic skin pores, 3D CGI render, western comic ink',
+  cozy_storybook:
+    'photorealistic, harsh anime cel, live action photo, 3D game render, neon cyberpunk',
+  cinematic_anime:
+    'flat chibi cartoon, storybook watercolor, photoreal snapshot, random mixed media',
+  comic_panel:
+    'soft anime watercolor, photoreal portrait, oil painting realism, 3D Pixar',
+  cinematic_realistic:
+    'anime cel shading, chibi, flat cartoon sticker, storybook illustration, comic ink outline'
+}
+
 export function buildLeonardoNegativePrompt(input = {}) {
   const profile = resolveStyleProfile(input)
+  const baseKey = String(profile.key || '').split('+')[0]
   const hybrid = profile.key?.includes('+')
   const styleNeg = hybrid
     ? ''
@@ -38,7 +52,8 @@ export function buildLeonardoNegativePrompt(input = {}) {
         .replace(/^FORBIDDEN[^:]*:\s*/i, '')
         .replace(/unless hybrid mode[^.]*\.?/gi, '')
         .trim()
-  return [TEXT_FREE_NEGATIVE, LEONARDO_QUALITY_NEGATIVE, styleNeg].filter(Boolean).join(', ')
+  const antiBleed = STYLE_ANTI_BLEED[baseKey] || ''
+  return [TEXT_FREE_NEGATIVE, LEONARDO_QUALITY_NEGATIVE, styleNeg, antiBleed].filter(Boolean).join(', ')
 }
 
 /**

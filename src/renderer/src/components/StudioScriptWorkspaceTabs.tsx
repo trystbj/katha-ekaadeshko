@@ -129,7 +129,7 @@ export function StudioScriptWorkspaceTabs({
             <button
               type="button"
               className="btn btn-generate-cta studio-script-workspace__video-btn"
-              disabled={!productionGate?.canRenderFinalVideo || Boolean(busy)}
+              disabled={Boolean(busy)}
               onClick={() => onGenerateFinalVideo?.()}
             >
               {uiText('storyboardGenerateFinalVideo')}

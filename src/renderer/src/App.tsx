@@ -47,7 +47,7 @@ import { MonitorEpisodeAccordion } from './components/MonitorEpisodeAccordion'
 import { canShowStoryboardWorkspace } from './utils/storyboardWorkflow'
 import { regenerateMissingSceneImages } from './utils/regenerateMissingSceneImages'
 import { withVisualGenerationApproved } from './utils/sceneVisualApproval'
-import { queueEpisodeVideoRender } from './utils/episodeVideoRender'
+import { runFinalVideoGeneration } from './utils/finalVideoGeneration'
 
 const PostExportVideoWorkspace = lazy(() =>
   import('./components/PostExportVideoWorkspace').then((m) => ({ default: m.PostExportVideoWorkspace }))
@@ -717,14 +717,16 @@ export default function App() {
     const epn = selectedEpisode ?? resolveOngoingEpisodeNumber(p)
     const ep = p.episodes.find((e) => e.number === epn) ?? p.episodes[0]
     console.info('[katha:render]', 'user_triggered_final_render', { projectId: p.id, episodeNumber: epn })
-    void (async () => {
-      if (ep?.scenes?.length && episodeNeedsMotionGeneration(p, ep.scenes)) {
-        console.info('[katha:video]', 'pre_render_motion_pass', { projectId: p.id })
-        await generateSceneVideos({ episodeNumber: epn })
+    void runFinalVideoGeneration({
+      project: p,
+      episodeNumber: epn,
+      onBeforeMotion: async (episodeNumber) => {
+        if (ep?.scenes?.length && episodeNeedsMotionGeneration(p, ep.scenes)) {
+          console.info('[katha:video]', 'pre_render_motion_pass', { projectId: p.id })
+          await generateSceneVideos({ episodeNumber })
+        }
       }
-      const latest = useStudioStore.getState().project ?? p
-      void queueEpisodeVideoRender({ project: latest, episodeNumber: epn, force: true })
-    })()
+    })
   }, [generateSceneVideos, selectedEpisode])
 
   useEffect(() => {

@@ -255,10 +255,40 @@ function removePipelineJob(id: string) {
   useProductionPipelineStore.getState().removeBackgroundJob(id)
 }
 
+function mapRenderStageLabel(stage: string, progressPct: number): string {
+  const s = String(stage || '').toLowerCase()
+  if (s.includes('precheck') || s.includes('prepare')) return 'Preparing Assets'
+  if (s.includes('timeline') || s.includes('plan')) return 'Building Timeline'
+  if (s.includes('generat')) return 'Generating Video'
+  if (s.includes('scene') || s.includes('image') || s.includes('download')) return 'Rendering Scenes'
+  if (s.includes('encod') || s.includes('mux') || s.includes('subtitle') || s.includes('audio')) {
+    return 'Encoding Video'
+  }
+  if (s.includes('final')) return 'Finalizing'
+  if (progressPct >= 99) return 'Completed'
+  return 'Generating Video'
+}
+
+async function verifyRenderedVideoUrl(url: string): Promise<{ ok: boolean; reason?: string }> {
+  const u = String(url || '').trim()
+  if (!/^https?:\/\//i.test(u)) return { ok: false, reason: 'invalid_video_url' }
+  try {
+    const res = await fetch(u, { method: 'HEAD' })
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` }
+    const len = Number(res.headers.get('content-length'))
+    if (Number.isFinite(len) && len > 0 && len < 2048) return { ok: false, reason: 'file_too_small' }
+    return { ok: true }
+  } catch {
+    return { ok: false, reason: 'video_fetch_failed' }
+  }
+}
+
 function applyRenderProgress(jobId: string, row: RenderStatusRow) {
   const status = normalizeRenderStatus(row.status)
   const progress = typeof row.progress === 'number' ? row.progress / 100 : 0
-  const stage = row.stage || status
+  const stageRaw = row.stage || status
+  const progressPct = typeof row.progress === 'number' ? row.progress : Math.round(progress * 100)
+  const stage = mapRenderStageLabel(String(stageRaw), progressPct)
   upsertPipelineJob({
     id: jobId,
     projectId: useStudioStore.getState().project?.id ?? '',
@@ -421,8 +451,27 @@ function schedulePoll(
     applyRenderProgress(jobId, row)
 
     if (status === 'complete' && videoUrl) {
+      const verified = await verifyRenderedVideoUrl(videoUrl)
+      if (!verified.ok) {
+        log('video_validation_failed', { jobId, videoUrl, reason: verified.reason })
+        const retried = await requeueRenderAfterFailure(
+          jobId,
+          episodeNumber,
+          `Video validation failed: ${verified.reason}`
+        )
+        if (retried) return
+        stopPolling(jobId)
+        removePipelineJob(jobId)
+        useStudioStore.getState().setWorkspaceError(
+          useStudioStore.getState().activeWorkspaceSlotIndex,
+          'Final video failed validation — try generating again.'
+        )
+        clearRenderBusyState()
+        return
+      }
       logCheckpoint(jobId, 'complete', { videoUrl })
       log('video_url_created', { jobId, videoUrl })
+      applyRenderProgress(jobId, { ...row, stage: 'Completed', progress: 100 })
       stopPolling(jobId)
       removePipelineJob(jobId)
 

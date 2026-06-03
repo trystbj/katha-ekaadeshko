@@ -395,6 +395,8 @@ export interface ProjectState {
   productionMemory?: Record<string, unknown>
   /** Master story context for character locks and scene continuity. */
   masterStoryContext?: Record<string, unknown>
+  /** Global story bible (cast, style, scenes) — single source of truth for generation. */
+  storyBible?: Record<string, unknown>
   /** Visible script language (always English in studio). */
   outputLanguage?: string
   /** Regional atmosphere from language picker (e.g. Nepali culture in English prose). */

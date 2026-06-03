@@ -675,6 +675,9 @@ export function useBackendGenerate() {
         ...(pipelineResult.metadata?.masterStoryContext
           ? { masterStoryContext: pipelineResult.metadata.masterStoryContext as Record<string, unknown> }
           : {}),
+        ...(pipelineResult.metadata?.storyBible
+          ? { storyBible: pipelineResult.metadata.storyBible as Record<string, unknown> }
+          : {}),
         outputLanguage:
           (pipelineResult.metadata?.outputLanguage as string | undefined) || 'English',
         regionalContext:

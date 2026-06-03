@@ -28,7 +28,11 @@ export function buildVisualPipelinePayload(
       role: c.role || c.personality,
       traits: c.visualIdentity || c.appearance || c.personality,
       appearance: c.appearance || c.visualIdentity,
-      visualIdentity: c.visualIdentity
+      visualIdentity: c.visualIdentity,
+      gender: c.gender,
+      age: c.age,
+      baseImageUrl: c.baseImageUrl,
+      baseImagePrompt: c.baseImagePrompt
     }))
   }
 
