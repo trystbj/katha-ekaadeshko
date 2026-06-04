@@ -1,5 +1,6 @@
 import type { AssetRef, ProjectState, StoryScene } from '../types/story'
 import { sceneIndexFromPipelineRow, sceneUrlForIndex } from './sceneAssetMap'
+import { isEmergencySceneAsset, sceneAssetForIndex } from './pipelineCompletionAudit'
 
 function strField(row: Record<string, unknown>, ...keys: string[]): string | undefined {
   for (const k of keys) {
@@ -24,14 +25,32 @@ export type SceneGenerationStatus =
   | 'complete'
   | 'image_failed'
 
+export function sceneImageStateFromValidation(
+  project: ProjectState | null,
+  sceneIndex: number
+): 'completed' | 'failed' | null {
+  const report = project?.pipelineValidationReport
+  if (!report) return null
+  const row = report.scenes.find((s) => s.scene === sceneIndex)
+  if (!row) return null
+  if (row.image === 'ok' && row.preview === 'ok') return 'completed'
+  if (row.image !== 'missing') return 'failed'
+  return 'failed'
+}
+
 export function sceneGenerationStatusForRow(
   project: ProjectState | null,
   sceneIndex: number,
   hasNarrationAudio?: boolean
 ): SceneGenerationStatus {
+  const asset = sceneAssetForIndex(project, sceneIndex)
+  if (isEmergencySceneAsset(asset)) return 'image_failed'
+  const validated = sceneImageStateFromValidation(project, sceneIndex)
+  if (validated === 'failed') return 'image_failed'
   const url = sceneUrlForIndex(project, sceneIndex)
-  if (url) return hasNarrationAudio ? 'complete' : 'narration'
-  return 'image_failed'
+  if (url && validated !== 'failed') return hasNarrationAudio ? 'complete' : 'narration'
+  if (!url) return 'image_failed'
+  return hasNarrationAudio ? 'complete' : 'narration'
 }
 
 export function attachSceneGenerationStatuses(

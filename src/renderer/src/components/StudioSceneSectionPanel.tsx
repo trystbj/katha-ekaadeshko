@@ -7,6 +7,7 @@ import { SceneAiDirectorStrip } from './SceneAiDirectorStrip'
 import { StoryHealthStrip } from './StoryHealthStrip'
 import { episodeSceneImageCoverage } from '../utils/storyboardWorkflow'
 import { VisualGenerationDiagnosticsPanel } from './VisualGenerationDiagnosticsPanel'
+import { PipelineDebugPanel } from './PipelineDebugPanel'
 import { useStudioStore } from '../store/useStudioStore'
 import '../styles/visual-generation-diagnostics.css'
 
@@ -57,7 +58,11 @@ export function StudioSceneSectionPanel({
       .join(' · ')
   }, [project.characterIdentityMemory])
 
-  const needsBatch = coverage.total > 0 && coverage.withImage < coverage.total
+  const animationReady =
+    project.pipelineValidationReport?.animationReady ??
+    healSummary?.storyReadyForAnimation ??
+    false
+  const needsBatch = coverage.total > 0 && !animationReady
   const batchBusy = generating || regenBusy
 
   if (!activeScene) {
@@ -109,7 +114,7 @@ export function StudioSceneSectionPanel({
                     {uiText('visualGenBlackRepaired', { count: String(healSummary.blackRepaired) })}
                   </p>
                 ) : null}
-                {healSummary.storyReadyForAnimation ? (
+                {animationReady ? (
                   <p className="studio-scene-section__ready">{uiText('visualGenStoryReadyAnimation')}</p>
                 ) : (
                   <p>{uiText('visualStoryStatusIncomplete')}</p>
@@ -139,6 +144,11 @@ export function StudioSceneSectionPanel({
           {uiText('visualRetryFailedScenes')}
         </button>
       ) : null}
+      <PipelineDebugPanel
+        project={project}
+        episode={episode}
+        cachedReport={project.pipelineValidationReport ?? undefined}
+      />
       <VisualGenerationDiagnosticsPanel rows={visualDiagnostics ?? []} visible={Boolean(visualDiagnostics?.length)} />
       <p className="studio-scene-section__monitor-note">{uiText('studioSceneSectionMonitorNote')}</p>
     </div>

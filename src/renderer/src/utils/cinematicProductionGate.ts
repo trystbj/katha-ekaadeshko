@@ -1,6 +1,7 @@
 import type { ProjectState } from '../types/story'
 import { sceneUrlForIndex } from './sceneAssetMap'
 import { episodeSceneImageCoverage } from './storyboardWorkflow'
+import { sceneImageStateFromValidation } from './scenePipelineStatus'
 
 /** Centralized cinematic pipeline gate — drives unlock states without layout changes. */
 export type CinematicProductionGate = {
@@ -28,14 +29,19 @@ export function deriveCinematicProductionGate(
     1
   const coverage = episodeSceneImageCoverage(project, epn)
   const storyGenerated = Boolean(project?.bible && coverage.total > 0)
+  const pipelineReport = project?.pipelineValidationReport
+  const validatedReady =
+    pipelineReport?.episodeNumber === epn && pipelineReport.animationReady
   const healReport = project?.sceneImageGenerationReport
   const reportAllowsExport =
-    !healReport || healReport.storyReadyForAnimation === true
+    validatedReady || !healReport || healReport.storyReadyForAnimation === true
   const sceneImagesGenerated =
     coverage.total > 0 &&
     coverage.missing.length === 0 &&
     project?.sceneImagesComplete !== false &&
-    reportAllowsExport
+    reportAllowsExport &&
+    (pipelineReport?.episodeNumber !== epn ||
+      pipelineReport.validatedImageCount === pipelineReport.totalScenes)
   const sceneImagesPartial = coverage.withImage > 0 && coverage.missing.length > 0
   const charactersGenerated = Boolean(
     project?.bible?.characters?.some((c) => Boolean(c.baseImageUrl)) ||
@@ -43,9 +49,17 @@ export function deriveCinematicProductionGate(
       (project?.assets ?? []).some((a) => a.kind === 'character' && a.url)
   )
   const ep = project?.episodes.find((e) => e.number === epn) ?? project?.episodes[0]
-  const narrationGenerated = Boolean(ep?.narrationAudioUrl)
-  const assetsReviewed = Boolean(project?.scriptReviewReady && !project?.storyboardPartial)
-  const validationPassed = sceneImagesGenerated
+  const narrationGenerated =
+    Boolean(ep?.narrationAudioUrl) &&
+    (pipelineReport?.episodeNumber !== epn || pipelineReport.narrationState === 'audio_ready')
+  const assetsReviewed = Boolean(
+    project?.scriptReviewReady &&
+      !project?.storyboardPartial &&
+      (validatedReady || !pipelineReport)
+  )
+  const validationPassed =
+    validatedReady ||
+    (sceneImagesGenerated && narrationGenerated && Boolean(project?.sceneImagesComplete))
   const videoReady = Boolean(project?.lastRenderVideoUrl)
 
   const canRenderFinalVideo =
@@ -70,6 +84,8 @@ export function sceneImageStateForIndex(
   sceneIndex: number,
   busyGenerating?: boolean
 ): 'pending' | 'queued' | 'generating' | 'completed' | 'failed' {
+  const fromValidation = sceneImageStateFromValidation(project, sceneIndex)
+  if (fromValidation) return fromValidation
   const url = sceneUrlForIndex(project, sceneIndex)
   if (url) return 'completed'
   if (busyGenerating) return 'generating'

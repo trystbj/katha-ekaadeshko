@@ -93,9 +93,14 @@ function scoreCharacterConsistency(project: ProjectState): number {
   return clampScore(avg > 88 ? avg : Math.min(98, avg + 8))
 }
 
-function scoreNarrationQuality(episode: StoryEpisode): number {
+function scoreNarrationQuality(
+  episode: StoryEpisode,
+  narrationState?: 'none' | 'text_only' | 'audio_ready'
+): number {
   const scenes = episode.scenes ?? []
   if (!scenes.length) return 0
+  if (narrationState === 'none') return Math.min(40, scoreNarrationTextOnly(episode, 0))
+  if (narrationState === 'text_only') return Math.min(78, scoreNarrationTextOnly(episode, 72))
   let score = 50
   const narrations = scenes.map((s) => String(s.narration || s.text || '').trim())
   const avg = narrations.reduce((a, t) => a + t.length, 0) / scenes.length
@@ -107,27 +112,44 @@ function scoreNarrationQuality(episode: StoryEpisode): number {
   score += Math.min(22, (avg / 100) * 22)
   score += Math.min(14, (sensory / scenes.length) * 14)
   score += Math.min(14, (emotional / scenes.length) * 14)
-  if (episode.narrationAudioUrl) score += 8
-  if (avg > 80 && emotional / scenes.length > 0.5) score = Math.max(score, 93)
-  return clampScore(score)
+  if (episode.narrationAudioUrl || narrationState === 'audio_ready') score += 8
+  if (avg > 80 && emotional / scenes.length > 0.5) score = Math.max(score, 88)
+  if (narrationState === 'audio_ready' && avg > 60) score = Math.max(score, 92)
+  return clampScore(narrationState === 'audio_ready' ? score : Math.min(score, 85))
+}
+
+function scoreNarrationTextOnly(episode: StoryEpisode, base: number): number {
+  const scenes = episode.scenes ?? []
+  if (!scenes.length) return base
+  const narrations = scenes.map((s) => String(s.narration || s.text || '').trim())
+  const avg = narrations.reduce((a, t) => a + t.length, 0) / scenes.length
+  return clampScore(base + Math.min(28, (avg / 100) * 28))
 }
 
 function scoreVisualConsistency(
   episode: StoryEpisode,
   project: ProjectState,
-  coverage: { total: number; withImage: number; missing: number[] }
+  coverage: { total: number; withImage: number; missing: number[] },
+  pipelineReport?: ProjectState['pipelineValidationReport']
 ): StoryHealthVisualMetric {
   const total = coverage.total || episode.scenes.length
   if (!total) return 'pending'
   if (coverage.withImage === 0) return 'pending'
-  const ratio = coverage.withImage / total
-  let score = 62 + ratio * 28
-  if (project.storyboardReady && ratio >= 1) score += 10
+  const validated =
+    pipelineReport?.episodeNumber === episode.number
+      ? pipelineReport.validatedImageCount
+      : 0
+  const ratio =
+    pipelineReport && pipelineReport.totalScenes === total
+      ? validated / total
+      : coverage.withImage / total
+  let score = 52 + ratio * 36
+  if (project.storyboardReady && ratio >= 1 && validated === total) score += 10
   if (project.bible?.styleId) score += 4
   const visualDescScore =
     episode.scenes.filter((s) => (s.visual_description || '').trim().length > 70).length / total
   score += visualDescScore * 8
-  if (ratio < 1) return clampScore(score)
+  if (ratio < 1 || validated < total) return clampScore(score)
   const briefAligned =
     episode.scenes.filter((s) => /\b(WHAT:|WHO:|Story event)/i.test(s.visual_description || '')).length /
     total
@@ -136,7 +158,8 @@ function scoreVisualConsistency(
   if (project.bible?.characters?.some((c) => (c as { characterDNA?: { locked?: boolean } }).characterDNA?.locked)) {
     score += 6
   }
-  return clampScore(Math.max(90, score))
+  if (pipelineReport?.animationReady) return 100
+  return clampScore(Math.min(96, score))
 }
 
 function emotionBand(text: string): 'calm' | 'rise' | 'peak' | 'resolve' | 'neutral' {
@@ -205,14 +228,38 @@ function scoreContinuity(episode: StoryEpisode, project: ProjectState): number {
 export function computeStoryHealthMetrics(
   project: ProjectState,
   episode: StoryEpisode,
-  coverage: { total: number; withImage: number; missing: number[] }
+  coverage: { total: number; withImage: number; missing: number[] },
+  pipelineReport?: ProjectState['pipelineValidationReport']
 ): StoryHealthMetrics {
-  return {
+  const narrState =
+    pipelineReport?.episodeNumber === episode.number
+      ? pipelineReport.narrationState
+      : deriveNarrationStateFromEpisode(episode)
+  const metrics = {
     story: scoreStoryQuality(episode, project),
     character: scoreCharacterConsistency(project),
-    narration: scoreNarrationQuality(episode),
-    visual: scoreVisualConsistency(episode, project, coverage),
+    narration: scoreNarrationQuality(episode, narrState),
+    visual: scoreVisualConsistency(episode, project, coverage, pipelineReport),
     emotion: scoreEmotionProgression(episode),
     continuity: scoreContinuity(episode, project)
   }
+  if (pipelineReport?.animationReady) {
+    return {
+      story: Math.min(100, Math.max(metrics.story, 92)),
+      character: Math.min(100, Math.max(metrics.character, 92)),
+      narration: 100,
+      visual: 100,
+      emotion: Math.min(100, Math.max(metrics.emotion, 90)),
+      continuity: Math.min(100, Math.max(metrics.continuity, 90))
+    }
+  }
+  return metrics
+}
+
+function deriveNarrationStateFromEpisode(
+  episode: StoryEpisode
+): 'none' | 'text_only' | 'audio_ready' {
+  if (episode.narrationAudioUrl?.trim()) return 'audio_ready'
+  const hasText = (episode.scenes ?? []).some((s) => String(s.narration || s.text || '').trim())
+  return hasText ? 'text_only' : 'none'
 }

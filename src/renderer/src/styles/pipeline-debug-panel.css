@@ -1,0 +1,53 @@
+.pipeline-debug {
+  margin-top: 0.65rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #9aa3b5);
+}
+
+.pipeline-debug__title {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-secondary, #c5cad6);
+}
+
+.pipeline-debug__scenes {
+  margin: 0.4rem 0 0.5rem;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+
+.pipeline-debug__tag {
+  opacity: 0.85;
+}
+
+.pipeline-debug__meta {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+}
+
+.pipeline-debug__meta div {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.pipeline-debug__meta dt {
+  font-weight: 600;
+  margin: 0;
+}
+
+.pipeline-debug__meta dd {
+  margin: 0;
+}
+
+.pipeline-debug__blockers {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--warn, #e8b86a);
+}
+
+.pipeline-debug__loading {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  opacity: 0.8;
+}

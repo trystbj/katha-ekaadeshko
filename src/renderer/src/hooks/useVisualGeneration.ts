@@ -32,6 +32,10 @@ import type { VisualSceneDiagnostic } from '../types/visualGeneration'
 import { markSceneFailed } from '../utils/applySceneImagePatch'
 import { healEpisodeSceneImages } from '../utils/sceneImageHeal'
 import { auditEpisodeSceneImages } from '../utils/sceneImageValidationClient'
+import {
+  applyPipelineValidationToProject,
+  auditEpisodePipelineCompletion
+} from '../utils/pipelineCompletionAudit'
 
 type VisualGenResult = {
   images: PipelineImageRow[]
@@ -445,9 +449,40 @@ export function useVisualGeneration() {
             }
           })
 
-          draftProject = healedProject
-          useStudioStore.getState().setVisualGenerationSummary(report)
-          console.info('[katha:pipeline]', 'scene_heal_complete', report)
+          const pipelineReport = await auditEpisodePipelineCompletion(healedProject, epn)
+          draftProject = applyPipelineValidationToProject(healedProject, pipelineReport)
+          useStudioStore.getState().patchWorkspaceProject(workspaceIx, () => draftProject!)
+          useStudioStore.getState().setVisualGenerationSummary({
+            ...report,
+            imagesGenerated: pipelineReport.validatedImageCount,
+            total: pipelineReport.totalScenes,
+            storyReadyForAnimation: pipelineReport.animationReady
+          })
+          console.info('[katha:pipeline]', 'scene_heal_complete', report, pipelineReport)
+        }
+
+        if (draftProject && narrationAudioUrl) {
+          draftProject = {
+            ...draftProject,
+            episodes: draftProject.episodes.map((e) =>
+              e.number === epn ? { ...e, narrationAudioUrl: String(narrationAudioUrl) } : e
+            )
+          }
+        }
+        if (draftProject?.bible) {
+          const finalPipeline = await auditEpisodePipelineCompletion(draftProject, epn)
+          draftProject = applyPipelineValidationToProject(draftProject, finalPipeline)
+          useStudioStore.getState().setVisualGenerationSummary({
+            imagesGenerated: finalPipeline.validatedImageCount,
+            total: finalPipeline.totalScenes,
+            missingRepaired: draftProject.sceneImageGenerationReport?.missingRepaired ?? 0,
+            blackRepaired: draftProject.sceneImageGenerationReport?.blackRepaired ?? 0,
+            emergencyFilled: draftProject.sceneImageGenerationReport?.emergencyFilled ?? 0,
+            storyReadyForAnimation: finalPipeline.animationReady,
+            incompleteSceneIndices: finalPipeline.scenes
+              .filter((r) => r.image !== 'ok' || r.preview !== 'ok')
+              .map((r) => r.scene)
+          })
         }
 
         const metaBibleChars = (out.metadata?.bibleCharacters ?? []) as {
@@ -477,12 +512,16 @@ export function useVisualGeneration() {
           })
           const cov = episodeSceneImageCoverage(withVisual, epn)
           const meta = (out as { metadata?: Record<string, unknown> }).metadata
-          const partial = !withVisual.sceneImageGenerationReport?.storyReadyForAnimation
+          const partial =
+            !withVisual.pipelineValidationReport?.animationReady &&
+            !withVisual.sceneImageGenerationReport?.storyReadyForAnimation
           if (partial) {
             useStudioStore.getState().setSelectedEpisode(epn)
+            const validated =
+              withVisual.pipelineValidationReport?.validatedImageCount ?? cov.withImage
             setError(
               uiText('visualStoryIncomplete', {
-                generated: String(cov.withImage),
+                generated: String(validated),
                 total: String(cov.total)
               })
             )
@@ -556,7 +595,10 @@ export function useVisualGeneration() {
         sceneIndices: audit.allProblems.length ? audit.allProblems : undefined
       })
       const after = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
-      return Boolean(after?.sceneImageGenerationReport?.storyReadyForAnimation)
+      return Boolean(
+        after?.pipelineValidationReport?.animationReady ||
+          after?.sceneImageGenerationReport?.storyReadyForAnimation
+      )
     },
     [generateVisuals]
   )

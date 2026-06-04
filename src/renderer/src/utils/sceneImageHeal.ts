@@ -11,8 +11,11 @@ import {
   removeSceneAssetsForIndices,
   sceneUrlForIndex
 } from './sceneAssetMap'
-import { episodeSceneImageCoverage } from './storyboardWorkflow'
 import type { PipelineImageRow } from './visualStreamRecovery'
+import {
+  applyPipelineValidationToProject,
+  auditEpisodePipelineCompletion
+} from './pipelineCompletionAudit'
 
 export type SceneImageHealReport = {
   imagesGenerated: number
@@ -90,28 +93,34 @@ export async function healEpisodeSceneImages(opts: {
     opts.onPatch?.(project)
   }
 
-  const cov = episodeSceneImageCoverage(project, epn)
-  const postAudit = await auditEpisodeSceneImages(project, epn)
-  const validCount = postAudit.rows.filter((r) => r.ok).length
+  const pipelineReport = await auditEpisodePipelineCompletion(project, epn)
+  const patched = applyPipelineValidationToProject(project, pipelineReport)
 
   const report: SceneImageHealReport = {
-    imagesGenerated: cov.withImage,
-    total: cov.total,
+    imagesGenerated: pipelineReport.validatedImageCount,
+    total: pipelineReport.totalScenes,
     missingRepaired,
     blackRepaired,
     emergencyFilled,
     storyReadyForAnimation:
-      scriptCheck.complete && cov.total > 0 && cov.missing.length === 0 && postAudit.black.length === 0,
-    incompleteSceneIndices: scriptCheck.incompleteScenes
+      pipelineReport.animationReady && emergencyFilled === 0 && scriptCheck.complete,
+    incompleteSceneIndices: [
+      ...new Set([
+        ...scriptCheck.incompleteScenes,
+        ...pipelineReport.scenes
+          .filter((r) => r.image !== 'ok' || r.preview !== 'ok')
+          .map((r) => r.scene)
+      ])
+    ]
   }
 
   return {
     project: {
-      ...project,
-      sceneImagesComplete: report.storyReadyForAnimation,
+      ...patched,
       sceneImageGenerationReport: {
         ...report,
-        updatedAt: new Date().toISOString()
+        storyReadyForAnimation: report.storyReadyForAnimation,
+        updatedAt: pipelineReport.updatedAt
       }
     },
     report

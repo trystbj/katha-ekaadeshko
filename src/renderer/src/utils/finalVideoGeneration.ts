@@ -3,6 +3,11 @@ import { deriveCinematicProductionGate } from './cinematicProductionGate'
 import { queueEpisodeVideoRender } from './episodeVideoRender'
 import { useStudioStore } from '../store/useStudioStore'
 import { withStoryboardReady } from './storyboardWorkflow'
+import {
+  auditEpisodePipelineCompletion,
+  formatExportBlockers
+} from './pipelineCompletionAudit'
+import { runExportPipelinePrecheck } from './exportPipelinePrecheck'
 
 export type FinalVideoValidation = {
   ok: boolean
@@ -10,24 +15,20 @@ export type FinalVideoValidation = {
   episodeNumber: number
 }
 
-export function validateFinalVideoPrerequisites(
+export async function validateFinalVideoPrerequisites(
   project: ProjectState | null | undefined,
   episodeNumber?: number
-): FinalVideoValidation {
+): Promise<FinalVideoValidation> {
   const epn =
     episodeNumber ??
     project?.episodes.find((e) => e.scenes?.length)?.number ??
     project?.episodes[0]?.number ??
     1
-  const errors: string[] = []
-  if (!project?.bible) errors.push('Story is not generated yet.')
-  const gate = deriveCinematicProductionGate(project, epn)
-  if (!gate.storyGenerated) errors.push('Episode scenes are missing.')
-  if (!gate.sceneImagesGenerated) {
-    errors.push(`Scene images incomplete (${gate.coverage.withImage}/${gate.coverage.total}).`)
+  if (!project?.bible) {
+    return { ok: false, errors: ['Story is not generated yet.'], episodeNumber: epn }
   }
-  if (!gate.narrationGenerated) errors.push('Narration audio is missing — generate visuals first.')
-
+  const report = await auditEpisodePipelineCompletion(project, epn)
+  const errors = formatExportBlockers(report)
   const ep = project.episodes.find((e) => e.number === epn)
   const scenes = ep?.scenes ?? []
   if (scenes.length) {
@@ -37,8 +38,7 @@ export function validateFinalVideoPrerequisites(
     if (!monotonic) errors.push('Scene order is invalid — renumber scenes before export.')
     if (sorted[0] !== 1) errors.push('Scene timeline must start at scene 1.')
   }
-
-  return { ok: errors.length === 0, errors, episodeNumber: epn }
+  return { ok: errors.length === 0 && report.exportReady, errors, episodeNumber: epn }
 }
 
 function setVideoJobStage(stage: string, progress: number) {
@@ -51,49 +51,74 @@ function setVideoJobStage(stage: string, progress: number) {
 }
 
 /**
- * Validate, prepare project state, and queue worker MP4 render with progress stages.
+ * Validate → repair assets → re-validate → queue worker MP4 render.
  */
 export async function runFinalVideoGeneration(opts?: {
   project?: ProjectState | null
   episodeNumber?: number
   onBeforeMotion?: (episodeNumber: number) => Promise<void>
-  /** Repair missing/black scene stills before queueing MP4. */
   ensureSceneImages?: (episodeNumber: number) => Promise<boolean>
+  generateVisuals?: (opts: { episodeNumber: number }) => Promise<void>
 }): Promise<string | null> {
   const st = useStudioStore.getState()
-  const project = opts?.project ?? st.project
-  const validation = validateFinalVideoPrerequisites(project, opts?.episodeNumber)
+  let project = opts?.project ?? st.project
   const ix = st.activeWorkspaceSlotIndex
+  const epn =
+    opts?.episodeNumber ??
+    project?.episodes.find((e) => e.scenes?.length)?.number ??
+    project?.episodes[0]?.number ??
+    1
 
-  if (!validation.ok) {
-    const msg = validation.errors.join(' ')
+  if (!project?.bible) {
+    const msg = 'Story is not generated yet.'
     st.setWorkspaceError(ix, msg)
     if (ix === st.activeWorkspaceSlotIndex) st.setError(msg)
-    console.warn('[katha:render]', 'final_video_blocked', { errors: validation.errors })
     return null
   }
 
-  const epn = validation.episodeNumber
   st.setWorkspaceError(ix, null)
   if (ix === st.activeWorkspaceSlotIndex) st.setError(null)
 
   if (opts?.ensureSceneImages) {
-    setVideoJobStage('Repairing scene images', 4)
-    const repaired = await opts.ensureSceneImages(epn)
-    if (!repaired) {
-      const latest = useStudioStore.getState().workspaceSlots[ix]?.project ?? project
-      const msg =
-        latest?.sceneImageGenerationReport && !latest.sceneImageGenerationReport.storyReadyForAnimation
-          ? `Scene images incomplete (${latest.sceneImageGenerationReport.imagesGenerated}/${latest.sceneImageGenerationReport.total}). Repair scenes before export.`
-          : 'Scene images are incomplete or invalid — regenerate scenes before final video.'
+    setVideoJobStage('Validating assets', 2)
+    const precheck = await runExportPipelinePrecheck({
+      project,
+      episodeNumber: epn,
+      ensureSceneImages: opts.ensureSceneImages,
+      generateVisuals: opts.generateVisuals,
+      onStage: (stage) => setVideoJobStage(stage, 6)
+    })
+    project = useStudioStore.getState().workspaceSlots[ix]?.project ?? project
+    if (!precheck.ok) {
+      const msg = precheck.errors.join(' ') || 'Export blocked — assets incomplete.'
       st.setWorkspaceError(ix, msg)
       if (ix === st.activeWorkspaceSlotIndex) st.setError(msg)
-      console.warn('[katha:render]', 'final_video_scene_repair_failed', { epn })
+      console.warn('[katha:render]', 'final_video_precheck_failed', {
+        errors: precheck.errors,
+        repaired: precheck.repaired
+      })
+      return null
+    }
+  } else {
+    const validation = await validateFinalVideoPrerequisites(project, epn)
+    if (!validation.ok) {
+      const msg = validation.errors.join(' ')
+      st.setWorkspaceError(ix, msg)
+      if (ix === st.activeWorkspaceSlotIndex) st.setError(msg)
       return null
     }
   }
 
-  setVideoJobStage('Preparing Assets', 2)
+  const gate = deriveCinematicProductionGate(project, epn)
+  if (!gate.narrationGenerated || !gate.sceneImagesGenerated) {
+    const report = await auditEpisodePipelineCompletion(project!, epn)
+    const msg = formatExportBlockers(report).join(' ') || 'Assets incomplete.'
+    st.setWorkspaceError(ix, msg)
+    if (ix === st.activeWorkspaceSlotIndex) st.setError(msg)
+    return null
+  }
+
+  setVideoJobStage('Preparing Assets', 10)
   console.info('[katha:render]', 'final_video_start', { projectId: project?.id, episodeNumber: epn })
 
   st.patchWorkspaceProject(ix, (p) => {
@@ -103,11 +128,11 @@ export async function runFinalVideoGeneration(opts?: {
   })
 
   if (opts?.onBeforeMotion) {
-    setVideoJobStage('Generating Video', 8)
+    setVideoJobStage('Generating Video', 14)
     await opts.onBeforeMotion(epn)
   }
 
-  setVideoJobStage('Building Timeline', 12)
+  setVideoJobStage('Building Timeline', 18)
   const latest = useStudioStore.getState().workspaceSlots[ix]?.project ?? project
   if (!latest) return null
 
@@ -123,6 +148,6 @@ export async function runFinalVideoGeneration(opts?: {
     return null
   }
 
-  setVideoJobStage('Rendering Scenes', 20)
+  setVideoJobStage('Rendering Scenes', 22)
   return jobId
 }

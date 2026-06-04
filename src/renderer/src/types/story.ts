@@ -379,6 +379,25 @@ export interface ProjectState {
   missingSceneImageIndices?: number[]
   /** True when every scene has a validated (non-black) still. */
   sceneImagesComplete?: boolean
+  /** Full pipeline validation (images, narration, export readiness). */
+  pipelineValidationReport?: {
+    episodeNumber: number
+    animationReady: boolean
+    exportReady: boolean
+    healthPercent: number
+    narrationState: 'none' | 'text_only' | 'audio_ready'
+    validatedImageCount: number
+    totalScenes: number
+    scenes: {
+      scene: number
+      script: 'ok' | 'missing'
+      image: string
+      preview: 'ok' | 'failed'
+      narrationText: 'ok' | 'missing'
+    }[]
+    blockers: string[]
+    updatedAt: string
+  }
   /** Last batch heal report for Scenes tab / export gate. */
   sceneImageGenerationReport?: {
     imagesGenerated: number

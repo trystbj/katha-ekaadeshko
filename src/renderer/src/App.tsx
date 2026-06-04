@@ -758,6 +758,7 @@ export default function App() {
       project: p,
       episodeNumber: epn,
       ensureSceneImages: ensureEpisodeSceneImages,
+      generateVisuals: (o) => generateVisuals(o),
       onBeforeMotion: async (episodeNumber) => {
         if (ep?.scenes?.length && episodeNeedsMotionGeneration(p, ep.scenes)) {
           console.info('[katha:video]', 'pre_render_motion_pass', { projectId: p.id })
@@ -765,7 +766,7 @@ export default function App() {
         }
       }
     })
-  }, [ensureEpisodeSceneImages, generateSceneVideos, selectedEpisode])
+  }, [ensureEpisodeSceneImages, generateSceneVideos, generateVisuals, selectedEpisode])
 
   useEffect(() => {
     const prev = prevBusyCelebrateRef.current

@@ -15,9 +15,9 @@ export type SceneImageRejectReason =
 
 const MIN_WIDTH = 32
 const MIN_HEIGHT = 32
-const MIN_AVG_LUMINANCE = 14
-const NEAR_BLACK_AVG = 22
-const BLACK_PIXEL_RATIO = 0.88
+const MIN_AVG_LUMINANCE = 20
+const NEAR_BLACK_AVG = 28
+const BLACK_PIXEL_RATIO = 0.75
 
 export function isPlaceholderSceneUrl(url: string): boolean {
   return /^data:image\/svg\+xml/i.test(String(url || '').trim())
@@ -30,6 +30,7 @@ export async function validateSceneImageUrl(
 ): Promise<SceneImageProbeResult & { avgLuminance?: number }> {
   const src = String(url || '').trim()
   if (!src) return { ok: false, reason: 'missing_url' }
+  if (isPlaceholderSceneUrl(src)) return { ok: false, reason: 'placeholder_only' }
   return new Promise((resolve) => {
     const img = new Image()
     let settled = false
@@ -138,6 +139,11 @@ export async function auditEpisodeSceneImages(
     if (!url) {
       missing.push(s.index)
       rows.push({ scene: s.index, ok: false, reason: 'missing_url' })
+      continue
+    }
+    if (isPlaceholderSceneUrl(url)) {
+      invalid.push(s.index)
+      rows.push({ scene: s.index, url, ok: false, reason: 'placeholder_only' })
       continue
     }
     const v = await validateSceneImageUrl(url)

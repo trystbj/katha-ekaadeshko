@@ -17,7 +17,11 @@ function fingerprint(project: ProjectState, episode: StoryEpisode): string {
     .map((c) => `${c.id}:${c.baseImageUrl || ''}:${c.visualIdentity?.length ?? 0}`)
     .join('|')
   const cov = episodeSceneImageCoverage(project, episode.number)
-  return `${project.id}:${episode.number}:${sceneSig}:${castSig}:${cov.withImage}/${cov.total}:${project.storyboardReady ? 1 : 0}`
+  const pipe = project.pipelineValidationReport
+  const pipeSig = pipe
+    ? `${pipe.updatedAt}:${pipe.healthPercent}:${pipe.animationReady ? 1 : 0}:${pipe.validatedImageCount}/${pipe.totalScenes}:${pipe.narrationState}`
+    : '0'
+  return `${project.id}:${episode.number}:${sceneSig}:${castSig}:${cov.withImage}/${cov.total}:${pipeSig}:${project.storyboardReady ? 1 : 0}`
 }
 
 /**
@@ -31,7 +35,12 @@ export function computeStableStoryHealth(
   const hit = cache.get(key)
   if (hit) return hit
   const coverage = episodeSceneImageCoverage(project, episode.number)
-  const metrics = computeStoryHealthMetrics(project, episode, coverage)
+  const metrics = computeStoryHealthMetrics(
+    project,
+    episode,
+    coverage,
+    project.pipelineValidationReport
+  )
   cache.set(key, metrics)
   if (cache.size > 48) {
     const first = cache.keys().next().value

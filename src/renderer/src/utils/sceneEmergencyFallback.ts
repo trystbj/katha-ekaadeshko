@@ -2,6 +2,7 @@ import { buildScenePlaceholderImageUrl } from '@shared/scenePlaceholderImage.js'
 import type { ProjectState, StoryScene } from '../types/story'
 import { buildSceneAssetsFromPipeline } from './sceneAssetMap'
 import type { AssetRef } from '../types/story'
+import { EMERGENCY_SCENE_PROMPT_TAG } from './pipelineCompletionAudit'
 
 /** Emergency still when Leonardo retries fail — never leave scene without a renderable URL. */
 export function buildEmergencySceneImageUrl(
@@ -34,7 +35,7 @@ export function emergencySceneAssetsForIndices(
       scene: sc!.index,
       image_url: buildEmergencySceneImageUrl(sc!, project),
       status: 'emergency_fallback',
-      prompt: String(sc!.visualDescription || '').slice(0, 400)
+      prompt: `${EMERGENCY_SCENE_PROMPT_TAG} ${String(sc!.visualDescription || '').slice(0, 380)}`.trim()
     }))
   return buildSceneAssetsFromPipeline(rows)
 }
