@@ -3,7 +3,10 @@
  */
 
 import { assertCharactersReadyForImageGeneration } from '../character/characterIdentityMemory.js'
+import { enrichStoryCharacterProfiles } from '../../shared/characterNamingPolicy.js'
 import { buildStoryBible } from './storyBible.js'
+import { isServerlessRuntime } from '../utils/runtime.js'
+import { safeLog } from '../../api/_lib/log.js'
 
 /**
  * @param {object} story
@@ -22,10 +25,23 @@ export function validateStoryForVisualPipeline(story, script = [], input = {}) {
   if (issues.length) {
     throw new Error(`Story validation failed before visuals: ${issues.join(', ')}`)
   }
-  return assertCharactersReadyForImageGeneration(cast, {
-    country: input.country,
-    theme: input.theme || input.seedLine
-  })
+  try {
+    return assertCharactersReadyForImageGeneration(cast, {
+      country: input.country,
+      theme: input.theme || input.seedLine
+    })
+  } catch (e) {
+    if (isServerlessRuntime()) {
+      safeLog('warn', 'cast_profile_assert_relaxed', {
+        message: e instanceof Error ? e.message : String(e)
+      })
+      return enrichStoryCharacterProfiles(cast, {
+        country: input.country,
+        theme: input.theme || input.seedLine
+      })
+    }
+    throw e
+  }
 }
 
 /**

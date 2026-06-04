@@ -7,6 +7,7 @@ import { buildCharacterPortraitPromptFromDNA } from '../utils/characterPortraitP
 import { validateRemoteSceneImageUrl } from './sceneImageFetchValidation.js'
 import { pipelineStageLog } from '../utils/pipelineStageLog.js'
 import { buildAllCharacterDNA } from './characterDNA.js'
+import { isServerlessRuntime } from '../utils/runtime.js'
 
 function portraitMaxAttempts() {
   const n = Number(process.env.KATHA_PORTRAIT_MAX_ATTEMPTS || 4)
@@ -29,6 +30,23 @@ async function validatePortraitUrl(url) {
  */
 export async function ensureCharacterPortraits(characters = [], input = {}, onProgress) {
   if (!Array.isArray(characters) || !characters.length) return []
+  const skipNewPortraits =
+    input.skipCharacterPortraits === true ||
+    (isServerlessRuntime() && process.env.KATHA_SERVERLESS_PORTRAITS !== '1')
+  if (skipNewPortraits) {
+    pipelineStageLog('character_portraits_skipped', {
+      reason: 'serverless_scene_priority',
+      count: characters.length
+    })
+    const dnaList = buildAllCharacterDNA(characters, {
+      country: input.country,
+      theme: input.theme || input.seedLine
+    })
+    return characters.map((c, i) => ({
+      ...c,
+      characterDNA: c.characterDNA || dnaList[i]
+    }))
+  }
   const dnaList = buildAllCharacterDNA(characters, {
     country: input.country,
     theme: input.theme || input.seedLine

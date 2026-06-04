@@ -27,6 +27,9 @@ import {
 import { validateStoryForVisualPipeline } from '../cinematic/storyPipelineGate.js'
 import { enrichScriptRowsForVisuals } from '../utils/sceneVisualIntelligence.js'
 import { pipelineStageLog, isStrictImagePipeline } from '../utils/pipelineStageLog.js'
+import { isServerlessRuntime } from '../utils/runtime.js'
+import { buildScenePlaceholderImageUrl } from '../../shared/scenePlaceholderImage.js'
+import { safeLog } from '../../api/_lib/log.js'
 import {
   buildStoryboardDirectorPlan,
   storyboardDirectorPromptBlock
@@ -91,8 +94,16 @@ export async function runKathaVisualPipeline(opts = {}) {
   }
   const castWithPortraits = await ensureCharacterPortraits(castWithDNA, input, onProgress)
   story.characters = castWithPortraits
-  if (isStrictImagePipeline()) {
+  const requirePortraits = isStrictImagePipeline() && !isServerlessRuntime()
+  if (requirePortraits) {
     assertCharacterPortraitsReady(castWithPortraits)
+  } else {
+    const missingPortraits = castWithPortraits
+      .filter((c) => !String(c.baseImageUrl || '').trim())
+      .map((c) => c.name)
+    if (missingPortraits.length) {
+      pipelineStageLog('character_portraits_optional', { missing: missingPortraits.join(',') })
+    }
   }
 
   const permanentProfiles = buildPermanentCharacterProfiles(castWithPortraits)
@@ -182,6 +193,7 @@ export async function runKathaVisualPipeline(opts = {}) {
 
   pipelineStageLog('image_prompts_queued', { scenes: script.length })
 
+  const sceneStrict = isStrictImagePipeline() && !isServerlessRuntime()
   const [images, audio] = await Promise.all([
     leonardoGenerateForScript({
       script,
@@ -191,7 +203,7 @@ export async function runKathaVisualPipeline(opts = {}) {
       characters: castWithPortraits,
       sceneBlueprints,
       projectId: input.projectId || story.id,
-      strict: isStrictImagePipeline(),
+      strict: sceneStrict,
       allowServerlessLeonardo: true
     }),
     ttsGenerateForScript({
@@ -200,10 +212,25 @@ export async function runKathaVisualPipeline(opts = {}) {
       region,
       req: opts.req,
       story
+    }).catch((e) => {
+      safeLog('warn', 'visual_tts_skipped', { message: e instanceof Error ? e.message : String(e) })
+      return []
     })
   ])
 
-  const imageList = Array.isArray(images) ? images : []
+  let imageList = Array.isArray(images) ? images : []
+  if (!imageList.length && script.length) {
+    imageList = script.map((row, i) => {
+      const sceneNum = Number(row?.scene) > 0 ? Number(row.scene) : i + 1
+      return {
+        scene: sceneNum,
+        image_url: buildScenePlaceholderImageUrl(sceneNum, 'Leonardo unavailable'),
+        status: 'placeholder',
+        error: 'leonardo_returned_empty'
+      }
+    })
+    pipelineStageLog('visual_fallback_placeholders', { count: imageList.length })
+  }
   const placeholders = imageList.filter((r) => r?.status === 'placeholder').length
   if (isStrictImagePipeline() && imageList.length === 0) {
     throw new Error('Visual generation returned no scene images — check Leonardo API key and prompts.')

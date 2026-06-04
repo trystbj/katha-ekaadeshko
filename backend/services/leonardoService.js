@@ -32,7 +32,6 @@ import {
 import { parseLeonardoApiError } from '../utils/leonardoErrors.js'
 import { traceVisualScene } from '../utils/visualSceneTrace.js'
 import { validateSceneVisualPreflight } from '../utils/sceneVisualPreflight.js'
-import { buildScenePlaceholderImageUrl } from '../../shared/scenePlaceholderImage.js'
 
 function sceneImageMaxAttempts() {
   const n = Number(process.env.KATHA_SCENE_MAX_ATTEMPTS || 5)
@@ -130,7 +129,16 @@ export async function leonardoGenerateForScript({
   }
   if (!process.env.LEONARDO_API_KEY) {
     if (strict) throw new Error('LEONARDO_API_KEY is missing — cannot generate scene images.')
-    return []
+    console.warn('[katha:leonardo]', 'missing_api_key_returning_placeholders', { scenes: script.length })
+    return script.map((row, i) => {
+      const sceneNum = Number(row?.scene) > 0 ? Number(row.scene) : i + 1
+      return {
+        scene: sceneNum,
+        image_url: buildScenePlaceholderImageUrl(sceneNum, 'API key missing'),
+        status: 'placeholder',
+        error: 'missing_api_key'
+      }
+    })
   }
   const modelId = process.env.LEONARDO_MODEL_ID || '7b592283-e8a7-4c5a-9ba6-d18c31f258b9'
   const { width, height } = leonardoDimensionsForAspectMode(input.aspectMode)

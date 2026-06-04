@@ -28,7 +28,9 @@ const BodySchema = z.object({
   characterReference: z.record(z.unknown()).optional(),
   bibleCharacters: z.array(z.record(z.unknown())).optional(),
   masterStoryContext: z.record(z.unknown()).optional(),
-  storyBible: z.record(z.unknown()).optional()
+  storyBible: z.record(z.unknown()).optional(),
+  skipCharacterPortraits: z.boolean().optional(),
+  performancePreferLow: z.boolean().optional()
 })
 
 export default async function handler(req, res) {
@@ -104,7 +106,9 @@ export default async function handler(req, res) {
           characterReference: body.characterReference,
           bibleCharacters: body.bibleCharacters,
           ...(body.masterStoryContext ? { masterStoryContext: body.masterStoryContext } : {}),
-          ...(body.storyBible ? { __storyBible: body.storyBible, storyBible: body.storyBible } : {})
+          ...(body.storyBible ? { __storyBible: body.storyBible, storyBible: body.storyBible } : {}),
+          skipCharacterPortraits: body.skipCharacterPortraits === true,
+          performancePreferLow: body.performancePreferLow === true
         }
       },
       req,
@@ -168,9 +172,18 @@ export default async function handler(req, res) {
   } catch (e) {
     done = true
     if (keepalive) clearInterval(keepalive)
-    safeLog('error', 'jobs-generate-visuals failed', { message: e instanceof Error ? e.message : String(e) })
+    const raw = e instanceof Error ? e.message : String(e)
+    safeLog('error', 'jobs-generate-visuals failed', { message: raw })
     try {
-      sseWrite(res, { type: 'error', error: publicErrorMessage(e) })
+      sseWrite(res, {
+        type: 'error',
+        error: publicErrorMessage(e),
+        code: /empty_image_array/i.test(raw)
+          ? 'empty_image_array'
+          : /leonardo|api key|portrait/i.test(raw)
+            ? 'leonardo'
+            : 'pipeline'
+      })
       res.end()
     } catch {
       /* closed */

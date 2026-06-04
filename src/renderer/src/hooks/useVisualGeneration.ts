@@ -311,13 +311,20 @@ export function useVisualGeneration() {
             if (ix >= 0) mergedResultImages[ix] = row
             else mergedResultImages.push(row)
           }
-          return { ...streamOut, images: mergedResultImages }
+          const finalImages = hasUsablePipelineImages(mergedResultImages)
+            ? mergedResultImages
+            : hasUsablePipelineImages(sseImages)
+              ? sseImages
+              : mergedResultImages
+          return { ...streamOut, images: finalImages }
         }
 
         const baseBody = {
           story: payload.story,
           script: payload.script,
           sceneIndices: targetScenes,
+          skipCharacterPortraits: true,
+          performancePreferLow: true,
           aspectMode: p.bible.aspectMode,
           styleId: p.bible.styleId,
           ...(p.bible.styleId === 'custom' ? { customVisualPrompt: p.bible.customVisualPrompt } : {}),

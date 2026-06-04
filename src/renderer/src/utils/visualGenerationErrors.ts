@@ -29,6 +29,12 @@ export function classifyVisualGenerationError(raw: unknown): {
   if (!m.trim() || m === 'stream_empty_images') {
     return { code: 'empty_image_array', message: 'No scene images were returned from the visual pipeline.' }
   }
+  if (/character portraits incomplete|portrait_missing/i.test(m)) {
+    return { code: 'missing_api_key', message: msg }
+  }
+  if (/character profiles incomplete/i.test(m)) {
+    return { code: 'no_prompt_generated', message: msg }
+  }
   if (/no prompt|prompt.*empty|no_scene_description/i.test(m)) {
     return { code: 'no_prompt_generated', message: msg }
   }
