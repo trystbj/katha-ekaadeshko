@@ -15,6 +15,8 @@ type SceneImageRow = {
   leonardoSeed?: number
   leonardoImageId?: string
   leonardoGenerationId?: string
+  status?: string
+  error?: string
 }
 
 /** Merge one Leonardo scene still into project state (live storyboard updates). */
@@ -42,8 +44,36 @@ export function applySceneImagePatch(
                 ? {
                     ...s,
                     productionStatus: (url ? 'visual_ready' : 'awaiting_review') as SceneProductionStatus,
-                    generationStatus: url ? 'image' : 'image_failed'
+                    generationStatus:
+                      imageRow.status === 'placeholder'
+                        ? 'image_failed'
+                        : url
+                          ? 'image'
+                          : 'image_failed'
                   }
+                : s
+            )
+          }
+        : e
+    ),
+    updatedAt: new Date().toISOString()
+  }
+}
+
+export function markSceneFailed(
+  project: ProjectState,
+  episodeNumber: number,
+  sceneIndex: number
+): ProjectState {
+  return {
+    ...project,
+    episodes: project.episodes.map((e) =>
+      e.number === episodeNumber
+        ? {
+            ...e,
+            scenes: e.scenes.map((s) =>
+              s.index === sceneIndex
+                ? { ...s, productionStatus: 'awaiting_review', generationStatus: 'image_failed' }
                 : s
             )
           }

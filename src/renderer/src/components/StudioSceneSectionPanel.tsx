@@ -6,6 +6,9 @@ import type { CinematicDirectorPlan } from '../../../../core/cinematic/types'
 import { SceneAiDirectorStrip } from './SceneAiDirectorStrip'
 import { StoryHealthStrip } from './StoryHealthStrip'
 import { episodeSceneImageCoverage } from '../utils/storyboardWorkflow'
+import { VisualGenerationDiagnosticsPanel } from './VisualGenerationDiagnosticsPanel'
+import { useStudioStore } from '../store/useStudioStore'
+import '../styles/visual-generation-diagnostics.css'
 
 type Props = {
   project: ProjectState
@@ -13,6 +16,7 @@ type Props = {
   activeSceneIndex: number
   busyLabel: string | null
   onApproveSceneImages?: () => void
+  onRetryFailedScenes?: (sceneIndices: number[]) => void
 }
 
 /** Scene column — AI Director + single batch image generation control. */
@@ -21,9 +25,11 @@ export function StudioSceneSectionPanel({
   episode,
   activeSceneIndex,
   busyLabel,
-  onApproveSceneImages
+  onApproveSceneImages,
+  onRetryFailedScenes
 }: Props) {
   const uiText = useUiText()
+  const visualDiagnostics = useStudioStore((s) => s.visualDiagnostics)
   const generating = busyLabel === 'generating'
   const rendering = busyLabel === 'rendering'
   const regenBusy = busyLabel === 'leonardo'
@@ -94,6 +100,17 @@ export function StudioSceneSectionPanel({
           })}
         </p>
       ) : null}
+      {coverage.missing.length > 0 && onRetryFailedScenes ? (
+        <button
+          type="button"
+          className="btn studio-scene-section__retry-btn"
+          disabled={batchBusy || rendering}
+          onClick={() => onRetryFailedScenes(coverage.missing)}
+        >
+          {uiText('visualRetryFailedScenes')}
+        </button>
+      ) : null}
+      <VisualGenerationDiagnosticsPanel rows={visualDiagnostics ?? []} visible={Boolean(visualDiagnostics?.length)} />
       <p className="studio-scene-section__monitor-note">{uiText('studioSceneSectionMonitorNote')}</p>
     </div>
   )

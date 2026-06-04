@@ -110,11 +110,22 @@ export default async function handler(req, res) {
       req,
       (p) => {
         try {
-          if (p?.stage === 'scene_complete' && p?.image) {
+          if ((p?.stage === 'scene_complete' || p?.stage === 'scene_failed') && p?.image) {
             sseWrite(res, {
               type: 'scene_image',
               scene: p.scene,
               image: p.image,
+              progress: p.progress,
+              total: p.total,
+              failed: p.stage === 'scene_failed',
+              diagnostic: p.diagnostic || null
+            })
+          } else if (p?.stage === 'scene_failed') {
+            sseWrite(res, {
+              type: 'scene_failed',
+              scene: p.scene,
+              message: p.message,
+              diagnostic: p.diagnostic || null,
               progress: p.progress,
               total: p.total
             })
@@ -140,7 +151,9 @@ export default async function handler(req, res) {
     }
     const hasMore = Boolean(batchNote?.remainingSceneIndices?.length)
     if (!merged.images.length && !hasMore) {
-      throw new Error('Visual pipeline completed without image URLs — check Leonardo API and scene prompts.')
+      throw new Error(
+        'empty_image_array: Visual pipeline completed without image URLs — check Leonardo API key, prompts, and rate limits.'
+      )
     }
     if (merged.metadata?.pipelineYielded) {
       sseWrite(res, {

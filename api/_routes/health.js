@@ -14,7 +14,9 @@ export default createJsonHandler({
       providers,
       tts: providers.tts,
       ready,
-      storyAiReady: ready
+      storyAiReady: ready,
+      leonardoReady:
+        Boolean(process.env.LEONARDO_API_KEY) && process.env.KATHA_DISABLE_LEONARDO !== '1'
     }
   }
 })

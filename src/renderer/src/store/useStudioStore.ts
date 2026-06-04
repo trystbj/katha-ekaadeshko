@@ -121,6 +121,9 @@ export interface StudioState {
   streamReveal: StreamRevealState | null
   /** Abort in-flight stream fetch (Generate Story). */
   generationAbort: AbortController | null
+  /** Last scene image batch diagnostics (Generate All Scene Images). */
+  visualDiagnostics: import('../types/visualGeneration').VisualSceneDiagnostic[] | null
+  setVisualDiagnostics: (rows: import('../types/visualGeneration').VisualSceneDiagnostic[] | null) => void
   /** Per-workspace runtime state so background jobs continue while switching projects. */
   workspaceRuntime: Array<{
     busy: string | null
@@ -324,6 +327,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   activeWorkspaceSlotIndex: 0,
   streamReveal: null,
   generationAbort: null,
+  visualDiagnostics: null,
   workspaceRuntime: [
     { busy: null, lastError: null, job: null, streamReveal: null, generationAbort: null },
     { busy: null, lastError: null, job: null, streamReveal: null, generationAbort: null },
@@ -332,6 +336,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     { busy: null, lastError: null, job: null, streamReveal: null, generationAbort: null }
   ],
   setGenerationAbort: (generationAbort) => set({ generationAbort }),
+  setVisualDiagnostics: (visualDiagnostics) => set({ visualDiagnostics }),
   abortGenerationInFlight: () => {
     const ac = get().generationAbort
     ac?.abort()

@@ -204,10 +204,12 @@ export async function runKathaVisualPipeline(opts = {}) {
   ])
 
   const imageList = Array.isArray(images) ? images : []
-  if (isStrictImagePipeline() && imageList.length < script.length) {
-    throw new Error(
-      `Visual generation incomplete: ${imageList.length}/${script.length} scene images succeeded.`
-    )
+  const placeholders = imageList.filter((r) => r?.status === 'placeholder').length
+  if (isStrictImagePipeline() && imageList.length === 0) {
+    throw new Error('Visual generation returned no scene images — check Leonardo API key and prompts.')
+  }
+  if (placeholders > 0) {
+    pipelineStageLog('visual_placeholders', { count: placeholders, total: script.length })
   }
 
   if (onProgress) {

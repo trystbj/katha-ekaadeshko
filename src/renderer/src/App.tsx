@@ -661,6 +661,18 @@ export default function App() {
     uiText
   ])
 
+  const retryFailedSceneImages = useCallback(
+    (sceneIndices: number[]) => {
+      const p = useStudioStore.getState().project
+      if (!p?.bible || !sceneIndices.length) return
+      const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(p)
+      setError(null)
+      console.info('[katha:production]', 'retry_failed_scenes', { episodeNumber: epn, sceneIndices })
+      void generateVisuals({ episodeNumber: epn, sceneIndices })
+    },
+    [activeEpisode?.number, generateVisuals, selectedEpisode, setError]
+  )
+
   const onRegenerateMissingSceneImages = useCallback(async () => {
     const p = useStudioStore.getState().project
     if (!p?.bible) return
@@ -1529,6 +1541,7 @@ export default function App() {
                   onRegenerateMissingSceneImages={onRegenerateMissingSceneImages}
                   onGenerateFinalVideo={onGenerateFinalVideo}
                   onApproveSceneImages={approveAndGenerateAllSceneImages}
+                  onRetryFailedScenes={retryFailedSceneImages}
                   onSceneFocus={(speaker, sceneIndex) => {
                     setCharacterPreviewId(null)
                     setFocusedSceneSpeaker(speaker.trim())

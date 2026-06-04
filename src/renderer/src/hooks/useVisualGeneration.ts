@@ -20,7 +20,17 @@ import {
   pipelineImagesFromStore,
   type PipelineImageRow
 } from '../utils/visualStreamRecovery'
-import { validateVisualGenerationPreflight } from '../utils/visualGenerationPreflight'
+import {
+  runVisualGenerationHealthCheck,
+  validateVisualGenerationPreflight
+} from '../utils/visualGenerationPreflight'
+import {
+  classifyVisualGenerationError,
+  formatVisualFailureForUser
+} from '../utils/visualGenerationErrors'
+import { tryAcquireVisualBatchLock, releaseVisualBatchLock } from '../utils/visualBatchLock'
+import type { VisualSceneDiagnostic } from '../types/visualGeneration'
+import { markSceneFailed } from '../utils/applySceneImagePatch'
 
 type VisualGenResult = {
   images: PipelineImageRow[]
@@ -93,9 +103,38 @@ export function useVisualGeneration() {
       const preflight = validateVisualGenerationPreflight(p, epn)
       if (!preflight.ok) {
         console.warn('[katha:pipeline]', 'visual_preflight_failed', { errors: preflight.errors })
-        setError(`Visual generation blocked: ${preflight.errors.join(', ')}`)
+        setError(formatVisualFailureForUser('no_prompt_generated', preflight.errors.join(', '), uiText))
         return
       }
+
+      const healthUrl = import.meta.env.VITE_BACKEND_URL
+        ? `${String(import.meta.env.VITE_BACKEND_URL).replace(/\/+$/, '')}/api/health`
+        : '/api/health'
+      const health = await runVisualGenerationHealthCheck(healthUrl)
+      if (!health.ok) {
+        console.warn('[katha:pipeline]', 'visual_health_failed', health)
+        const code = health.errors.includes('leonardo_unavailable')
+          ? 'leonardo_disabled'
+          : health.errors.includes('network_unavailable')
+            ? 'network_error'
+            : 'missing_api_key'
+        setError(formatVisualFailureForUser(code, health.errors.join(', '), uiText))
+        return
+      }
+
+      if (!tryAcquireVisualBatchLock(p.id)) {
+        console.info('[katha:pipeline]', 'visual_batch_skip_duplicate', { projectId: p.id })
+        return
+      }
+
+      const diagnostics: VisualSceneDiagnostic[] = []
+      const upsertDiagnostic = (row: VisualSceneDiagnostic) => {
+        const ix = diagnostics.findIndex((d) => d.scene === row.scene)
+        if (ix >= 0) diagnostics[ix] = { ...diagnostics[ix], ...row }
+        else diagnostics.push(row)
+        useStudioStore.getState().setVisualDiagnostics([...diagnostics])
+      }
+      useStudioStore.getState().setVisualDiagnostics([])
 
       const targetScenes =
         opts?.sceneIndices?.length && opts.sceneIndices.length > 0
@@ -128,7 +167,11 @@ export function useVisualGeneration() {
             signal: ac.signal,
             body: JSON.stringify(fetchBody)
           })
-          if (!r.ok) throw new Error(await readHttpErrorResponse(r, uiText('visualGenNoResult')))
+          if (!r.ok) {
+            const httpMsg = await readHttpErrorResponse(r, uiText('visualGenNoResult'))
+            const { code } = classifyVisualGenerationError(httpMsg)
+            throw new Error(formatVisualFailureForUser(code, httpMsg, uiText))
+          }
           if (!r.body) throw new Error('No response body')
 
           const reader = r.body.getReader()
@@ -150,10 +193,17 @@ export function useVisualGeneration() {
               if (evt.type === 'scene_image' && evt.image) {
                 const imageRow = evt.image as PipelineImageRow
                 const sceneNum = sceneIndexFromPipelineRow(imageRow, Number(evt.scene) || 1)
+                const failed = Boolean(evt.failed)
+                const diag = evt.diagnostic as VisualSceneDiagnostic | undefined
+                if (diag) upsertDiagnostic(diag)
                 sseImages = mergePipelineImageRows(sseImages, imageRow, sceneNum)
                 useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
                   if (!cur.bible) return cur
                   return applySceneImagePatch(cur, epn, imageRow, sceneNum)
+                })
+                console.info('[katha:pipeline]', failed ? 'scene_placeholder' : 'scene_image_ok', {
+                  scene: sceneNum,
+                  url: String(imageRow.image_url || imageRow.imageUrl || '').slice(0, 120)
                 })
                 const stJob = useStudioStore.getState().workspaceRuntime[workspaceIx]?.job
                 useStudioStore.getState().setWorkspaceJob(workspaceIx, {
@@ -179,8 +229,34 @@ export function useVisualGeneration() {
                 }
               } else if (evt.type === 'result') {
                 streamOut = evt.result as VisualGenResult & { metadata?: Record<string, unknown> }
+              } else if (evt.type === 'scene_failed') {
+                const sceneNum = Number(evt.scene) || 0
+                const diag = evt.diagnostic as VisualSceneDiagnostic | undefined
+                if (diag) upsertDiagnostic({ ...diag, status: 'failed' })
+                else if (sceneNum) {
+                  upsertDiagnostic({
+                    scene: sceneNum,
+                    promptLength: 0,
+                    provider: 'leonardo',
+                    status: 'failed',
+                    retryCount: 0,
+                    durationMs: 0,
+                    errorMessage: String(evt.message || '')
+                  })
+                }
+                if (sceneNum) {
+                  useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) =>
+                    markSceneFailed(cur, epn, sceneNum)
+                  )
+                }
+                console.warn('[katha:pipeline]', 'scene_failed_sse', { scene: sceneNum, message: evt.message })
               } else if (evt.type === 'error') {
-                throw new Error(formatApiError(evt.error, uiText('visualGenNoResult')))
+                const raw = formatApiError(evt.error, uiText('visualGenNoResult'))
+                const { code } = classifyVisualGenerationError(raw)
+                if (!sseImages.length) {
+                  throw new Error(formatVisualFailureForUser(code, raw, uiText))
+                }
+                console.warn('[katha:pipeline]', 'visual_stream_error_partial', { code, raw })
               }
             }
           }
@@ -189,15 +265,26 @@ export function useVisualGeneration() {
             if (evt.type === 'scene_image' && evt.image) {
               const imageRow = evt.image as PipelineImageRow
               const sceneNum = sceneIndexFromPipelineRow(imageRow, Number(evt.scene) || 1)
+              const diag = evt.diagnostic as VisualSceneDiagnostic | undefined
+              if (diag) upsertDiagnostic(diag)
               sseImages = mergePipelineImageRows(sseImages, imageRow, sceneNum)
               useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
                 if (!cur.bible) return cur
                 return applySceneImagePatch(cur, epn, imageRow, sceneNum)
               })
+            } else if (evt.type === 'scene_failed') {
+              const sceneNum = Number(evt.scene) || 0
+              if (sceneNum) {
+                useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) =>
+                  markSceneFailed(cur, epn, sceneNum)
+                )
+              }
             } else if (evt.type === 'result') {
               streamOut = evt.result as VisualGenResult & { metadata?: Record<string, unknown> }
             } else if (evt.type === 'error') {
-              throw new Error(formatApiError(evt.error, uiText('visualGenNoResult')))
+              const raw = formatApiError(evt.error, uiText('visualGenNoResult'))
+              const { code } = classifyVisualGenerationError(raw)
+              if (!sseImages.length) throw new Error(formatVisualFailureForUser(code, raw, uiText))
             }
           }
 
@@ -211,7 +298,10 @@ export function useVisualGeneration() {
               streamOut = { images: fromStore, audio: [], metadata: { recoveredFromStore: true } }
             }
           }
-          if (!streamOut) throw new Error(uiText('visualGenNoResult'))
+          if (!streamOut) {
+            const { code } = classifyVisualGenerationError('stream_empty_images')
+            throw new Error(formatVisualFailureForUser(code, undefined, uiText))
+          }
 
           const mergedResultImages = [...(streamOut.images ?? [])]
           for (const row of sseImages) {
@@ -295,7 +385,8 @@ export function useVisualGeneration() {
         }
         if (!out) {
           console.error('[katha:pipeline]', 'visual_stream_exhausted', { lastStreamError })
-          throw lastStreamError instanceof Error ? lastStreamError : new Error(uiText('visualGenNoResult'))
+          const classified = classifyVisualGenerationError(lastStreamError)
+          throw new Error(formatVisualFailureForUser(classified.code, classified.message, uiText))
         }
 
         let batchGuard = 0
@@ -351,18 +442,24 @@ export function useVisualGeneration() {
             covPre = episodeSceneImageCoverage({ ...draftProject, assets: mergedForCov }, epn)
           }
           if (covPre.missing.length > 0) {
-            throw new Error(
-              `Scene image generation incomplete — missing scenes: ${covPre.missing.join(', ')}`
-            )
+            console.warn('[katha:pipeline]', 'scenes_still_missing', { scenes: covPre.missing })
           }
         }
 
-        const probe = await probeSceneImagesFromPipeline(mergedImages)
-        if (!probe.ok) {
+        const realImages = mergedImages.filter(
+          (r) => String(r.status || '') !== 'placeholder' && String(r.image_url || r.imageUrl || '').trim()
+        )
+        const probe = await probeSceneImagesFromPipeline(realImages.length ? realImages : mergedImages)
+        if (!probe.ok && realImages.length === 0) {
           console.warn('[katha:pipeline]', 'image_rendered', { failed: probe.failedScenes, reasons: probe.reasons })
-          throw new Error(
-            `Scene images failed display validation: ${probe.reasons.slice(0, 4).join('; ')}`
-          )
+          const { code } = classifyVisualGenerationError(probe.reasons[0] || 'validation')
+          throw new Error(formatVisualFailureForUser('image_download_failed', probe.reasons.join('; '), uiText))
+        }
+        if (!probe.ok) {
+          console.warn('[katha:pipeline]', 'image_probe_partial', {
+            failed: probe.failedScenes,
+            reasons: probe.reasons
+          })
         }
         console.info('[katha:pipeline]', 'image_rendered', { scenes: mergedImages.length })
 
@@ -395,7 +492,10 @@ export function useVisualGeneration() {
             )
           })
           const cov = episodeSceneImageCoverage(withVisual, epn)
-          if (cov.missing.length > 0) return withVisual
+          if (cov.missing.length > 0) {
+            useStudioStore.getState().setSelectedEpisode(epn)
+            return withVisual
+          }
           const meta = (out as { metadata?: Record<string, unknown> }).metadata
           console.info('[katha:pipeline]', 'generation_completed', {
             scenes: cov.withImage,
@@ -430,9 +530,19 @@ export function useVisualGeneration() {
           )
         })
       } catch (e) {
-        const msg = formatApiError(e, uiText('visualGenNoResult'))
-        if (!(e instanceof Error && e.name === 'AbortError')) setError(msg)
+        const classified = classifyVisualGenerationError(e)
+        const msg = formatVisualFailureForUser(classified.code, classified.message, uiText)
+        if (!(e instanceof Error && e.name === 'AbortError')) {
+          const draft = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
+          const cov = draft ? episodeSceneImageCoverage(draft, epn) : null
+          if (cov && cov.withImage > 0) {
+            setError(`${msg} — ${uiText('visualPartialScenesOk', { count: String(cov.withImage) })}`)
+          } else {
+            setError(msg)
+          }
+        }
       } finally {
+        releaseVisualBatchLock(p.id)
         useStudioStore.getState().setWorkspaceGenerationAbort(workspaceIx, null)
         useStudioStore.getState().setWorkspaceBusy(workspaceIx, null)
         if (workspaceIx === useStudioStore.getState().activeWorkspaceSlotIndex) setBusy(null)

@@ -1,0 +1,37 @@
+.visual-gen-diagnostics {
+  margin-top: 0.65rem;
+  font-size: 0.72rem;
+  color: var(--text-muted, #9aa3b5);
+}
+
+.visual-gen-diagnostics__title {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-secondary, #c5cad6);
+}
+
+.visual-gen-diagnostics__table-wrap {
+  overflow-x: auto;
+  margin-top: 0.35rem;
+}
+
+.visual-gen-diagnostics__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.visual-gen-diagnostics__table th,
+.visual-gen-diagnostics__table td {
+  padding: 0.25rem 0.4rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.visual-gen-diagnostics__row--failed td,
+.visual-gen-diagnostics__row--placeholder td {
+  color: #e8a0a0;
+}
+
+.visual-gen-diagnostics__row--complete td {
+  color: #a8d4b0;
+}
