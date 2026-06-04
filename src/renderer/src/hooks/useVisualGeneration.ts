@@ -13,7 +13,6 @@ import { formatApiError, readHttpErrorResponse } from '../utils/formatApiError'
 import { markScenesQueued } from '../utils/sceneGenerationLock'
 import { applySceneImagePatch, markSceneGenerating } from '../utils/applySceneImagePatch'
 import { sceneIndexFromPipelineRow } from '../utils/sceneAssetMap'
-import { probeSceneImagesFromPipeline } from '../utils/probeSceneImageUrl'
 import {
   hasUsablePipelineImages,
   mergePipelineImageRows,
@@ -31,6 +30,8 @@ import {
 import { tryAcquireVisualBatchLock, releaseVisualBatchLock } from '../utils/visualBatchLock'
 import type { VisualSceneDiagnostic } from '../types/visualGeneration'
 import { markSceneFailed } from '../utils/applySceneImagePatch'
+import { healEpisodeSceneImages } from '../utils/sceneImageHeal'
+import { auditEpisodeSceneImages } from '../utils/sceneImageValidationClient'
 
 type VisualGenResult = {
   images: PipelineImageRow[]
@@ -418,59 +419,37 @@ export function useVisualGeneration() {
 
         let draftProject = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
         if (draftProject?.bible) {
-          let mergedForCov = mergeProjectAssets(
-            draftProject.assets,
-            buildSceneAssetsFromPipeline(mergedImages)
-          )
-          let covPre = episodeSceneImageCoverage({ ...draftProject, assets: mergedForCov }, epn)
-          let missingRetry = 0
-          while (covPre.missing.length > 0 && missingRetry < 3) {
-            missingRetry += 1
-            console.info('[katha:pipeline]', 'scene_retry_missing', {
-              attempt: missingRetry,
-              scenes: covPre.missing
-            })
-            const retryOut = await runVisualStream(
-              { ...baseBody, sceneIndices: covPre.missing },
-              mergedImages
-            )
-            mergedImages = [...mergedImages, ...(retryOut.images ?? [])]
-            const retryAssets = buildSceneAssetsFromPipeline(retryOut.images ?? [])
-            useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
-              if (!cur.bible) return cur
-              return { ...cur, assets: mergeProjectAssets(cur.assets, retryAssets) }
-            })
-            draftProject = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
-            if (!draftProject?.bible) break
-            mergedForCov = mergeProjectAssets(
+          draftProject = {
+            ...draftProject,
+            assets: mergeProjectAssets(
               draftProject.assets,
               buildSceneAssetsFromPipeline(mergedImages)
             )
-            covPre = episodeSceneImageCoverage({ ...draftProject, assets: mergedForCov }, epn)
           }
-          if (covPre.missing.length > 0) {
-            console.warn('[katha:pipeline]', 'scenes_still_missing', { scenes: covPre.missing })
-          }
-        }
+          useStudioStore.getState().patchWorkspaceProject(workspaceIx, () => draftProject!)
 
-        const realImages = mergedImages.filter(
-          (r) => String(r.status || '') !== 'placeholder' && String(r.image_url || r.imageUrl || '').trim()
-        )
-        const probe = await probeSceneImagesFromPipeline(realImages.length ? realImages : mergedImages)
-        if (!probe.ok && realImages.length === 0) {
-          console.warn('[katha:pipeline]', 'image_rendered', { failed: probe.failedScenes, reasons: probe.reasons })
-          const { code } = classifyVisualGenerationError(probe.reasons[0] || 'validation')
-          throw new Error(formatVisualFailureForUser('image_download_failed', probe.reasons.join('; '), uiText))
-        }
-        if (!probe.ok) {
-          console.warn('[katha:pipeline]', 'image_probe_partial', {
-            failed: probe.failedScenes,
-            reasons: probe.reasons
+          const { project: healedProject, report } = await healEpisodeSceneImages({
+            project: draftProject,
+            episodeNumber: epn,
+            regenerateScenes: async (indices) => {
+              const retryOut = await runVisualStream(
+                { ...baseBody, sceneIndices: indices },
+                mergedImages
+              )
+              mergedImages = [...mergedImages, ...(retryOut.images ?? [])]
+              return retryOut.images ?? []
+            },
+            onPatch: (patched) => {
+              draftProject = patched
+              useStudioStore.getState().patchWorkspaceProject(workspaceIx, () => patched)
+            }
           })
-        }
-        console.info('[katha:pipeline]', 'image_rendered', { scenes: mergedImages.length })
 
-        const assetsFromPipeline = buildSceneAssetsFromPipeline(mergedImages)
+          draftProject = healedProject
+          useStudioStore.getState().setVisualGenerationSummary(report)
+          console.info('[katha:pipeline]', 'scene_heal_complete', report)
+        }
+
         const metaBibleChars = (out.metadata?.bibleCharacters ?? []) as {
           name?: string
           baseImageUrl?: string
@@ -478,19 +457,17 @@ export function useVisualGeneration() {
         }[]
 
         useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
-          if (!cur.bible) return cur
-          let next = mergePortraitMetadata(cur, metaBibleChars)
-          const mergedAssets = mergeProjectAssets(next.assets, assetsFromPipeline)
+          if (!cur.bible || !draftProject) return cur
+          let next = mergePortraitMetadata(draftProject, metaBibleChars)
           const withVisual = withVisualGenerationComplete({
             ...next,
-            assets: mergedAssets,
             episodes: next.episodes.map((e) =>
               e.number === epn
                 ? {
                     ...e,
                     ...(narrationAudioUrl ? { narrationAudioUrl: String(narrationAudioUrl) } : {}),
                     scenes: attachSceneGenerationStatuses(
-                      { ...next, assets: mergedAssets },
+                      next,
                       epn,
                       Boolean(narrationAudioUrl)
                     )
@@ -499,18 +476,27 @@ export function useVisualGeneration() {
             )
           })
           const cov = episodeSceneImageCoverage(withVisual, epn)
-          if (cov.missing.length > 0) {
-            useStudioStore.getState().setSelectedEpisode(epn)
-            return withVisual
-          }
           const meta = (out as { metadata?: Record<string, unknown> }).metadata
-          console.info('[katha:pipeline]', 'generation_completed', {
-            scenes: cov.withImage,
-            total: cov.total
-          })
+          const partial = !withVisual.sceneImageGenerationReport?.storyReadyForAnimation
+          if (partial) {
+            useStudioStore.getState().setSelectedEpisode(epn)
+            setError(
+              uiText('visualStoryIncomplete', {
+                generated: String(cov.withImage),
+                total: String(cov.total)
+              })
+            )
+            return {
+              ...withVisual,
+              storyboardPartial: true,
+              missingSceneImageIndices: cov.missing
+            }
+          }
+          setError(null)
           return withStoryboardReady(
             {
               ...withVisual,
+              sceneImagesComplete: true,
               ...(meta?.productionMemory
                 ? { productionMemory: meta.productionMemory as Record<string, unknown> }
                 : {}),
@@ -558,5 +544,22 @@ export function useVisualGeneration() {
     [setBusy, setError, uiText]
   )
 
-  return { generateVisuals }
+  const ensureEpisodeSceneImages = useCallback(
+    async (episodeNumber: number) => {
+      const workspaceIx = useStudioStore.getState().activeWorkspaceSlotIndex
+      const p = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
+      if (!p?.bible) return false
+      const audit = await auditEpisodeSceneImages(p, episodeNumber)
+      if (!audit.allProblems.length && p.sceneImagesComplete) return true
+      await generateVisuals({
+        episodeNumber,
+        sceneIndices: audit.allProblems.length ? audit.allProblems : undefined
+      })
+      const after = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
+      return Boolean(after?.sceneImageGenerationReport?.storyReadyForAnimation)
+    },
+    [generateVisuals]
+  )
+
+  return { generateVisuals, ensureEpisodeSceneImages }
 }

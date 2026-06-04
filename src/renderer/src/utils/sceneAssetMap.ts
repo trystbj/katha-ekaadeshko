@@ -97,6 +97,19 @@ export function mergeProjectAssets(existing: AssetRef[] = [], incoming: AssetRef
   return merged
 }
 
+/** Remove scene still assets so regeneration does not reuse bad URLs. */
+export function removeSceneAssetsForIndices(
+  project: ProjectState,
+  sceneIndices: number[]
+): ProjectState {
+  const drop = new Set(sceneIndices.map((n) => `scene:${n}`))
+  return {
+    ...project,
+    assets: (project.assets ?? []).filter((a) => !(a.kind === 'scene' && drop.has(String(a.key)))),
+    updatedAt: new Date().toISOString()
+  }
+}
+
 export function sceneUrlForIndex(project: ProjectState | null, sceneIndex: number): string | undefined {
   if (!project?.assets?.length || !sceneIndex) return undefined
   const key = `scene:${sceneIndex}`

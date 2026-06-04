@@ -28,7 +28,14 @@ export function deriveCinematicProductionGate(
     1
   const coverage = episodeSceneImageCoverage(project, epn)
   const storyGenerated = Boolean(project?.bible && coverage.total > 0)
-  const sceneImagesGenerated = coverage.total > 0 && coverage.missing.length === 0
+  const healReport = project?.sceneImageGenerationReport
+  const reportAllowsExport =
+    !healReport || healReport.storyReadyForAnimation === true
+  const sceneImagesGenerated =
+    coverage.total > 0 &&
+    coverage.missing.length === 0 &&
+    project?.sceneImagesComplete !== false &&
+    reportAllowsExport
   const sceneImagesPartial = coverage.withImage > 0 && coverage.missing.length > 0
   const charactersGenerated = Boolean(
     project?.bible?.characters?.some((c) => Boolean(c.baseImageUrl)) ||

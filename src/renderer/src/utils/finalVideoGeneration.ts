@@ -57,6 +57,8 @@ export async function runFinalVideoGeneration(opts?: {
   project?: ProjectState | null
   episodeNumber?: number
   onBeforeMotion?: (episodeNumber: number) => Promise<void>
+  /** Repair missing/black scene stills before queueing MP4. */
+  ensureSceneImages?: (episodeNumber: number) => Promise<boolean>
 }): Promise<string | null> {
   const st = useStudioStore.getState()
   const project = opts?.project ?? st.project
@@ -74,6 +76,22 @@ export async function runFinalVideoGeneration(opts?: {
   const epn = validation.episodeNumber
   st.setWorkspaceError(ix, null)
   if (ix === st.activeWorkspaceSlotIndex) st.setError(null)
+
+  if (opts?.ensureSceneImages) {
+    setVideoJobStage('Repairing scene images', 4)
+    const repaired = await opts.ensureSceneImages(epn)
+    if (!repaired) {
+      const latest = useStudioStore.getState().workspaceSlots[ix]?.project ?? project
+      const msg =
+        latest?.sceneImageGenerationReport && !latest.sceneImageGenerationReport.storyReadyForAnimation
+          ? `Scene images incomplete (${latest.sceneImageGenerationReport.imagesGenerated}/${latest.sceneImageGenerationReport.total}). Repair scenes before export.`
+          : 'Scene images are incomplete or invalid — regenerate scenes before final video.'
+      st.setWorkspaceError(ix, msg)
+      if (ix === st.activeWorkspaceSlotIndex) st.setError(msg)
+      console.warn('[katha:render]', 'final_video_scene_repair_failed', { epn })
+      return null
+    }
+  }
 
   setVideoJobStage('Preparing Assets', 2)
   console.info('[katha:render]', 'final_video_start', { projectId: project?.id, episodeNumber: epn })

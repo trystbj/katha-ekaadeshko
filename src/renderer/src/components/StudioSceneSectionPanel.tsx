@@ -30,6 +30,7 @@ export function StudioSceneSectionPanel({
 }: Props) {
   const uiText = useUiText()
   const visualDiagnostics = useStudioStore((s) => s.visualDiagnostics)
+  const healSummary = useStudioStore((s) => s.visualGenerationSummary)
   const generating = busyLabel === 'generating'
   const rendering = busyLabel === 'rendering'
   const regenBusy = busyLabel === 'leonardo'
@@ -87,9 +88,37 @@ export function StudioSceneSectionPanel({
           </button>
         ) : null}
         {!needsBatch && coverage.total > 0 ? (
-          <p className="studio-scene-section__complete" role="status">
-            {uiText('studioSceneImagesComplete')}
-          </p>
+          <div className="studio-scene-section__complete" role="status">
+            {healSummary ? (
+              <>
+                <p>
+                  {uiText('visualGenImagesCount', {
+                    generated: String(healSummary.imagesGenerated),
+                    total: String(healSummary.total)
+                  })}
+                </p>
+                {healSummary.missingRepaired > 0 ? (
+                  <p>
+                    {uiText('visualGenMissingRepaired', {
+                      count: String(healSummary.missingRepaired)
+                    })}
+                  </p>
+                ) : null}
+                {healSummary.blackRepaired > 0 ? (
+                  <p>
+                    {uiText('visualGenBlackRepaired', { count: String(healSummary.blackRepaired) })}
+                  </p>
+                ) : null}
+                {healSummary.storyReadyForAnimation ? (
+                  <p className="studio-scene-section__ready">{uiText('visualGenStoryReadyAnimation')}</p>
+                ) : (
+                  <p>{uiText('visualStoryStatusIncomplete')}</p>
+                )}
+              </>
+            ) : (
+              <p>{uiText('studioSceneImagesComplete')}</p>
+            )}
+          </div>
         ) : null}
       </div>
       {needsBatch && coverage.missing.length > 0 ? (

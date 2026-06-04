@@ -94,7 +94,12 @@ import './styles/episode-series-flow.css'
 import { BrandTitleStardust } from './components/BrandTitleStardust'
 import { repairProjectOnLoad } from './utils/projectRecovery'
 import { collectRenderImageUrls } from './utils/collectRenderImageUrls'
-import { dedupeScenePreviewUrls, sceneStillUrlsForEpisode, sceneUrlForIndex } from './utils/sceneAssetMap'
+import {
+  dedupeScenePreviewUrls,
+  removeSceneAssetsForIndices,
+  sceneStillUrlsForEpisode,
+  sceneUrlForIndex
+} from './utils/sceneAssetMap'
 import { resumeEpisodeVideoRenderIfNeeded } from './utils/episodeVideoRender'
 import { CreatorStudioPanel } from './components/CreatorStudioPanel'
 import {
@@ -171,7 +176,7 @@ export default function App() {
   const { generateEpisode, regenerateScene } = useStoryGeneration()
   const { generateCharacterBase } = useLeonardo()
   const { generate: backendGenerate } = useBackendGenerate()
-  const { generateVisuals } = useVisualGeneration()
+  const { generateVisuals, ensureEpisodeSceneImages } = useVisualGeneration()
   const { generateSceneVideos } = useVideoGeneration()
 
   const [projectsMeta, setProjectsMeta] = useState<
@@ -613,6 +618,9 @@ export default function App() {
   const onMonitorReplaceSceneImage = useCallback(
     (sceneIndex: number) => {
       const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(project)
+      useStudioStore.getState().patchProject((cur) =>
+        cur.bible ? removeSceneAssetsForIndices(cur, [sceneIndex]) : cur
+      )
       void generateVisuals({ episodeNumber: epn, sceneIndices: [sceneIndex] })
     },
     [activeEpisode?.number, generateVisuals, project, selectedEpisode]
@@ -749,6 +757,7 @@ export default function App() {
     void runFinalVideoGeneration({
       project: p,
       episodeNumber: epn,
+      ensureSceneImages: ensureEpisodeSceneImages,
       onBeforeMotion: async (episodeNumber) => {
         if (ep?.scenes?.length && episodeNeedsMotionGeneration(p, ep.scenes)) {
           console.info('[katha:video]', 'pre_render_motion_pass', { projectId: p.id })
@@ -756,7 +765,7 @@ export default function App() {
         }
       }
     })
-  }, [generateSceneVideos, selectedEpisode])
+  }, [ensureEpisodeSceneImages, generateSceneVideos, selectedEpisode])
 
   useEffect(() => {
     const prev = prevBusyCelebrateRef.current

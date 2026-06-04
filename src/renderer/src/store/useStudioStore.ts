@@ -124,6 +124,10 @@ export interface StudioState {
   /** Last scene image batch diagnostics (Generate All Scene Images). */
   visualDiagnostics: import('../types/visualGeneration').VisualSceneDiagnostic[] | null
   setVisualDiagnostics: (rows: import('../types/visualGeneration').VisualSceneDiagnostic[] | null) => void
+  visualGenerationSummary: import('../utils/sceneImageHeal').SceneImageHealReport | null
+  setVisualGenerationSummary: (
+    summary: import('../utils/sceneImageHeal').SceneImageHealReport | null
+  ) => void
   /** Per-workspace runtime state so background jobs continue while switching projects. */
   workspaceRuntime: Array<{
     busy: string | null
@@ -328,6 +332,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   streamReveal: null,
   generationAbort: null,
   visualDiagnostics: null,
+  visualGenerationSummary: null,
   workspaceRuntime: [
     { busy: null, lastError: null, job: null, streamReveal: null, generationAbort: null },
     { busy: null, lastError: null, job: null, streamReveal: null, generationAbort: null },
@@ -337,6 +342,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   ],
   setGenerationAbort: (generationAbort) => set({ generationAbort }),
   setVisualDiagnostics: (visualDiagnostics) => set({ visualDiagnostics }),
+  setVisualGenerationSummary: (visualGenerationSummary) => set({ visualGenerationSummary }),
   abortGenerationInFlight: () => {
     const ac = get().generationAbort
     ac?.abort()

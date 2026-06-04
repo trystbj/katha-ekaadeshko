@@ -2,6 +2,8 @@ import { fetchRegenerationPlan } from '../creator/creatorApi'
 import type { ProjectState, StoryEpisode } from '../types/story'
 import { buildSceneAssetsFromPipeline, mergeProjectAssets } from './sceneAssetMap'
 import { episodeSceneImageCoverage, withStoryboardReady } from './storyboardWorkflow'
+import { validateSceneImageUrl } from './sceneImageValidationClient'
+import { removeSceneAssetsForIndices } from './sceneAssetMap'
 
 function studioInputFromProject(project: ProjectState) {
   const bible = project.bible
@@ -42,6 +44,9 @@ export async function regenerateMissingSceneImages(
   for (const sceneIndex of missing) {
     const rowIx = ep.scenes.findIndex((s) => s.index === sceneIndex)
     if (rowIx < 0) continue
+    next = removeSceneAssetsForIndices(next, [sceneIndex])
+    let ok = false
+    for (let attempt = 0; attempt < 3 && !ok; attempt++) {
     try {
       const res = await fetchRegenerationPlan('visuals', sceneIndex, ep as StoryEpisode, {
         execute: true,
@@ -50,6 +55,11 @@ export async function regenerateMissingSceneImages(
       const exec = res.execution as { results?: { slot?: string; imageUrl?: string; status?: string }[] } | undefined
       const hit = exec?.results?.find((r) => r.slot === 'leonardo:scene' && r.imageUrl)
       if (hit?.imageUrl) {
+        const valid = await validateSceneImageUrl(hit.imageUrl)
+        if (!valid.ok) {
+          next = removeSceneAssetsForIndices(next, [sceneIndex])
+          continue
+        }
         const assetsFromPipeline = buildSceneAssetsFromPipeline([
           { scene: sceneIndex, image_url: hit.imageUrl, prompt: '' }
         ])
@@ -63,11 +73,13 @@ export async function regenerateMissingSceneImages(
         )
         opts?.onProjectPatch?.(next)
         opts?.onScene?.(sceneIndex, true)
+        ok = true
       } else {
         opts?.onScene?.(sceneIndex, false)
       }
     } catch {
       opts?.onScene?.(sceneIndex, false)
+    }
     }
   }
 

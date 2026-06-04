@@ -377,6 +377,19 @@ export interface ProjectState {
   storyboardPartial?: boolean
   /** Scene indices still missing images after last generation pass. */
   missingSceneImageIndices?: number[]
+  /** True when every scene has a validated (non-black) still. */
+  sceneImagesComplete?: boolean
+  /** Last batch heal report for Scenes tab / export gate. */
+  sceneImageGenerationReport?: {
+    imagesGenerated: number
+    total: number
+    missingRepaired: number
+    blackRepaired: number
+    emergencyFilled: number
+    storyReadyForAnimation: boolean
+    incompleteSceneIndices?: number[]
+    updatedAt: string
+  }
   /** Two-step pipeline: writing → script review → visuals → motion → video. */
   productionStage?: ProductionStage
   /** Step 1 complete — user may review script before visuals. */
