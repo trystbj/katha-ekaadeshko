@@ -125,6 +125,14 @@
   background: color-mix(in srgb, var(--studio-accent, #c9a86a) 22%, transparent);
 }
 
+.story-translate-modal__hint {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: rgba(255, 252, 248, 0.62);
+  text-align: center;
+}
+
 .story-translate-modal__actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

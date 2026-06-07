@@ -8,7 +8,6 @@ import {
   extractStoryReadingModel,
   splitStoryParagraphs
 } from '../utils/storyReadingModel'
-import { fetchStoryTranslation } from '../utils/storyTranslate'
 import {
   storyTranslationLanguageByCode,
   type StoryTranslationLangCode
@@ -27,29 +26,20 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const model = useMemo(() => extractStoryReadingModel(project, episode), [project, episode])
-  const [viewLang, setViewLang] = useState<StoryTranslationLangCode>('en')
   const [translateOpen, setTranslateOpen] = useState(false)
-  const [translateBusy, setTranslateBusy] = useState(false)
   const [translateError, setTranslateError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
-  const cachedTranslations = project?.storyTranslations ?? {}
-
-  const activeLang = storyTranslationLanguageByCode(viewLang)
-  const displayBody =
-    viewLang === 'en'
-      ? model?.fullStory ?? ''
-      : cachedTranslations[viewLang] || model?.fullStory || ''
+  const languagePref =
+    (project?.storyViewLanguagePreference as StoryTranslationLangCode | undefined) || 'en'
+  const languageLabel = storyTranslationLanguageByCode(languagePref)?.label
 
   const exportText = useMemo(() => {
     if (!model) return ''
-    return buildStoryExportText(model, {
-      languageLabel: viewLang === 'en' ? undefined : activeLang?.label,
-      bodyOverride: displayBody
-    })
-  }, [model, viewLang, activeLang?.label, displayBody])
+    return buildStoryExportText(model)
+  }, [model])
 
-  const paragraphs = useMemo(() => splitStoryParagraphs(displayBody), [displayBody])
+  const paragraphs = useMemo(() => splitStoryParagraphs(model?.fullStory ?? ''), [model?.fullStory])
 
   const metaParts = useMemo(() => {
     if (!model) return []
@@ -95,56 +85,30 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
   const onDownload = useCallback(() => {
     if (!exportText || !model) return
     const slug = model.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 48) || 'story'
-    const langSuffix = viewLang === 'en' ? '' : `-${viewLang}`
-    downloadStoryText(`katha-story-${slug}${langSuffix}.txt`, exportText)
-  }, [exportText, model, viewLang])
+    downloadStoryText(`katha-story-${slug}.txt`, exportText)
+  }, [exportText, model])
 
-  const onTranslate = useCallback(
-    async (code: StoryTranslationLangCode) => {
-      if (!model || !project) return
+  const onApplyLanguage = useCallback(
+    (code: StoryTranslationLangCode) => {
+      if (!project) return
       setTranslateError(null)
-
-      if (code === 'en') {
-        setViewLang('en')
-        setTranslateOpen(false)
-        return
-      }
-
-      const cached = cachedTranslations[code]
-      if (cached?.trim()) {
-        setViewLang(code)
-        setTranslateOpen(false)
-        return
-      }
-
-      const lang = storyTranslationLanguageByCode(code)
-      if (!lang) return
-
-      setTranslateBusy(true)
-      try {
-        const translated = await fetchStoryTranslation({
-          text: model.fullStory,
-          targetLanguage: lang.apiName,
-          sourceLanguage: 'English'
-        })
-        patchProject((p) => ({
-          ...p,
-          storyTranslations: {
-            ...(p.storyTranslations ?? {}),
-            [code]: translated
-          },
-          updatedAt: new Date().toISOString()
-        }))
-        setViewLang(code)
-        setTranslateOpen(false)
-      } catch (e) {
-        setTranslateError(e instanceof Error ? e.message : uiText('storyTranslateFailed'))
-      } finally {
-        setTranslateBusy(false)
-      }
+      patchProject((p) => ({
+        ...p,
+        storyViewLanguagePreference: code,
+        updatedAt: new Date().toISOString()
+      }))
+      setTranslateOpen(false)
     },
-    [model, project, cachedTranslations, patchProject, uiText]
+    [project, patchProject]
   )
+
+  if (!project?.bible) {
+    return (
+      <div className="story-reading-workspace story-reading-workspace--empty">
+        <p className="story-reading-workspace__empty">{uiText('storyReadingFinishFirst')}</p>
+      </div>
+    )
+  }
 
   if (!model) {
     return (
@@ -166,16 +130,16 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
             {metaParts.length ? (
               <p className="story-reading-workspace__meta-line">{metaParts.join(' · ')}</p>
             ) : null}
-            {viewLang !== 'en' && activeLang ? (
+            {languagePref !== 'en' && languageLabel ? (
               <p className="story-reading-workspace__lang-badge" role="status">
-                {uiText('storyReadingTranslatedView', { language: activeLang.label })}
+                {uiText('storyReadingLanguagePref', { language: languageLabel })}
               </p>
             ) : null}
           </header>
 
           <hr className="story-reading-workspace__rule" aria-hidden />
 
-          {model.summary && model.summary !== displayBody ? (
+          {model.summary && model.summary !== model.fullStory ? (
             <section className="story-reading-workspace__section">
               <h3 className="story-reading-workspace__label">{uiText('storyReadingSummary')}</h3>
               <p className="story-reading-workspace__prose">{model.summary}</p>
@@ -189,16 +153,6 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
               ))}
             </div>
           </section>
-
-          {model.setting && model.setting !== model.summary && model.setting !== displayBody ? (
-            <>
-              <hr className="story-reading-workspace__rule" aria-hidden />
-              <section className="story-reading-workspace__section">
-                <h3 className="story-reading-workspace__label">{uiText('storyReadingSetting')}</h3>
-                <p className="story-reading-workspace__prose">{model.setting}</p>
-              </section>
-            </>
-          ) : null}
 
           {model.characters.length ? (
             <>
@@ -242,10 +196,9 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
 
       <StoryTranslateModal
         open={translateOpen}
-        busy={translateBusy}
-        activeCode={viewLang}
+        activeCode={languagePref}
         onClose={() => setTranslateOpen(false)}
-        onTranslate={(code) => void onTranslate(code)}
+        onApply={onApplyLanguage}
       />
     </div>
   )

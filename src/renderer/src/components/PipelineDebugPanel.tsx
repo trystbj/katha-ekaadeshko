@@ -44,13 +44,23 @@ export function PipelineDebugPanel({ project, episode, cachedReport, onRetryScen
       .then((r) => {
         if (!cancelled) setReport(r)
       })
+      .catch((e) => {
+        console.error('[katha:pipeline-debug]', e)
+        if (!cancelled) setReport(null)
+      })
       .finally(() => {
         if (!cancelled) setBusy(false)
       })
     return () => {
       cancelled = true
     }
-  }, [project.updatedAt, project.assets, episode.number, episode.narrationAudioUrl, episode.scenes.length])
+  }, [
+    project.updatedAt,
+    project.assets,
+    episode.number,
+    episode.narrationAudioUrl,
+    Array.isArray(episode.scenes) ? episode.scenes.length : 0
+  ])
 
   if (!report && busy) {
     return <p className="pipeline-debug__loading">{uiText('pipelineDebugLoading')}</p>

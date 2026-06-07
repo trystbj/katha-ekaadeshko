@@ -10,18 +10,17 @@ import '../styles/story-translate-modal.css'
 
 type Props = {
   open: boolean
-  busy?: boolean
   activeCode?: StoryTranslationLangCode
   onClose: () => void
-  onTranslate: (code: StoryTranslationLangCode) => void
+  /** Saves language preference only — does not translate story content. */
+  onApply: (code: StoryTranslationLangCode) => void
 }
 
 export function StoryTranslateModal({
   open,
-  busy,
   activeCode = 'en',
   onClose,
-  onTranslate
+  onApply
 }: Props) {
   const uiText = useUiText()
   const [selected, setSelected] = useState<StoryTranslationLangCode>(activeCode)
@@ -98,7 +97,6 @@ export function StoryTranslateModal({
             className="story-translate-modal__select-trigger"
             aria-haspopup="listbox"
             aria-expanded={dropdownOpen}
-            disabled={busy}
             onClick={() => setDropdownOpen((v) => !v)}
           >
             <span className="story-translate-modal__select-value">
@@ -142,17 +140,18 @@ export function StoryTranslateModal({
           ) : null}
         </div>
 
+        <p className="story-translate-modal__hint">{uiText('storyTranslatePreferenceHint')}</p>
+
         <div className="story-translate-modal__actions">
-          <button type="button" className="story-translate-modal__btn story-translate-modal__btn--cancel" disabled={busy} onClick={onClose}>
+          <button type="button" className="story-translate-modal__btn story-translate-modal__btn--cancel" onClick={onClose}>
             {uiText('storyTranslateCancel')}
           </button>
           <button
             type="button"
             className="story-translate-modal__btn story-translate-modal__btn--confirm"
-            disabled={busy}
-            onClick={() => onTranslate(selected)}
+            onClick={() => onApply(selected)}
           >
-            {busy ? uiText('storyTranslateBusy') : uiText('storyTranslateConfirm')}
+            {uiText('storyTranslateApply')}
           </button>
         </div>
       </div>

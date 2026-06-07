@@ -90,6 +90,6 @@ export function transitionHintFromPlan(plan: CinematicScenePlan | null): string 
   if (!plan) return 'cineTransitionCut'
   if (plan.audioMix?.silencePadMs && plan.audioMix.silencePadMs > 400) return 'cineTransitionPause'
   if (plan.motion?.preset?.includes('shake')) return 'cineTransitionImpact'
-  if (plan.environment?.fog > 0.4) return 'cineTransitionDissolve'
+  if (plan.environment && (plan.environment.fog ?? 0) > 0.4) return 'cineTransitionDissolve'
   return 'cineTransitionFlow'
 }

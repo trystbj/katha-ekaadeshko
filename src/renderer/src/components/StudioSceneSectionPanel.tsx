@@ -25,6 +25,11 @@ type Props = {
   onRetrySceneImage?: (sceneIndex: number) => void
 }
 
+function safeScenes(episode: StoryEpisode | null | undefined) {
+  if (!episode || !Array.isArray(episode.scenes)) return []
+  return episode.scenes.filter(Boolean)
+}
+
 /** Scene column — AI Director + single batch image generation control. */
 export function StudioSceneSectionPanel({
   project,
@@ -35,29 +40,32 @@ export function StudioSceneSectionPanel({
   onRetryFailedScenes,
   onRetrySceneImage
 }: Props) {
+  const uiText = useUiText()
   const lastError = useStudioStore((s) => s.error)
   const visualDiagnostics = useStudioStore((s) => s.visualDiagnostics)
-  const healSummary = useStudioStore((s) => s.visualGenerationSummary)
+  const healSummary = useStudioStore.getState().visualGenerationSummary
   const generating = busyLabel === 'generating'
   const rendering = busyLabel === 'rendering'
   const regenBusy = busyLabel === 'leonardo'
 
-  const activeScene = episode.scenes.find((s) => s.index === activeSceneIndex) ?? episode.scenes[0]
-  const cinematicPlan = episode.cinematicDirectorPlan as CinematicDirectorPlan | null | undefined
-  const rowIx = episode.scenes.findIndex((s) => s.index === activeScene?.index)
+  const scenes = useMemo(() => safeScenes(episode), [episode])
+  const activeScene =
+    scenes.find((s) => s.index === activeSceneIndex) ?? scenes[0] ?? null
+  const cinematicPlan = episode?.cinematicDirectorPlan as CinematicDirectorPlan | null | undefined
+  const rowIx = activeScene ? scenes.findIndex((s) => s.index === activeScene.index) : 0
   const scenePlan = scenePlanAt(cinematicPlan, rowIx >= 0 ? rowIx : 0)
 
   const imageCounts = useMemo(
-    () => countCompletedSceneImages(project, episode.number),
-    [project, episode.number, project.updatedAt, project.pipelineValidationReport]
+    () => countCompletedSceneImages(project, episode?.number ?? 1),
+    [project, episode?.number, project.updatedAt, project.pipelineValidationReport]
   )
   const scenesNeedingImages = useMemo(
-    () => getScenesNeedingImageRegeneration(project, episode.number),
-    [project, episode.number, project.updatedAt, project.pipelineValidationReport]
+    () => getScenesNeedingImageRegeneration(project, episode?.number ?? 1),
+    [project, episode?.number, project.updatedAt, project.pipelineValidationReport]
   )
 
   const castSummary = useMemo(() => {
-    const mem = project.characterIdentityMemory ?? []
+    const mem = project?.characterIdentityMemory ?? []
     if (!mem.length) return null
     return mem
       .map((m) => {
@@ -66,7 +74,15 @@ export function StudioSceneSectionPanel({
         return `${m.label} (${g})`
       })
       .join(' · ')
-  }, [project.characterIdentityMemory])
+  }, [project?.characterIdentityMemory])
+
+  if (!project?.bible) {
+    return <p className="studio-scene-section__empty">{uiText('storyReadingFinishFirst')}</p>
+  }
+
+  if (!scenes.length) {
+    return <p className="studio-scene-section__empty">{uiText('studioScenesNotGenerated')}</p>
+  }
 
   const animationReady =
     project.pipelineValidationReport?.animationReady ??
@@ -76,13 +92,13 @@ export function StudioSceneSectionPanel({
   const batchBusy = generating || regenBusy
 
   if (!activeScene) {
-    return <p className="studio-scene-section__empty">{uiText('studioSceneSectionEmpty')}</p>
+    return <p className="studio-scene-section__empty">{uiText('studioScenesNotGenerated')}</p>
   }
 
   return (
     <div className="studio-scene-section">
       <p className="studio-scene-section__lead">{uiText('studioSceneSectionLead')}</p>
-      <StoryHealthStrip project={project} episode={episode} />
+      <StoryHealthStrip project={project} episode={{ ...episode, scenes }} />
       <SceneAiDirectorStrip scene={activeScene} plan={scenePlan} />
       {castSummary ? (
         <p className="studio-scene-section__cast" title={castSummary}>
@@ -127,13 +143,16 @@ export function StudioSceneSectionPanel({
                 {animationReady ? (
                   <p className="studio-scene-section__ready">{uiText('visualGenStoryReadyAnimation')}</p>
                 ) : (
-                  <p>{uiText('visualStoryStatusIncomplete')}</p>
+                  <p>{uiText('studioScenesGenerateImages')}</p>
                 )}
               </>
             ) : (
               <p>{uiText('studioSceneImagesComplete')}</p>
             )}
           </div>
+        ) : null}
+        {imageCounts.total > 0 && imageCounts.completed === 0 && !needsBatch ? (
+          <p className="studio-scene-section__hint">{uiText('studioScenesGenerateImages')}</p>
         ) : null}
       </div>
       {scenesNeedingImages.length > 0 ? (
@@ -156,12 +175,12 @@ export function StudioSceneSectionPanel({
       ) : null}
       <SceneGenerationDiagnosticsStrip
         project={project}
-        episode={episode}
+        episode={{ ...episode, scenes }}
         lastError={lastError}
       />
       <PipelineDebugPanel
         project={project}
-        episode={episode}
+        episode={{ ...episode, scenes }}
         cachedReport={project.pipelineValidationReport ?? undefined}
         onRetryScene={
           onRetrySceneImage

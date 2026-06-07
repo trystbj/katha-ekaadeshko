@@ -1551,11 +1551,12 @@ export default function App() {
                   streamLines={job?.log?.slice(-20) ?? []}
                   streamReveal={streamReveal}
                   focusedSpeaker={focusedSceneSpeaker}
-                  activeSceneIndex={activeEpisode?.scenes[embeddedPreviewIndex]?.index}
+                  activeSceneIndex={activeEpisode?.scenes?.[embeddedPreviewIndex]?.index}
                   patchProject={patchProject}
                   onScriptReviewNextScene={(sceneIndex) => {
-                    const ix = activeEpisode?.scenes.findIndex((s) => s.index === sceneIndex) ?? -1
-                    const next = activeEpisode?.scenes[ix + 1]
+                    const epScenes = activeEpisode?.scenes ?? []
+                    const ix = epScenes.findIndex((s) => s.index === sceneIndex) ?? -1
+                    const next = epScenes[ix + 1]
                     if (next) setEmbeddedPreviewIndex(ix + 1)
                   }}
                   onSmartRegen={onMonitorSmartRegen}
@@ -1567,8 +1568,9 @@ export default function App() {
                   onSceneFocus={(speaker, sceneIndex) => {
                     setCharacterPreviewId(null)
                     setFocusedSceneSpeaker(speaker.trim())
+                    const epScenes = activeEpisode?.scenes ?? []
                     const ix =
-                      activeEpisode?.scenes.findIndex((s) => s.index === sceneIndex) ?? -1
+                      epScenes.findIndex((s) => s.index === sceneIndex) ?? -1
                     if (ix >= 0) {
                       onMonitorSceneSelect(ix)
                     }
