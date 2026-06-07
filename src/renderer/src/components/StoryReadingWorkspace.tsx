@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import { useStudioStore } from '../store/useStudioStore'
 import type { ProjectState, StoryEpisode } from '../types/story'
@@ -24,6 +24,8 @@ type Props = {
 export function StoryReadingWorkspace({ project, episode }: Props) {
   const uiText = useUiText()
   const patchProject = useStudioStore((s) => s.patchProject)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const translateBtnRef = useRef<HTMLButtonElement>(null)
 
   const model = useMemo(() => extractStoryReadingModel(project, episode), [project, episode])
   const [viewLang, setViewLang] = useState<StoryTranslationLangCode>('en')
@@ -124,7 +126,7 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
   }
 
   return (
-    <div className="story-reading-workspace">
+    <div ref={rootRef} className="story-reading-workspace">
       <div className="story-reading-workspace__scroll">
         <header className="story-reading-workspace__header">
           <h2 className="story-reading-workspace__title">{model.title}</h2>
@@ -208,10 +210,16 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
         </button>
         <button
           type="button"
+          ref={translateBtnRef}
           className="btn btn-ghost btn-small story-reading-workspace__translate-btn"
-          onClick={() => setTranslateOpen(true)}
+          aria-expanded={translateOpen}
+          aria-haspopup="dialog"
+          onClick={() => setTranslateOpen((v) => !v)}
         >
-          <span aria-hidden>🌐</span> {uiText('storyActionTranslate')}
+          <span className="story-reading-workspace__translate-icon" aria-hidden>
+            🌐
+          </span>
+          {uiText('storyActionTranslate')}
         </button>
       </div>
 
@@ -219,6 +227,8 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
         open={translateOpen}
         busy={translateBusy}
         activeCode={viewLang}
+        anchorRef={translateBtnRef}
+        portalWrapRef={rootRef}
         onClose={() => setTranslateOpen(false)}
         onTranslate={(code) => void onTranslate(code)}
       />

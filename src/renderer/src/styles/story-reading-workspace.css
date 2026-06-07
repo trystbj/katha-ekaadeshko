@@ -4,6 +4,8 @@
   min-height: 0;
   height: 100%;
   gap: 0.5rem;
+  position: relative;
+  overflow: visible;
 }
 
 .story-reading-workspace--empty {
@@ -168,8 +170,12 @@
   background: color-mix(in srgb, var(--studio-readable-surface, rgba(0, 0, 0, 0.28)) 55%, transparent);
 }
 
-.story-reading-workspace__translate-btn span {
-  margin-right: 0.25rem;
+.story-reading-workspace__translate-btn {
+  white-space: nowrap;
+}
+
+.story-reading-workspace__translate-icon {
+  margin-right: 0.2rem;
 }
 
 @media (max-width: 520px) {

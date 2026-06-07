@@ -1,78 +1,96 @@
-.story-translate-modal__backdrop {
-  z-index: 120;
-}
-
-.story-translate-modal {
-  width: min(420px, calc(100vw - 2rem));
-  max-height: min(88vh, 640px);
+.story-translate-popover {
+  position: absolute;
+  z-index: 90;
+  width: min(168px, 72vw);
+  max-height: 240px;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  padding: 1rem 1.1rem 1.1rem;
+  gap: 0.28rem;
+  padding: 0.35rem 0.4rem 0.42rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--studio-accent, #c9a86a) 38%, transparent);
+  background: rgba(12, 16, 22, 0.96);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.story-translate-modal__title {
+.story-translate-popover__title {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #fffdf8;
+  padding: 0 0.15rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--studio-accent, #c9a86a) 88%, #fff);
 }
 
-.story-translate-modal__lead {
-  margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.45;
-  color: rgba(255, 252, 248, 0.72);
-}
-
-.story-translate-modal__list {
+.story-translate-popover__list {
   list-style: none;
   margin: 0;
   padding: 0;
   overflow-y: auto;
-  max-height: min(52vh, 380px);
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 168px;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.12rem;
+  scrollbar-width: thin;
 }
 
-.story-translate-modal__lang {
+.story-translate-popover__lang {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.45rem 0.55rem;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--studio-accent, #c9a86a) 28%, transparent);
-  background: color-mix(in srgb, var(--studio-readable-surface, rgba(0, 0, 0, 0.28)) 70%, transparent);
-  color: rgba(255, 252, 248, 0.94);
-  font-size: 0.88rem;
+  gap: 0.35rem;
+  padding: 0.22rem 0.3rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 252, 248, 0.92);
+  font-size: 0.68rem;
   font-weight: 600;
   cursor: pointer;
   text-align: left;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+  line-height: 1.2;
 }
 
-.story-translate-modal__lang:hover {
-  border-color: color-mix(in srgb, var(--studio-accent, #c9a86a) 52%, transparent);
+.story-translate-popover__lang:hover {
   background: color-mix(in srgb, var(--studio-readable-surface, rgba(0, 0, 0, 0.28)) 88%, transparent);
+  border-color: color-mix(in srgb, var(--studio-accent, #c9a86a) 32%, transparent);
 }
 
-.story-translate-modal__lang--on {
-  border-color: color-mix(in srgb, var(--studio-accent, #c9a86a) 78%, transparent);
-  background: color-mix(in srgb, var(--studio-accent, #c9a86a) 24%, transparent);
+.story-translate-popover__lang--on {
+  border-color: color-mix(in srgb, var(--studio-accent, #c9a86a) 68%, transparent);
+  background: color-mix(in srgb, var(--studio-accent, #c9a86a) 20%, transparent);
 }
 
-.story-translate-modal__flag {
-  font-size: 1.1rem;
+.story-translate-popover__flag {
+  flex-shrink: 0;
+  font-size: 0.82rem;
   line-height: 1;
 }
 
-.story-translate-modal__actions {
+.story-translate-popover__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-translate-popover__actions {
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
-  gap: 0.45rem;
-  padding-top: 0.25rem;
+  gap: 0.25rem;
+  padding-top: 0.12rem;
+  border-top: 1px solid color-mix(in srgb, var(--studio-accent, #c9a86a) 18%, transparent);
+}
+
+.story-translate-popover__actions .btn-small {
+  padding: 0.18rem 0.42rem;
+  font-size: 0.62rem;
+  min-height: 0;
 }
