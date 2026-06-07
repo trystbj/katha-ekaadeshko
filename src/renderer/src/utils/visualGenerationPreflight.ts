@@ -1,18 +1,23 @@
 import type { ProjectState } from '../types/story'
 import { buildVisualPipelinePayload } from './buildVisualPipelinePayload'
 
-export type VisualPreflightResult = { ok: boolean; errors: string[] }
+export type VisualPreflightResult = { ok: boolean; errors: string[]; sceneIssues?: number[] }
 
 export function validateVisualGenerationPreflight(
   project: ProjectState | null | undefined,
   episodeNumber: number
 ): VisualPreflightResult {
   const errors: string[] = []
+  const sceneIssues: number[] = []
   if (!project?.bible) errors.push('story_missing')
   if (!project?.bible?.styleId && !project?.bible?.customVisualPrompt) errors.push('style_missing')
   if (!project?.bible?.characters?.length) errors.push('characters_missing')
+  const ep = project?.episodes.find((e) => e.number === episodeNumber) ?? project?.episodes[0]
+  if (!ep?.scenes?.length) errors.push('script_missing')
   const payload = project ? buildVisualPipelinePayload(project, episodeNumber) : null
-  if (!payload?.script?.length) errors.push('script_missing')
+  if (!payload?.script?.length) {
+    if (!errors.includes('script_missing')) errors.push('script_missing')
+  }
   if (payload && !payload.story) errors.push('story_payload_missing')
   const cast = project?.bible?.characters ?? []
   for (const c of cast) {
@@ -22,9 +27,13 @@ export function validateVisualGenerationPreflight(
   for (const row of payload?.script ?? []) {
     const vd = String((row as { visual_description?: string }).visual_description || '').trim()
     const nar = String((row as { narration?: string }).narration || '').trim()
-    if (!vd && !nar) errors.push('scene_description_missing')
+    const sceneNum = Number((row as { scene?: number }).scene) || 0
+    if (!vd && !nar) {
+      errors.push('scene_description_missing')
+      if (sceneNum) sceneIssues.push(sceneNum)
+    }
   }
-  return { ok: errors.length === 0, errors }
+  return { ok: errors.length === 0, errors, sceneIssues: sceneIssues.length ? sceneIssues : undefined }
 }
 
 export type VisualHealthCheck = {

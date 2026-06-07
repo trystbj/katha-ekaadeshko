@@ -179,6 +179,8 @@ export const en = {
   visualGenMissingScript: 'Script data missing — generate the story again.',
   visualGenNoResult: 'Visual generation did not return results.',
   visualErrNoPrompt: 'No scene prompt was generated for one or more scenes.',
+  visualErrScriptMissing: 'Screenplay data is missing — regenerate the story or open Script review to restore scenes.',
+  visualErrScenePromptMissing: 'Scene {{scene}} is missing a visual description — regenerate that scene script.',
   visualErrProviderTimeout: 'Image provider timed out — retry failed scenes.',
   visualErrInvalidResponse: 'Invalid API response from the image provider.',
   visualErrEmptyImages: 'Empty image list returned — no scene URLs in the response.',

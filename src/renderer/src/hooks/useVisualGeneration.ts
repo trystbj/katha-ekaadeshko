@@ -122,7 +122,12 @@ export function useVisualGeneration() {
       const preflight = validateVisualGenerationPreflight(p, epn)
       if (!preflight.ok) {
         console.warn('[katha:pipeline]', 'visual_preflight_failed', { errors: preflight.errors })
-        setError(formatVisualFailureForUser('no_prompt_generated', preflight.errors.join(', '), uiText))
+        const detail = preflight.errors.includes('script_missing')
+          ? uiText('visualErrScriptMissing')
+          : preflight.sceneIssues?.length
+            ? uiText('visualErrScenePromptMissing', { scene: String(preflight.sceneIssues[0]) })
+            : preflight.errors.join(', ')
+        setError(formatVisualFailureForUser('no_prompt_generated', detail, uiText))
         return
       }
 

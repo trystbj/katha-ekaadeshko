@@ -580,6 +580,11 @@ export function useBackendGenerate() {
         throw new Error(uiText('generateScreenplayEmpty'))
       }
 
+      const pipelineSnapshot = {
+        ...pipelineResult,
+        script: scriptRows
+      }
+
       const targetSceneCount = Math.min(
         16,
         Math.max(
@@ -615,7 +620,7 @@ export function useBackendGenerate() {
         estimatedDurationSec: 90,
         scenes,
         cliffhanger: cliffLine.slice(0, 280) || '—',
-        rawStructured: JSON.stringify(pipelineResult, null, 2),
+        rawStructured: JSON.stringify(pipelineSnapshot, null, 2),
         status: 'done',
         ...(pipelineResult.metadata?.ambientBedUrl
           ? { ambientBedUrl: pipelineResult.metadata.ambientBedUrl }

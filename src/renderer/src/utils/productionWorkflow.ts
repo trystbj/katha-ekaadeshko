@@ -157,7 +157,7 @@ export function parsePipelinePayloadFromEpisode(episode: { rawStructured?: strin
       images?: Record<string, unknown>[]
       metadata?: Record<string, unknown>
     }
-    if (!raw?.story || !Array.isArray(raw.script)) return null
+    if (!raw?.story || !Array.isArray(raw.script) || raw.script.length === 0) return null
     return {
       story: raw.story,
       script: raw.script,
