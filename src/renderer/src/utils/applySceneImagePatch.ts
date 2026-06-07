@@ -6,6 +6,7 @@ import {
   sceneUrlForIndex
 } from './sceneAssetMap'
 import type { SceneProductionStatus } from '../types/story'
+import { patchSceneImageStatusFields } from './sceneImageStatus'
 
 type SceneImageRow = {
   scene?: string | number
@@ -27,11 +28,15 @@ export function applySceneImagePatch(
   fallbackIndex = 1
 ): ProjectState {
   const sceneNum = sceneIndexFromPipelineRow(imageRow, fallbackIndex)
-  const url = imageRow.image_url || imageRow.imageUrl
+  const url = String(imageRow.image_url || imageRow.imageUrl || '').trim()
   const existingUrl = sceneUrlForIndex(project, sceneNum)
   if (url && existingUrl === url) return project
+
+  const isPlaceholder = imageRow.status === 'placeholder' || !url
   const assetsFromPipeline = buildSceneAssetsFromPipeline([imageRow])
   const mergedAssets = mergeProjectAssets(project.assets, assetsFromPipeline)
+  const now = new Date().toISOString()
+
   return {
     ...project,
     assets: mergedAssets,
@@ -41,29 +46,43 @@ export function applySceneImagePatch(
             ...e,
             scenes: e.scenes.map((s) =>
               s.index === sceneNum
-                ? {
-                    ...s,
-                    productionStatus: (url ? 'visual_ready' : 'awaiting_review') as SceneProductionStatus,
-                    generationStatus:
-                      imageRow.status === 'placeholder'
+                ? patchSceneImageStatusFields(
+                    {
+                      ...s,
+                      productionStatus: (url && !isPlaceholder
+                        ? 'visual_ready'
+                        : 'awaiting_review') as SceneProductionStatus,
+                      generationStatus: isPlaceholder
                         ? 'image_failed'
                         : url
                           ? 'image'
                           : 'image_failed'
-                  }
+                    },
+                    {
+                      imageStatus: isPlaceholder ? 'failed' : url ? 'generating' : 'failed',
+                      imageUrl: url || undefined,
+                      imageError: isPlaceholder
+                        ? String(imageRow.error || 'Placeholder image')
+                        : url
+                          ? undefined
+                          : 'No image URL returned',
+                      lastGenerationAttempt: now
+                    }
+                  )
                 : s
             )
           }
         : e
     ),
-    updatedAt: new Date().toISOString()
+    updatedAt: now
   }
 }
 
 export function markSceneFailed(
   project: ProjectState,
   episodeNumber: number,
-  sceneIndex: number
+  sceneIndex: number,
+  errorMessage?: string
 ): ProjectState {
   return {
     ...project,
@@ -73,7 +92,17 @@ export function markSceneFailed(
             ...e,
             scenes: e.scenes.map((s) =>
               s.index === sceneIndex
-                ? { ...s, productionStatus: 'awaiting_review', generationStatus: 'image_failed' }
+                ? patchSceneImageStatusFields(
+                    {
+                      ...s,
+                      productionStatus: 'awaiting_review',
+                      generationStatus: 'image_failed'
+                    },
+                    {
+                      imageStatus: 'failed',
+                      imageError: errorMessage || s.imageError || 'Image generation failed'
+                    }
+                  )
                 : s
             )
           }
@@ -95,7 +124,47 @@ export function markSceneGenerating(
         ? {
             ...e,
             scenes: e.scenes.map((s) =>
-              s.index === sceneIndex ? { ...s, productionStatus: 'generating_visuals' } : s
+              s.index === sceneIndex
+                ? patchSceneImageStatusFields(
+                    { ...s, productionStatus: 'generating_visuals' },
+                    { imageStatus: 'generating', imageError: undefined }
+                  )
+                : s
+            )
+          }
+        : e
+    ),
+    updatedAt: new Date().toISOString()
+  }
+}
+
+export function markSceneImageCompleted(
+  project: ProjectState,
+  episodeNumber: number,
+  sceneIndex: number,
+  imageUrl: string
+): ProjectState {
+  return {
+    ...project,
+    episodes: project.episodes.map((e) =>
+      e.number === episodeNumber
+        ? {
+            ...e,
+            scenes: e.scenes.map((s) =>
+              s.index === sceneIndex
+                ? patchSceneImageStatusFields(
+                    {
+                      ...s,
+                      productionStatus: 'visual_ready',
+                      generationStatus: 'complete'
+                    },
+                    {
+                      imageStatus: 'completed',
+                      imageUrl,
+                      imageError: undefined
+                    }
+                  )
+                : s
             )
           }
         : e

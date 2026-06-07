@@ -28,8 +28,8 @@ export async function validateFinalVideoPrerequisites(
     return { ok: false, errors: ['Story is not generated yet.'], episodeNumber: epn }
   }
   const report = await auditEpisodePipelineCompletion(project, epn)
-  const errors = formatExportBlockers(report)
   const ep = project.episodes.find((e) => e.number === epn)
+  const errors = formatExportBlockers(report, ep)
   const scenes = ep?.scenes ?? []
   if (scenes.length) {
     const indices = scenes.map((s) => s.index).filter((n) => n > 0)
@@ -112,7 +112,8 @@ export async function runFinalVideoGeneration(opts?: {
   const gate = deriveCinematicProductionGate(project, epn)
   if (!gate.narrationGenerated || !gate.sceneImagesGenerated) {
     const report = await auditEpisodePipelineCompletion(project!, epn)
-    const msg = formatExportBlockers(report).join(' ') || 'Assets incomplete.'
+    const ep = project!.episodes.find((e) => e.number === epn)
+    const msg = formatExportBlockers(report, ep).join(' ') || 'Assets incomplete.'
     st.setWorkspaceError(ix, msg)
     if (ix === st.activeWorkspaceSlotIndex) st.setError(msg)
     return null

@@ -46,8 +46,14 @@
   color: var(--warn, #e8b86a);
 }
 
-.pipeline-debug__loading {
-  margin: 0.5rem 0 0;
-  font-size: 0.78rem;
-  opacity: 0.8;
+.pipeline-debug__scene--ok {
+  color: var(--text-secondary, #c5cad6);
+}
+
+.pipeline-debug__scene--bad {
+  color: var(--warn, #e8b86a);
+}
+
+.pipeline-debug__mark {
+  font-weight: 700;
 }

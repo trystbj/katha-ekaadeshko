@@ -31,11 +31,19 @@ import { tryAcquireVisualBatchLock, releaseVisualBatchLock } from '../utils/visu
 import type { VisualSceneDiagnostic } from '../types/visualGeneration'
 import { markSceneFailed } from '../utils/applySceneImagePatch'
 import { healEpisodeSceneImages } from '../utils/sceneImageHeal'
-import { auditEpisodeSceneImages } from '../utils/sceneImageValidationClient'
+import { filterPipelineImagesToScenes } from '../utils/sceneImageStatus'
 import {
   applyPipelineValidationToProject,
   auditEpisodePipelineCompletion
 } from '../utils/pipelineCompletionAudit'
+import {
+  buildSceneImageRegenerationQueue,
+  countCompletedSceneImages,
+  filterPipelineImagesToScenes,
+  formatSceneImageIncompleteMessage,
+  getScenesNeedingImageRegeneration,
+  isSceneImageCompleted
+} from '../utils/sceneImageStatus'
 
 type VisualGenResult = {
   images: PipelineImageRow[]
@@ -85,7 +93,13 @@ export function useVisualGeneration() {
   const setError = useStudioStore((s) => s.setError)
 
   const generateVisuals = useCallback(
-    async (opts?: { sceneIndices?: number[]; episodeNumber?: number }) => {
+    async (opts?: {
+      sceneIndices?: number[]
+      episodeNumber?: number
+      forceRegenerate?: boolean
+      /** Internal guard — auto-retry last missing scene once. */
+      _autoSingleRetry?: boolean
+    }) => {
       const workspaceIx = useStudioStore.getState().activeWorkspaceSlotIndex
       const p = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
       if (!p?.bible) return
@@ -141,19 +155,28 @@ export function useVisualGeneration() {
       }
       useStudioStore.getState().setVisualDiagnostics([])
 
-      const targetScenes =
-        opts?.sceneIndices?.length && opts.sceneIndices.length > 0
-          ? opts.sceneIndices
-          : ep.scenes.map((s) => s.index)
+      const targetScenes = buildSceneImageRegenerationQueue(p, epn, {
+        sceneIndices: opts?.sceneIndices,
+        forceRegenerate: opts?.forceRegenerate
+      })
+      const explicitTargetMode = Boolean(opts?.sceneIndices?.length || opts?.forceRegenerate)
+      const targetSet = new Set(targetScenes)
+
+      if (!targetScenes.length) {
+        console.info('[katha:pipeline]', 'visual_skip_all_completed', { episodeNumber: epn })
+        return
+      }
+
+      console.info('[katha:pipeline]', 'visual_regen_queue', {
+        episodeNumber: epn,
+        targetScenes,
+        explicit: explicitTargetMode
+      })
 
       setBusy('generating')
       setError(null)
       useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
-        const queued = markScenesQueued(
-          withVisualGenerationStarted(cur),
-          epn,
-          ep.scenes.map((s) => s.index)
-        )
+        const queued = markScenesQueued(withVisualGenerationStarted(cur), epn, targetScenes)
         return queued
       })
 
@@ -204,6 +227,14 @@ export function useVisualGeneration() {
                 sseImages = mergePipelineImageRows(sseImages, imageRow, sceneNum)
                 useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
                   if (!cur.bible) return cur
+                  if (
+                    explicitTargetMode &&
+                    !targetSet.has(sceneNum) &&
+                    isSceneImageCompleted(cur, epn, sceneNum)
+                  ) {
+                    console.info('[katha:pipeline]', 'skip_sse_patch_locked_scene', { scene: sceneNum })
+                    return cur
+                  }
                   return applySceneImagePatch(cur, epn, imageRow, sceneNum)
                 })
                 console.info('[katha:pipeline]', failed ? 'scene_placeholder' : 'scene_image_ok', {
@@ -275,6 +306,13 @@ export function useVisualGeneration() {
               sseImages = mergePipelineImageRows(sseImages, imageRow, sceneNum)
               useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
                 if (!cur.bible) return cur
+                if (
+                  explicitTargetMode &&
+                  !targetSet.has(sceneNum) &&
+                  isSceneImageCompleted(cur, epn, sceneNum)
+                ) {
+                  return cur
+                }
                 return applySceneImagePatch(cur, epn, imageRow, sceneNum)
               })
             } else if (evt.type === 'scene_failed') {
@@ -404,6 +442,9 @@ export function useVisualGeneration() {
         let batchGuard = 0
         let remaining = (out.metadata?.visualBatch as { remainingSceneIndices?: number[] } | undefined)
           ?.remainingSceneIndices
+        if (explicitTargetMode) {
+          remaining = remaining?.filter((ix) => targetSet.has(ix))
+        }
         while (remaining?.length && batchGuard < 12) {
           batchGuard += 1
           const next = await runVisualStream({ ...baseBody, sceneIndices: remaining }, out.images ?? [])
@@ -414,9 +455,15 @@ export function useVisualGeneration() {
           }
           remaining = (next.metadata?.visualBatch as { remainingSceneIndices?: number[] } | undefined)
             ?.remainingSceneIndices
+          if (explicitTargetMode) {
+            remaining = remaining?.filter((ix) => targetSet.has(ix))
+          }
         }
 
-        let mergedImages = [...(out.images ?? [])]
+        let mergedImages = filterPipelineImagesToScenes(
+          [...(out.images ?? [])],
+          explicitTargetMode ? targetSet : new Set(ep.scenes.map((s) => s.index))
+        )
         const narrationAudioUrl = (out.audio ?? [])
           .map((r) => r?.audio_url)
           .find((u) => typeof u === 'string' && u.length > 0)
@@ -517,18 +564,14 @@ export function useVisualGeneration() {
             !withVisual.sceneImageGenerationReport?.storyReadyForAnimation
           if (partial) {
             useStudioStore.getState().setSelectedEpisode(epn)
-            const validated =
-              withVisual.pipelineValidationReport?.validatedImageCount ?? cov.withImage
-            setError(
-              uiText('visualStoryIncomplete', {
-                generated: String(validated),
-                total: String(cov.total)
-              })
-            )
+            const latestEp =
+              withVisual.episodes.find((e) => e.number === epn) ?? withVisual.episodes[0]
+            setError(formatSceneImageIncompleteMessage(withVisual, latestEp, uiText))
+            const need = buildSceneImageRegenerationQueue(withVisual, epn)
             return {
               ...withVisual,
               storyboardPartial: true,
-              missingSceneImageIndices: cov.missing
+              missingSceneImageIndices: need.length ? need : cov.missing
             }
           }
           setError(null)
@@ -561,6 +604,18 @@ export function useVisualGeneration() {
             }
           )
         })
+
+        if (!opts?._autoSingleRetry && draftProject?.bible) {
+          const need = getScenesNeedingImageRegeneration(draftProject, epn)
+          if (need.length === 1) {
+            console.info('[katha:pipeline]', 'auto_retry_single_scene', { scene: need[0] })
+            await generateVisuals({
+              episodeNumber: epn,
+              sceneIndices: need,
+              _autoSingleRetry: true
+            })
+          }
+        }
       } catch (e) {
         const classified = classifyVisualGenerationError(e)
         const msg = formatVisualFailureForUser(classified.code, classified.message, uiText)
@@ -588,11 +643,11 @@ export function useVisualGeneration() {
       const workspaceIx = useStudioStore.getState().activeWorkspaceSlotIndex
       const p = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
       if (!p?.bible) return false
-      const audit = await auditEpisodeSceneImages(p, episodeNumber)
-      if (!audit.allProblems.length && p.sceneImagesComplete) return true
+      const need = getScenesNeedingImageRegeneration(p, episodeNumber)
+      if (!need.length && p.pipelineValidationReport?.animationReady) return true
       await generateVisuals({
         episodeNumber,
-        sceneIndices: audit.allProblems.length ? audit.allProblems : undefined
+        sceneIndices: need.length ? need : undefined
       })
       const after = useStudioStore.getState().workspaceSlots[workspaceIx]?.project
       return Boolean(

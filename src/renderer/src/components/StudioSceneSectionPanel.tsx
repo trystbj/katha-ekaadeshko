@@ -5,7 +5,10 @@ import { scenePlanAt } from '../cinematic/environmentCss'
 import type { CinematicDirectorPlan } from '../../../../core/cinematic/types'
 import { SceneAiDirectorStrip } from './SceneAiDirectorStrip'
 import { StoryHealthStrip } from './StoryHealthStrip'
-import { episodeSceneImageCoverage } from '../utils/storyboardWorkflow'
+import {
+  countCompletedSceneImages,
+  getScenesNeedingImageRegeneration
+} from '../utils/sceneImageStatus'
 import { VisualGenerationDiagnosticsPanel } from './VisualGenerationDiagnosticsPanel'
 import { PipelineDebugPanel } from './PipelineDebugPanel'
 import { useStudioStore } from '../store/useStudioStore'
@@ -17,7 +20,7 @@ type Props = {
   activeSceneIndex: number
   busyLabel: string | null
   onApproveSceneImages?: () => void
-  onRetryFailedScenes?: (sceneIndices: number[]) => void
+  onRetryFailedScenes?: (sceneIndices?: number[]) => void
 }
 
 /** Scene column — AI Director + single batch image generation control. */
@@ -41,9 +44,13 @@ export function StudioSceneSectionPanel({
   const rowIx = episode.scenes.findIndex((s) => s.index === activeScene?.index)
   const scenePlan = scenePlanAt(cinematicPlan, rowIx >= 0 ? rowIx : 0)
 
-  const coverage = useMemo(
-    () => episodeSceneImageCoverage(project, episode.number),
-    [project, episode.number]
+  const imageCounts = useMemo(
+    () => countCompletedSceneImages(project, episode.number),
+    [project, episode.number, project.updatedAt, project.pipelineValidationReport]
+  )
+  const scenesNeedingImages = useMemo(
+    () => getScenesNeedingImageRegeneration(project, episode.number),
+    [project, episode.number, project.updatedAt, project.pipelineValidationReport]
   )
 
   const castSummary = useMemo(() => {
@@ -62,7 +69,7 @@ export function StudioSceneSectionPanel({
     project.pipelineValidationReport?.animationReady ??
     healSummary?.storyReadyForAnimation ??
     false
-  const needsBatch = coverage.total > 0 && !animationReady
+  const needsBatch = imageCounts.total > 0 && !animationReady
   const batchBusy = generating || regenBusy
 
   if (!activeScene) {
@@ -92,14 +99,14 @@ export function StudioSceneSectionPanel({
               : uiText('studioSceneGenerateAllImages')}
           </button>
         ) : null}
-        {!needsBatch && coverage.total > 0 ? (
+        {!needsBatch && imageCounts.total > 0 ? (
           <div className="studio-scene-section__complete" role="status">
             {healSummary ? (
               <>
                 <p>
                   {uiText('visualGenImagesCount', {
-                    generated: String(healSummary.imagesGenerated),
-                    total: String(healSummary.total)
+                    generated: String(imageCounts.completed),
+                    total: String(imageCounts.total)
                   })}
                 </p>
                 {healSummary.missingRepaired > 0 ? (
@@ -126,20 +133,20 @@ export function StudioSceneSectionPanel({
           </div>
         ) : null}
       </div>
-      {needsBatch && coverage.missing.length > 0 ? (
+      {scenesNeedingImages.length > 0 ? (
         <p className="studio-scene-section__hint" role="status">
           {uiText('storyboardMissingImages', {
-            count: String(coverage.missing.length),
-            scenes: coverage.missing.join(', ')
+            count: String(scenesNeedingImages.length),
+            scenes: scenesNeedingImages.join(', ')
           })}
         </p>
       ) : null}
-      {coverage.missing.length > 0 && onRetryFailedScenes ? (
+      {scenesNeedingImages.length > 0 && onRetryFailedScenes ? (
         <button
           type="button"
           className="btn studio-scene-section__retry-btn"
           disabled={batchBusy || rendering}
-          onClick={() => onRetryFailedScenes(coverage.missing)}
+          onClick={() => onRetryFailedScenes(scenesNeedingImages)}
         >
           {uiText('visualRetryFailedScenes')}
         </button>

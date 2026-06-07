@@ -73,7 +73,8 @@ export async function runExportPipelinePrecheck(opts: {
   }
 
   opts.onStage?.('Final validation')
-  const errors = formatExportBlockers(report)
+  const ep = project.episodes.find((e) => e.number === epn)
+  const errors = formatExportBlockers(report, ep)
   return {
     ok: report.animationReady && errors.length === 0,
     report,

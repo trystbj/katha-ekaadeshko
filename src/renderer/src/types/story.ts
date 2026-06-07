@@ -179,6 +179,11 @@ export interface StoryScene {
   visualDescription?: string
   /** Pipeline asset status for monitor / storyboard. */
   generationStatus?: 'writing' | 'image' | 'narration' | 'motion' | 'complete' | 'image_failed'
+  /** Explicit scene still pipeline state (never infer completion from URL alone). */
+  imageStatus?: 'pending' | 'generating' | 'completed' | 'failed'
+  imageUrl?: string
+  imageError?: string
+  lastGenerationAttempt?: string
   /** Screenplay review card fields (stage 1). */
   sceneTitle?: string
   emotionalTone?: string

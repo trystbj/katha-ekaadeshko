@@ -31,7 +31,7 @@ type Props = {
   onRegenerateMissingSceneImages?: () => void
   onGenerateFinalVideo?: () => void
   onApproveSceneImages?: () => void
-  onRetryFailedScenes?: (sceneIndices: number[]) => void
+  onRetryFailedScenes?: (sceneIndices?: number[]) => void
 }
 
 export function StudioScriptWorkspaceTabs({

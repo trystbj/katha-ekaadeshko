@@ -16,6 +16,7 @@ import {
   applyPipelineValidationToProject,
   auditEpisodePipelineCompletion
 } from './pipelineCompletionAudit'
+import { filterPipelineImagesToScenes } from './sceneImageStatus'
 
 export type SceneImageHealReport = {
   imagesGenerated: number
@@ -62,7 +63,9 @@ export async function healEpisodeSceneImages(opts: {
     }
 
     if (regenRows.length) {
-      const assets = buildSceneAssetsFromPipeline(regenRows)
+      const allowed = new Set(toFix)
+      const filteredRows = filterPipelineImagesToScenes(regenRows, allowed)
+      const assets = buildSceneAssetsFromPipeline(filteredRows)
       project = { ...project, assets: mergeProjectAssets(project.assets, assets) }
       opts.onPatch?.(project)
       for (const row of regenRows) {

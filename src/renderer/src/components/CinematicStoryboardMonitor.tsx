@@ -17,6 +17,7 @@ type Props = {
   /** Bordered monitor body — fallback scroll root when scene feed is not scrollable */
   scrollContainerRef?: RefObject<HTMLElement | null>
   onRegenerateScene?: (sceneIndex: number) => void
+  onGenerateSceneImage?: (sceneIndex: number) => void
   onReplaceSceneImage?: (sceneIndex: number) => void
 }
 
@@ -49,6 +50,7 @@ export function CinematicStoryboardMonitor({
   busyLabel,
   scrollContainerRef,
   onRegenerateScene,
+  onGenerateSceneImage,
   onReplaceSceneImage
 }: Props) {
   const uiText = useUiText()
@@ -127,9 +129,13 @@ export function CinematicStoryboardMonitor({
               onRegenerateScene={
                 onRegenerateScene ? () => onRegenerateScene(model.scene.index) : undefined
               }
+              onGenerateSceneImage={
+                onGenerateSceneImage ? () => onGenerateSceneImage(model.scene.index) : undefined
+              }
               onReplaceImage={
                 onReplaceSceneImage ? () => onReplaceSceneImage(model.scene.index) : undefined
               }
+              imageStatus={model.imageStatus}
             />
           </div>
         ))}

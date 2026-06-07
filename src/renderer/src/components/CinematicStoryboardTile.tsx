@@ -5,6 +5,8 @@ import type { CinematicStoryboardTileModel } from '../utils/cinematicStoryboardS
 import type { SubtitleStudioState } from '../types/subtitleStudio'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
+import type { SceneImageStatus } from '../utils/sceneImageStatus'
+
 type Props = {
   model: CinematicStoryboardTileModel
   active: boolean
@@ -13,7 +15,9 @@ type Props = {
   onSelect: () => void
   onToggleExpand: () => void
   onRegenerateScene?: () => void
+  onGenerateSceneImage?: () => void
   onReplaceImage?: () => void
+  imageStatus?: SceneImageStatus
   busy?: boolean
 }
 
@@ -82,7 +86,9 @@ export function CinematicStoryboardTile({
   onSelect,
   onToggleExpand,
   onRegenerateScene,
+  onGenerateSceneImage,
   onReplaceImage,
+  imageStatus,
   busy = false
 }: Props) {
   const uiText = useUiText()
@@ -207,7 +213,20 @@ export function CinematicStoryboardTile({
         >
           {uiText('cineActionDetails')}
         </button>
-        {onRegenerateScene ? (
+        {onGenerateSceneImage && imageStatus !== 'completed' ? (
+          <button
+            type="button"
+            className="btn btn-ghost btn-small cine-sb-tile__action-btn"
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation()
+              onGenerateSceneImage()
+            }}
+          >
+            {uiText('cineActionGenerateImage')}
+          </button>
+        ) : null}
+        {onRegenerateScene && imageStatus === 'completed' ? (
           <button
             type="button"
             className="btn btn-ghost btn-small cine-sb-tile__action-btn"
@@ -217,10 +236,10 @@ export function CinematicStoryboardTile({
               onRegenerateScene()
             }}
           >
-            {uiText('cineActionRegenerate')}
+            {uiText('cineActionRegenerateImage')}
           </button>
         ) : null}
-        {onReplaceImage ? (
+        {onReplaceImage && !onGenerateSceneImage ? (
           <button
             type="button"
             className="btn btn-ghost btn-small cine-sb-tile__action-btn"

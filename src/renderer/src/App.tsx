@@ -38,6 +38,10 @@ import { CinematicCharacterPreview } from './components/CinematicCharacterPrevie
 import { withAutoCharacterConsistency } from './utils/characterConsistencyAuto'
 import { buildVisualPipelinePayload } from './utils/buildVisualPipelinePayload'
 import { episodeSceneImageCoverage } from './utils/storyboardWorkflow'
+import {
+  buildSceneImageRegenerationQueue,
+  getScenesNeedingImageRegeneration
+} from './utils/sceneImageStatus'
 import type { SmartRegenAction } from './components/SmartSceneRegenMenu'
 import { useVisualGeneration } from './hooks/useVisualGeneration'
 import { useVideoGeneration } from './hooks/useVideoGeneration'
@@ -610,20 +614,27 @@ export default function App() {
   const onMonitorRegenerateScene = useCallback(
     (sceneIndex: number) => {
       const epn = selectedEpisode ?? activeEpisode?.number ?? 1
-      void regenerateScene(epn, sceneIndex)
+      useStudioStore.getState().patchProject((cur) =>
+        cur.bible ? removeSceneAssetsForIndices(cur, [sceneIndex]) : cur
+      )
+      void generateVisuals({ episodeNumber: epn, sceneIndices: [sceneIndex], forceRegenerate: true })
     },
-    [activeEpisode?.number, regenerateScene, selectedEpisode]
+    [activeEpisode?.number, generateVisuals, selectedEpisode]
+  )
+
+  const onMonitorGenerateSceneImage = useCallback(
+    (sceneIndex: number) => {
+      const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(project)
+      void generateVisuals({ episodeNumber: epn, sceneIndices: [sceneIndex] })
+    },
+    [activeEpisode?.number, generateVisuals, project, selectedEpisode]
   )
 
   const onMonitorReplaceSceneImage = useCallback(
     (sceneIndex: number) => {
-      const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(project)
-      useStudioStore.getState().patchProject((cur) =>
-        cur.bible ? removeSceneAssetsForIndices(cur, [sceneIndex]) : cur
-      )
-      void generateVisuals({ episodeNumber: epn, sceneIndices: [sceneIndex] })
+      onMonitorRegenerateScene(sceneIndex)
     },
-    [activeEpisode?.number, generateVisuals, project, selectedEpisode]
+    [onMonitorRegenerateScene]
   )
 
   const onStartNewStory = useCallback(() => {
@@ -645,17 +656,18 @@ export default function App() {
       setError(uiText('studioSceneSectionEmpty'))
       return
     }
-    const cov = episodeSceneImageCoverage(p, epn)
-    const sceneIndices =
-      cov.missing.length > 0 ? cov.missing : ep.scenes.map((s) => s.index)
+    const sceneIndices = getScenesNeedingImageRegeneration(p, epn)
+    if (!sceneIndices.length) {
+      setError(uiText('studioSceneImagesComplete'))
+      return
+    }
     if (!buildVisualPipelinePayload(p, epn)) {
       setError(uiText('visualGenMissingScript'))
       return
     }
     console.info('[katha:production]', 'generate_all_scene_images', {
       episodeNumber: epn,
-      sceneIndices,
-      missing: cov.missing.length
+      sceneIndices
     })
     setError(null)
     patchProject((cur) => withAutoCharacterConsistency(withVisualGenerationApproved(cur, epn)))
@@ -670,13 +682,18 @@ export default function App() {
   ])
 
   const retryFailedSceneImages = useCallback(
-    (sceneIndices: number[]) => {
+    (sceneIndices?: number[]) => {
       const p = useStudioStore.getState().project
-      if (!p?.bible || !sceneIndices.length) return
+      if (!p?.bible) return
       const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(p)
+      const need =
+        sceneIndices?.length && sceneIndices.length > 0
+          ? buildSceneImageRegenerationQueue(p, epn, { sceneIndices })
+          : getScenesNeedingImageRegeneration(p, epn)
+      if (!need.length) return
       setError(null)
-      console.info('[katha:production]', 'retry_failed_scenes', { episodeNumber: epn, sceneIndices })
-      void generateVisuals({ episodeNumber: epn, sceneIndices })
+      console.info('[katha:production]', 'retry_failed_scenes', { episodeNumber: epn, sceneIndices: need })
+      void generateVisuals({ episodeNumber: epn, sceneIndices: need })
     },
     [activeEpisode?.number, generateVisuals, selectedEpisode, setError]
   )
@@ -1824,6 +1841,7 @@ export default function App() {
                     busyLabel={busy}
                     scrollContainerRef={studioMonitorBodyRef}
                     onRegenerateScene={onMonitorRegenerateScene}
+                    onGenerateSceneImage={onMonitorGenerateSceneImage}
                     onReplaceSceneImage={onMonitorReplaceSceneImage}
                   />
                 </section>

@@ -6,6 +6,8 @@ import {
   deriveNarrationPipelineState,
   type PipelineValidationReport
 } from '../utils/pipelineCompletionAudit'
+import { resolveSceneImageStatus, sceneTitleForIndex } from '../utils/sceneImageStatus'
+import type { UiTranslateFn } from '../i18n/useAppI18n'
 import '../styles/pipeline-debug-panel.css'
 
 type Props = {
@@ -14,9 +16,10 @@ type Props = {
   cachedReport?: PipelineValidationReport
 }
 
-import type { UiTranslateFn } from '../i18n/useAppI18n'
-
-function sceneLineLabel(row: PipelineValidationReport['scenes'][0], uiText: UiTranslateFn): string {
+function sceneLineLabel(
+  row: PipelineValidationReport['scenes'][0],
+  uiText: UiTranslateFn
+): string {
   if (row.image === 'ok' && row.preview === 'ok') return uiText('pipelineDebugSceneOk')
   if (row.image === 'black') return uiText('pipelineDebugSceneBlack')
   if (row.image === 'placeholder') return uiText('pipelineDebugScenePlaceholder')
@@ -54,61 +57,52 @@ export function PipelineDebugPanel({ project, episode, cachedReport }: Props) {
   if (!report) return null
 
   const narrationState = report.narrationState ?? deriveNarrationPipelineState(episode)
-  const narrationKey =
-    narrationState === 'audio_ready'
-      ? 'pipelineDebugNarrationGenerated'
-      : narrationState === 'text_only'
-        ? 'pipelineDebugNarrationTextOnly'
-        : 'pipelineDebugNarrationMissing'
-
-  const audioKey =
-    narrationState === 'audio_ready'
-      ? 'pipelineDebugAudioGenerated'
-      : 'pipelineDebugAudioMissing'
-
-  const exportKey = report.exportReady
-    ? 'pipelineDebugExportReady'
-    : 'pipelineDebugExportNotReady'
 
   return (
     <details className="pipeline-debug" open>
       <summary className="pipeline-debug__title">
-        {uiText('pipelineDebugTitle')} ({report.healthPercent}%)
+        {uiText('sceneImageReportTitle')} ({report.validatedImageCount}/{report.totalScenes})
       </summary>
       <ul className="pipeline-debug__scenes">
-        {report.scenes.map((row) => (
-          <li key={row.scene}>
-            {uiText('pipelineDebugSceneLine', {
-              scene: String(row.scene),
-              status: sceneLineLabel(row, uiText)
-            })}
-            {row.narrationText === 'missing' ? (
-              <span className="pipeline-debug__tag"> · {uiText('pipelineDebugMissingNarrationText')}</span>
-            ) : null}
-          </li>
-        ))}
+        {report.scenes.map((row) => {
+          const ok = row.image === 'ok' && row.preview === 'ok'
+          const title = sceneTitleForIndex(episode, row.scene)
+          const status = resolveSceneImageStatus(project, episode.number, row.scene)
+          const sc = episode.scenes.find((s) => s.index === row.scene)
+          return (
+            <li key={row.scene} className={ok ? 'pipeline-debug__scene--ok' : 'pipeline-debug__scene--bad'}>
+              <span className="pipeline-debug__mark">{ok ? '✓' : '✗'}</span>{' '}
+              {title} ({uiText('pipelineDebugSceneLine', { scene: String(row.scene), status: sceneLineLabel(row, uiText) })}
+              {!ok && sc?.imageError ? (
+                <span className="pipeline-debug__tag"> — {sc.imageError}</span>
+              ) : null}
+              {!ok ? (
+                <span className="pipeline-debug__tag"> [{status}]</span>
+              ) : null}
+            </li>
+          )
+        })}
       </ul>
       <dl className="pipeline-debug__meta">
         <div>
           <dt>{uiText('pipelineDebugNarrationLabel')}</dt>
-          <dd>{uiText(narrationKey)}</dd>
-        </div>
-        <div>
-          <dt>{uiText('pipelineDebugAudioLabel')}</dt>
-          <dd>{uiText(audioKey)}</dd>
+          <dd>
+            {narrationState === 'audio_ready'
+              ? uiText('pipelineDebugNarrationGenerated')
+              : narrationState === 'text_only'
+                ? uiText('pipelineDebugNarrationTextOnly')
+                : uiText('pipelineDebugNarrationMissing')}
+          </dd>
         </div>
         <div>
           <dt>{uiText('pipelineDebugExportLabel')}</dt>
-          <dd>{uiText(exportKey)}</dd>
+          <dd>
+            {report.exportReady
+              ? uiText('pipelineDebugExportReady')
+              : uiText('pipelineDebugExportNotReady')}
+          </dd>
         </div>
       </dl>
-      {report.blockers.length ? (
-        <ul className="pipeline-debug__blockers">
-          {report.blockers.map((b) => (
-            <li key={b}>{b}</li>
-          ))}
-        </ul>
-      ) : null}
     </details>
   )
 }

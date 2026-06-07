@@ -6,6 +6,12 @@ import {
   isPlaceholderSceneUrl,
   validateSceneImageUrl
 } from './sceneImageValidationClient'
+import {
+  countCompletedSceneImages,
+  patchSceneImageStatusFields,
+  sceneImageUrlForScene,
+  sceneTitleForIndex
+} from './sceneImageStatus'
 
 export const EMERGENCY_SCENE_PROMPT_TAG = '[emergency_fallback]'
 
@@ -87,10 +93,14 @@ function sceneScriptOk(scene: StoryScene): boolean {
   return sceneNarrationText(scene).length > 0 || sceneHasVisualPrompt(scene)
 }
 
-export function formatExportBlockers(report: PipelineValidationReport): string[] {
+export function formatExportBlockers(
+  report: PipelineValidationReport,
+  episode?: StoryEpisode
+): string[] {
   const errors: string[] = []
   if (!report.charactersReady) errors.push('Characters are not generated yet.')
   if (!report.promptsReady) errors.push('Scene prompts are incomplete.')
+
   const missingImages = report.scenes.filter((s) => s.image === 'missing').map((s) => s.scene)
   const badImages = report.scenes.filter(
     (s) => s.image === 'black' || s.image === 'failed' || s.image === 'placeholder'
@@ -98,30 +108,36 @@ export function formatExportBlockers(report: PipelineValidationReport): string[]
   const badPreview = report.scenes.filter((s) => s.preview === 'failed').map((s) => s.scene)
   const missingNarration = report.scenes.filter((s) => s.narrationText === 'missing').map((s) => s.scene)
 
-  const imageProblems = [...new Set([...missingImages, ...badImages.map((s) => s.scene)])]
-  const hasImageIssue = imageProblems.length > 0 || badPreview.length > 0
+  const imageProblems = [...new Set([...missingImages, ...badImages.map((s) => s.scene), ...badPreview])]
+  const hasImageIssue = imageProblems.length > 0
   const hasAudioIssue = report.narrationState !== 'audio_ready'
 
   if (hasImageIssue && hasAudioIssue) {
-    errors.push('Scene image and narration audio missing.')
+    const sceneLabel = formatSceneBlockerLabel(episode, imageProblems[0])
+    errors.push(`Cannot generate video: missing scene image (${sceneLabel}) and narration audio.`)
   } else if (hasImageIssue) {
-    if (missingImages.length && badImages.length === 0 && badPreview.length === 0) {
-      errors.push('Scene image missing.')
-    } else if (badImages.some((s) => s.image === 'black')) {
-      errors.push('Scene image missing or invalid (black frame).')
+    if (imageProblems.length === 1) {
+      const label = formatSceneBlockerLabel(episode, imageProblems[0])
+      errors.push(`Cannot generate video: missing scene image (${label}).`)
     } else {
-      errors.push('Scene image missing.')
+      errors.push(
+        `Cannot generate video: missing scene images (${imageProblems.map((ix) => formatSceneBlockerLabel(episode, ix)).join(', ')}).`
+      )
     }
   } else if (hasAudioIssue) {
-    errors.push('Narration audio missing.')
+    errors.push('Cannot generate video: narration audio missing.')
   }
 
-  if (missingNarration.length && !errors.some((e) => e.includes('Narration'))) {
+  if (missingNarration.length && !errors.some((e) => e.toLowerCase().includes('narration'))) {
     errors.push('Narration text missing for one or more scenes.')
   }
 
   if (!errors.length && report.blockers.length) return [...report.blockers]
   return errors
+}
+
+function formatSceneBlockerLabel(episode: StoryEpisode | undefined, sceneIndex: number): string {
+  return sceneTitleForIndex(episode, sceneIndex)
 }
 
 function imageStatusFromAudit(
@@ -226,8 +242,19 @@ export async function auditEpisodePipelineCompletion(
     blockers: animationReady ? [] : blockers
   }
 
+  const counts = countCompletedSceneImages(
+    { ...project, pipelineValidationReport: { ...draft, healthPercent: 0, updatedAt: '' } },
+    episodeNumber
+  )
+  if (counts.completed !== counts.total) {
+    draft.animationReady = false
+    draft.exportReady = false
+  }
+
   return {
     ...draft,
+    animationReady: draft.animationReady && counts.completed === counts.total,
+    exportReady: draft.exportReady && counts.completed === counts.total,
     healthPercent: computePipelineHealthPercent(draft),
     updatedAt: new Date().toISOString()
   }
@@ -265,14 +292,22 @@ export function applyPipelineValidationToProject(
               const row = report.scenes.find((r) => r.scene === s.index)
               if (!row) return s
               const imageOk = row.image === 'ok' && row.preview === 'ok'
-              return {
-                ...s,
-                generationStatus: imageOk
-                  ? report.narrationState === 'audio_ready'
-                    ? 'complete'
-                    : 'narration'
-                  : 'image_failed'
-              }
+              const url = sceneImageUrlForScene(project, s)
+              return patchSceneImageStatusFields(
+                {
+                  ...s,
+                  generationStatus: imageOk
+                    ? report.narrationState === 'audio_ready'
+                      ? 'complete'
+                      : 'narration'
+                    : 'image_failed'
+                },
+                {
+                  imageStatus: imageOk ? 'completed' : row.image === 'missing' ? 'pending' : 'failed',
+                  imageUrl: url,
+                  imageError: imageOk ? undefined : row.image === 'black' ? 'Black or invalid image' : s.imageError
+                }
+              )
             })
           }
     ),
