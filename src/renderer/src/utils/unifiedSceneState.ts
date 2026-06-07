@@ -39,14 +39,14 @@ export function buildUnifiedSceneState(
   const invalidAsset = isEmergencySceneAsset(asset)
   const placeholder = rawUrl ? isPlaceholderSceneUrl(rawUrl) : false
 
-  const displayImageUrl =
-    rawUrl && !placeholder
-      ? imageStatus === 'completed' && !invalidAsset
-        ? rawUrl
-        : imageStatus === 'failed'
-          ? rawUrl
-          : undefined
-      : undefined
+  const displayImageUrl = (() => {
+    if (!rawUrl) return undefined
+    if (imageStatus === 'completed' && !invalidAsset && !placeholder) return rawUrl
+    if (imageStatus === 'failed' && placeholder) return rawUrl
+    if (imageStatus === 'failed' && rawUrl && !placeholder) return undefined
+    if (imageStatus === 'generating' && rawUrl && !placeholder) return rawUrl
+    return undefined
+  })()
 
   const narrationReady = sceneNarrationText(scene).length > 0
   const scriptReady = sceneScriptReady(scene)

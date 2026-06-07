@@ -148,8 +148,17 @@ export function useVisualGeneration() {
       }
 
       if (!tryAcquireVisualBatchLock(p.id)) {
-        console.info('[katha:pipeline]', 'visual_batch_skip_duplicate', { projectId: p.id })
-        return
+        const explicitRetry = Boolean(opts?.sceneIndices?.length || opts?.forceRegenerate)
+        if (explicitRetry) {
+          releaseVisualBatchLock(p.id)
+          if (!tryAcquireVisualBatchLock(p.id)) {
+            setError(uiText('visualGenBusyRetry'))
+            return
+          }
+        } else {
+          console.info('[katha:pipeline]', 'visual_batch_skip_duplicate', { projectId: p.id })
+          return
+        }
       }
 
       const diagnostics: VisualSceneDiagnostic[] = []

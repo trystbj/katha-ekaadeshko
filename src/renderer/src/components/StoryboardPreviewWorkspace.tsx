@@ -6,7 +6,7 @@ import { PreviewStage } from './PreviewStage'
 import { StoryboardSubtitleLiveOverlay } from './StoryboardSubtitleLiveOverlay'
 import { ComicDialogueOverlay } from './ComicDialogueOverlay'
 import { ensureVideoStudio } from '../utils/ensureVideoStudio'
-import { sceneImageUrlForScene } from '../utils/sceneImageStatus'
+import { sceneUrlForPreviewDisplay } from '../utils/sceneImageStatus'
 import { useStudioStore } from '../store/useStudioStore'
 import { normalizeSubtitleStudio } from '../types/subtitleStudio'
 import { storyboardSubtitleFontPx } from '../utils/storyboardSubtitleOverlay'
@@ -54,7 +54,9 @@ export function StoryboardPreviewWorkspace({
   const sceneCount = episode.scenes.length
   const safeIx = sceneCount ? Math.min(Math.max(0, carouselIndex), sceneCount - 1) : 0
   const activeScene: StoryScene | undefined = episode.scenes[safeIx]
-  const activeSceneUrl = activeScene ? sceneImageUrlForScene(project, activeScene) || '' : ''
+  const activeSceneUrl = activeScene
+    ? sceneUrlForPreviewDisplay(project, episode.number, activeScene)
+    : ''
   const isComicStyle =
     project.bible?.styleId === 'comic_panel' ||
     String(project.bible?.customVisualPrompt || '').toLowerCase().includes('comic')
@@ -118,6 +120,7 @@ export function StoryboardPreviewWorkspace({
         <PreviewStage
           sectionClassName="storyboard-workspace__preview-stage preview-stage--maximize"
           cinematicMedia
+          suppressSeasonalIdle
           seasonId={seasonId}
           sceneUrls={sceneUrls}
           heroUrl={heroUrl || activeSceneUrl || null}

@@ -38,6 +38,21 @@ export function sceneImageUrlForScene(
   return sceneUrlForIndex(project, scene.index)
 }
 
+/** Preview-safe URL — completed stills + readable SVG fallbacks; never seasonal bleed sources. */
+export function sceneUrlForPreviewDisplay(
+  project: ProjectState | null | undefined,
+  episodeNumber: number,
+  scene: StoryScene
+): string {
+  const raw = String(sceneImageUrlForScene(project, scene) || '').trim()
+  if (!raw) return ''
+  const status = resolveSceneImageStatus(project, episodeNumber, scene.index)
+  if (status === 'completed') return isPlaceholderSceneUrl(raw) ? '' : raw
+  if (status === 'failed' && isPlaceholderSceneUrl(raw)) return raw
+  if (status === 'generating' && !isPlaceholderSceneUrl(raw)) return raw
+  return ''
+}
+
 /** Live status — never read cached report counters for display. */
 export function resolveSceneImageStatus(
   project: ProjectState | null | undefined,
@@ -181,16 +196,9 @@ export function scenePreviewUrlsAligned(
   project: ProjectState | null | undefined,
   episode: StoryEpisode
 ): string[] {
-  return (episode.scenes ?? []).map((s) => {
-    const st = resolveSceneImageStatus(project, episode.number, s.index)
-    if (st === 'completed') return sceneImageUrlForScene(project, s) || ''
-    if (st === 'failed') {
-      const url = sceneImageUrlForScene(project, s)
-      return url && !isPlaceholderSceneUrl(url) ? url : ''
-    }
-    const url = sceneImageUrlForScene(project, s)
-    return url || ''
-  })
+  return (episode.scenes ?? []).map((s) =>
+    sceneUrlForPreviewDisplay(project, episode.number, s)
+  )
 }
 
 export function filterPipelineImagesToScenes(

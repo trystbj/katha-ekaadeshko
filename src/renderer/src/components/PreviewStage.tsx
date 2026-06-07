@@ -48,6 +48,8 @@ type Props = {
   showSceneNav?: boolean
   /** Smart fill (portrait→height, landscape→width) without letterbox waste. */
   cinematicMedia?: boolean
+  /** Storyboard: never show seasonal idle art when scene still is empty. */
+  suppressSeasonalIdle?: boolean
   /** Character portrait mode — show hero immediately on click (no async gate). */
   instantHeroSwitch?: boolean
 }
@@ -75,6 +77,7 @@ export function PreviewStage({
   hideCastLayer = false,
   showSceneNav = false,
   cinematicMedia = false,
+  suppressSeasonalIdle = false,
   instantHeroSwitch = false
 }: Props) {
   const uiText = useUiText()
@@ -90,6 +93,7 @@ export function PreviewStage({
       setHero(heroCandidate)
       return
     }
+    setHero('')
     let cancelled = false
     void validatedScenePreviewUrl(heroCandidate).then((url) => {
       if (!cancelled) setHero(url)
@@ -101,6 +105,7 @@ export function PreviewStage({
   const fitAxis = useCinematicImageFit(cinematicMedia ? hero : null)
   const pct = typeof jobProgress === 'number' ? Math.min(100, Math.max(0, jobProgress)) : undefined
   const blankIdle = Boolean(idleBlank && !hero)
+  const emptyStage = blankIdle || (suppressSeasonalIdle && !hero)
 
   const thumbs = useMemo(() => pipelineThumbUrls.filter(Boolean), [pipelineThumbUrls])
   const totalSlides = sceneCount ?? sceneUrls.length
@@ -151,7 +156,7 @@ export function PreviewStage({
         </h3>
       ) : null}
       <div
-        className={`preview-stage${busy ? ' busy' : ''}${blankIdle ? ' preview-stage--blank-idle' : ''}${hero ? ' preview-stage--has-scene' : ''}${celebrateComplete ? ' preview-stage--celebrate' : ''}${cinematicMedia ? ' preview-stage--cinematic' : ''}${cinematicMedia && hero ? ` preview-stage--fit-${fitAxis}` : ''}`}
+        className={`preview-stage${busy ? ' busy' : ''}${blankIdle ? ' preview-stage--blank-idle' : ''}${hero ? ' preview-stage--has-scene' : ''}${celebrateComplete ? ' preview-stage--celebrate' : ''}${cinematicMedia ? ' preview-stage--cinematic' : ''}${cinematicMedia && hero ? ` preview-stage--fit-${fitAxis}` : ''}${emptyStage && suppressSeasonalIdle ? ' preview-stage--storyboard-empty' : ''}`}
       >
         <div className="preview-stage__inner">
           <AnimatePresence mode="wait">
@@ -174,17 +179,17 @@ export function PreviewStage({
               </motion.div>
             ) : (
               <motion.div
-                key={hero || (blankIdle ? 'blank' : preset.id)}
+                key={hero || (emptyStage ? 'blank' : preset.id)}
                 className="preview-stage__media"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.45 }}
                 style={{
-                  backgroundColor: blankIdle ? 'transparent' : undefined,
+                  backgroundColor: emptyStage ? 'transparent' : undefined,
                   backgroundImage: hero
                     ? `linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.5)), url(${hero})`
-                    : blankIdle
+                    : emptyStage
                       ? 'none'
                       : `${preset.overlay}, url(${preset.heroUrl})`,
                   backgroundSize: hero ? 'cover' : undefined,

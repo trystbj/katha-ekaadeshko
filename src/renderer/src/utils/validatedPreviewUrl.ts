@@ -1,4 +1,5 @@
 import { probeSceneImageUrl } from './probeSceneImageUrl'
+import { isPlaceholderSceneUrl } from './sceneImageValidationClient'
 
 const failedUrls = new Set<string>()
 
@@ -15,6 +16,7 @@ export function isPreviewUrlFailed(url: string): boolean {
 export async function validatedScenePreviewUrl(url: string | undefined): Promise<string> {
   const src = String(url || '').trim()
   if (!src || isPreviewUrlFailed(src)) return ''
+  if (isPlaceholderSceneUrl(src)) return src
   const probe = await probeSceneImageUrl(src, 14_000)
   if (!probe.ok) {
     markPreviewUrlFailed(src)

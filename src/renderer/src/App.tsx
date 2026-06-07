@@ -684,7 +684,8 @@ export default function App() {
 
   const retryFailedSceneImages = useCallback(
     (sceneIndices?: number[]) => {
-      const p = useStudioStore.getState().project
+      const st = useStudioStore.getState()
+      const p = st.project
       if (!p?.bible) return
       const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(p)
       const need = buildSceneImageRegenerationQueue(p, epn, {
@@ -702,6 +703,8 @@ export default function App() {
         return
       }
       setError(null)
+      const workspaceIx = st.activeWorkspaceSlotIndex
+      st.workspaceRuntime[workspaceIx]?.generationAbort?.abort()
       releaseVisualBatchLock(p.id)
       console.info('[katha:production]', 'retry_failed_scenes', { episodeNumber: epn, sceneIndices: need })
       void generateVisuals({ episodeNumber: epn, sceneIndices: need, forceRegenerate: true })

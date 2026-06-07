@@ -626,6 +626,7 @@
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
 
 .storyboard-workspace__preview-stage {
@@ -935,6 +936,15 @@
   object-position: center center;
   max-width: 100%;
   max-height: 100%;
+}
+
+.preview-stage.preview-stage--storyboard-empty {
+  background: rgba(0, 0, 0, 0.92) !important;
+}
+
+.preview-stage.preview-stage--storyboard-empty .preview-stage__media,
+.preview-stage.preview-stage--storyboard-empty .preview-stage__media--img {
+  background: #060a0e;
 }
 
 .storyboard-workspace__tl-num {

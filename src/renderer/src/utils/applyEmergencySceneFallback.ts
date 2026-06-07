@@ -2,6 +2,7 @@ import type { ProjectState } from '../types/story'
 import { buildEmergencySceneImageUrl, emergencySceneAssetsForIndices } from './sceneEmergencyFallback'
 import { mergeProjectAssets } from './sceneAssetMap'
 import { getFailedSceneIndices, patchSceneImageStatusFields, sceneImageUrlForScene, syncEpisodeSceneImageStatuses } from './sceneImageStatus'
+import { isPlaceholderSceneUrl } from './sceneImageValidationClient'
 import { applySceneImagePatch } from './applySceneImagePatch'
 
 /** After retries exhaust, fill failed scenes with readable SVG fallbacks (not black). */
@@ -20,7 +21,7 @@ export function applyEmergencyFallbackForFailedScenes(
     const sc = ep.scenes.find((s) => s.index === ix)
     if (!sc) return false
     const url = sceneImageUrlForScene(project, sc)
-    return !url
+    return !url || isPlaceholderSceneUrl(String(url))
   })
 
   if (!failed.length) return project
