@@ -35,6 +35,7 @@
     { "source": "/api/realtime-feedback", "destination": "/api/gateway?target=realtime-feedback" },
     { "source": "/api/social-caption", "destination": "/api/gateway?target=social-caption" },
     { "source": "/api/social-shorts-optimize", "destination": "/api/gateway?target=social-shorts-optimize" },
+    { "source": "/api/story-translate", "destination": "/api/gateway?target=story-translate" },
     { "source": "/api/ui-i18n-bundle", "destination": "/api/gateway?target=ui-i18n-bundle" },
     { "source": "/api/render", "destination": "/api/gateway?target=render" },
     { "source": "/api/render-status", "destination": "/api/gateway?target=render-status" },

@@ -5,12 +5,14 @@ import { LiveScriptPreview } from './LiveScriptPreview'
 import { StoryGenerationDefaultsPicker } from './StoryGenerationDefaultsPicker'
 import { StudioSceneSectionPanel } from './StudioSceneSectionPanel'
 import { StudioSceneSectionPlaceholder } from './StudioSceneSectionPlaceholder'
+import { StoryReadingWorkspace } from './StoryReadingWorkspace'
 import type { StreamRevealState } from '../store/useStudioStore'
 import type { SmartRegenAction } from './SmartSceneRegenMenu'
 import { deriveCinematicProductionGate } from '../utils/cinematicProductionGate'
 import '../styles/studio-script-workspace.css'
+import '../styles/story-reading-workspace.css'
 
-export type StudioScriptTab = 'scenes' | 'script' | 'voice' | 'video'
+export type StudioScriptTab = 'scenes' | 'script' | 'voice' | 'story' | 'video'
 
 type Props = {
   project: ProjectState | null
@@ -69,6 +71,7 @@ export function StudioScriptWorkspaceTabs({
     { id: 'scenes', label: uiText('studioTabScenes') },
     { id: 'script', label: uiText('studioTabScript') },
     { id: 'voice', label: uiText('studioTabVoice') },
+    { id: 'story', label: uiText('studioTabStory') },
     { id: 'video', label: uiText('studioTabVideo') }
   ]
 
@@ -127,6 +130,16 @@ export function StudioScriptWorkspaceTabs({
           <div className="studio-script-workspace__voice">
             <StoryGenerationDefaultsPicker embeddedInGeneratedDialog />
           </div>
+        ) : null}
+
+        {tab === 'story' ? (
+          storyGenerated ? (
+            <StoryReadingWorkspace project={project} episode={episode} />
+          ) : (
+            <div className="story-reading-workspace story-reading-workspace--empty">
+              <p className="story-reading-workspace__empty">{uiText('storyReadingEmpty')}</p>
+            </div>
+          )
         ) : null}
 
         {tab === 'video' ? (

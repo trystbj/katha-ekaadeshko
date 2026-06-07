@@ -14,6 +14,7 @@ import creatorSceneRegenerate from './_routes/creator-scene-regenerate.js'
 import realtimeFeedback from './_routes/realtime-feedback.js'
 import socialCaption from './_routes/social-caption.js'
 import socialShortsOptimize from './_routes/social-shorts-optimize.js'
+import storyTranslate from './_routes/story-translate.js'
 import uiI18nBundle from './_routes/ui-i18n-bundle.js'
 import renderEnqueue from './_routes/render.js'
 import renderStatus from './_routes/render-status.js'
@@ -40,6 +41,7 @@ const ROUTES = {
   'realtime-feedback': realtimeFeedback,
   'social-caption': socialCaption,
   'social-shorts-optimize': socialShortsOptimize,
+  'story-translate': storyTranslate,
   'ui-i18n-bundle': uiI18nBundle,
   render: renderEnqueue,
   'render-status': renderStatus,

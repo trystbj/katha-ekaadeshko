@@ -1,0 +1,183 @@
+.story-reading-workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  gap: 0.5rem;
+}
+
+.story-reading-workspace--empty {
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.story-reading-workspace__empty {
+  margin: 0;
+  color: rgba(255, 252, 248, 0.72);
+  font-size: 0.88rem;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.story-reading-workspace__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.65rem 0.85rem 0.35rem;
+  scroll-behavior: smooth;
+}
+
+.story-reading-workspace__header {
+  margin-bottom: 0.85rem;
+}
+
+.story-reading-workspace__title {
+  margin: 0 0 0.25rem;
+  font-family: var(--studio-serif, Georgia, 'Times New Roman', serif);
+  font-size: clamp(1.15rem, 2.2vw, 1.45rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: #fffdf8;
+  letter-spacing: 0.01em;
+}
+
+.story-reading-workspace__episode {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--studio-accent, #c9a86a) 88%, #fff);
+}
+
+.story-reading-workspace__lang-badge {
+  margin: 0.35rem 0 0;
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--studio-accent, #c9a86a) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--studio-accent, #c9a86a) 45%, transparent);
+  color: rgba(255, 252, 248, 0.92);
+}
+
+.story-reading-workspace__section {
+  margin-bottom: 1rem;
+}
+
+.story-reading-workspace__label {
+  margin: 0 0 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--studio-accent, #c9a86a) 90%, #fff);
+}
+
+.story-reading-workspace__meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.65rem;
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+}
+
+.story-reading-workspace__meta dt {
+  margin: 0;
+  font-weight: 700;
+  color: rgba(255, 252, 248, 0.62);
+}
+
+.story-reading-workspace__meta dd {
+  margin: 0;
+  color: rgba(255, 252, 248, 0.92);
+}
+
+.story-reading-workspace__prose {
+  margin: 0;
+  font-family: var(--studio-serif, Georgia, 'Times New Roman', serif);
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: rgba(255, 252, 248, 0.94);
+}
+
+.story-reading-workspace__prose--body p {
+  margin: 0 0 0.85rem;
+}
+
+.story-reading-workspace__prose--body p:last-child {
+  margin-bottom: 0;
+}
+
+.story-reading-workspace__characters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.story-reading-workspace__characters li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  align-items: baseline;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.story-reading-workspace__char-name {
+  font-weight: 700;
+  color: #fffdf8;
+}
+
+.story-reading-workspace__char-role {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--studio-accent, #c9a86a) 85%, #fff);
+}
+
+.story-reading-workspace__char-traits {
+  flex: 1 1 100%;
+  color: rgba(255, 252, 248, 0.72);
+  font-size: 0.8rem;
+}
+
+.story-reading-workspace__error {
+  margin: 0 0 0 -2mm;
+  padding: 0 0.85rem;
+  font-size: 0.78rem;
+  color: #ffb4a8;
+}
+
+.story-reading-workspace__actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem 0.85rem 0.55rem;
+  border-top: 1px solid color-mix(in srgb, var(--studio-accent, #c9a86a) 22%, transparent);
+  background: color-mix(in srgb, var(--studio-readable-surface, rgba(0, 0, 0, 0.28)) 55%, transparent);
+}
+
+.story-reading-workspace__translate-btn span {
+  margin-right: 0.25rem;
+}
+
+@media (max-width: 520px) {
+  .story-reading-workspace__scroll {
+    padding-inline: 0.55rem;
+  }
+
+  .story-reading-workspace__actions {
+    padding-inline: 0.55rem;
+  }
+}

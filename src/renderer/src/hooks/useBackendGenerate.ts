@@ -699,6 +699,7 @@ export function useBackendGenerate() {
         namingPolicyMode: namingPolicy.mode,
         characterIdentityMemory,
         narration: narrationDraft,
+        storyTranslations: {},
         projectMemory: buildProjectMemoryPatch(
           { bible, narration: narrationDraft, characterIdentityMemory },
           episode1 as unknown as Record<string, unknown>,

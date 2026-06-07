@@ -365,6 +365,8 @@ export interface ProjectState {
   uiLanguage?: string
   /** Content translation preference: translate story/script into app language (UI always localized). */
   translateContentToUiLanguage?: boolean
+  /** Cached Story-tab prose translations keyed by language code (original English stays in pipeline snapshot). */
+  storyTranslations?: Record<string, string>
   /** Optional per-project character reference images for consistency across generations. */
   characterReference?: CharacterReferenceConfig
   /** User seed naming lock (pronoun-only vs proper names). */

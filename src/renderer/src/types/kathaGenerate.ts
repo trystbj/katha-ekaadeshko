@@ -3,6 +3,8 @@ export interface JobsStreamGenerateResult {
   story: {
     title: string
     setting: string
+    /** Full generated prose (English canonical). */
+    story?: string
     characters: Array<{ name: string; role: string; traits: string }>
   }
   script: Array<{
