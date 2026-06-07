@@ -3,13 +3,20 @@
  */
 
 import { isServerlessRuntime, serverlessFastPipeline } from './runtime.js'
+import {
+  serverlessMaxScriptScenes as policyMaxScriptScenes,
+  sceneCountRangeForInput,
+  ABSOLUTE_MIN_SCENES
+} from './sceneCountPolicy.js'
+
+export { ABSOLUTE_MIN_SCENES, sceneCountRangeForInput }
 
 export function serverlessMaxScriptScenes(input = {}) {
-  if (!isServerlessRuntime()) return 12
-  const long = input?.__longStoryIntelligence?.active
-  if (long) return 8
-  if (serverlessFastPipeline() || input.scriptOnly === true || input.performancePreferLow) return 6
-  return 8
+  if (serverlessFastPipeline() && isServerlessRuntime()) {
+    const range = sceneCountRangeForInput(input)
+    return Math.max(ABSOLUTE_MIN_SCENES, Math.min(range.min, policyMaxScriptScenes(input)))
+  }
+  return policyMaxScriptScenes(input)
 }
 
 export function serverlessLeonardoParallelLimit() {
@@ -18,8 +25,7 @@ export function serverlessLeonardoParallelLimit() {
     return Number.isFinite(n) && n > 0 ? Math.min(n, 6) : 6
   }
   const n = Number(process.env.KATHA_LEONARDO_PARALLEL_SERVERLESS)
-  if (Number.isFinite(n) && n > 0) return Math.min(n, 3)
-  return 2
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 3) : 2
 }
 
 export function serverlessLeonardoSceneCooldownMs() {

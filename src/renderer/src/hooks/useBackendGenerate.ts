@@ -569,10 +569,10 @@ export function useBackendGenerate() {
           Number(
             (pipelineResult.metadata?.longStoryIntelligence as { targetSceneCount?: number } | undefined)
               ?.targetSceneCount
-          ) || 8
+          ) || 10
         scriptRows = buildFallbackScriptFromStory(
           pipelineResult.story as Record<string, unknown>,
-          targetN
+          Math.max(10, targetN)
         )
         console.warn('[katha:generate] client_script_fallback', { scenes: scriptRows.length })
       }
@@ -586,13 +586,13 @@ export function useBackendGenerate() {
       }
 
       const targetSceneCount = Math.min(
-        16,
+        40,
         Math.max(
-          6,
+          10,
           Number(
             (pipelineResult.metadata?.longStoryIntelligence as { targetSceneCount?: number } | undefined)
               ?.targetSceneCount
-          ) || Math.min(scriptRows.length, 10)
+          ) || Math.max(10, Math.min(scriptRows.length, 14))
         )
       )
       const { scenes, sceneIndices } = buildEpisodeScenesFromScriptRows(scriptRows, targetSceneCount)

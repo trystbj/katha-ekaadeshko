@@ -32,7 +32,11 @@ export function applySceneImagePatch(
   const existingUrl = sceneUrlForIndex(project, sceneNum)
   if (url && existingUrl === url) return project
 
-  const isPlaceholder = imageRow.status === 'placeholder' || !url
+  const isFailed = imageRow.status === 'failed'
+  const isPlaceholder = imageRow.status === 'placeholder' || (!url && !isFailed)
+  if (isFailed) {
+    return markSceneFailed(project, episodeNumber, sceneNum, String(imageRow.error || 'Image generation failed'))
+  }
   const assetsFromPipeline = buildSceneAssetsFromPipeline([imageRow])
   const mergedAssets = mergeProjectAssets(project.assets, assetsFromPipeline)
   const now = new Date().toISOString()

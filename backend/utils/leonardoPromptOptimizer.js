@@ -10,6 +10,7 @@ import {
 } from '../character/characterIdentityMemory.js'
 import { TEXT_FREE_NEGATIVE } from '../cinematic/masterStoryContext.js'
 import { buildLeonardoNegativePrompt } from './leonardoPromptQuality.js'
+import { sceneTriptychContinuityBlock } from './leonardoPromptQuality.js'
 import { characterReferencePromptFromBible } from '../cinematic/storyBible.js'
 import { characterDNABlockForScene, leonardoPromptsFromDNA } from '../cinematic/characterDNA.js'
 
@@ -93,7 +94,7 @@ export function compactLeonardoIdentityBlock(scriptRow, memory = []) {
  * @param {object} ctx
  */
 export function buildCompactLeonardoScenePrompt(ctx = {}) {
-  const { input = {}, scriptRow = {}, blueprint, castMemory = [], sceneIndex = 0 } = ctx
+  const { input = {}, scriptRow = {}, blueprint, castMemory = [], sceneIndex = 0, script = [] } = ctx
   const profile = resolveStyleProfile(input)
   const sceneNum = Number(scriptRow.scene) > 0 ? Number(scriptRow.scene) : sceneIndex + 1
 
@@ -152,20 +153,32 @@ export function buildCompactLeonardoScenePrompt(ctx = {}) {
     .filter(Boolean)
     .join(' ')
 
+  const triptych =
+    script.length > 0
+      ? sceneTriptychContinuityBlock(script, sceneIndex)
+      : String(input.__sceneContinuityBlocks?.[sceneIndex] || '').trim()
+  const timeOfDay = truncate(String(scriptRow.time_of_day || scriptRow.timeOfDay || '').trim(), 60)
+  const weather = truncate(String(scriptRow.weather || blueprint?.weather || '').trim(), 60)
+  const cameraDir = truncate(
+    String(scriptRow.camera_direction || scriptRow.camera || blueprint?.cameraAngle || '').trim(),
+    90
+  )
+
   const sections = {
     character: truncate(stripLeonardoPromptBloat(identity), MAIN_SECTION_PRIORITY[0].max),
     action: truncate(
-      `Scene ${sceneNum}: ${sceneBeat || 'single clear story moment with readable body language'}. No text in image.`,
+      `Scene ${sceneNum}: ${sceneBeat || 'single clear story moment with readable body language'}. Artwork only — no text, bubbles, or captions in frame.`,
       MAIN_SECTION_PRIORITY[1].max
     ),
-    environment: environment ? `Place: ${environment}.` : '',
+    environment: environment ? `Place: ${environment}.${weather ? ` Weather: ${weather}.` : ''}${timeOfDay ? ` Time: ${timeOfDay}.` : ''}` : '',
     emotion: emotion ? `Mood: ${emotion}.` : '',
     style: style ? `Style: ${style}.` : '',
-    camera: `Camera: ${camera}.`,
+    camera: `Camera: ${cameraDir || camera}.`,
     lighting: `Light: ${lighting}.`
   }
 
   let prompt = MAIN_SECTION_PRIORITY.map(({ key }) => sections[key]).filter(Boolean).join(' ')
+  if (triptych) prompt = `${prompt} ${truncate(triptych, 420)}`
   prompt = stripLeonardoPromptBloat(prompt)
   return fitTextToLimit(prompt, LEONARDO_MAX_PROMPT)
 }

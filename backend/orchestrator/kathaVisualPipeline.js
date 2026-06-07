@@ -8,6 +8,7 @@ import { getRegionForCountry } from '../utils/regionData.js'
 import { normalizePipelineInput } from '../utils/generationBlueprint.js'
 import { normalizeProductionDirectives } from '../services/ai-director/productionDirectives.js'
 import { buildSmartContinuityPack, continuityBlockForScene } from '../services/continuity/smartContinuityEngine.js'
+import { sceneTriptychContinuityBlock } from '../utils/leonardoPromptQuality.js'
 import { buildAllSceneVisualBlueprints } from '../services/cinematic/cinematicVisualBlueprint.js'
 import {
   attachPortraitUrlsToLocks,
@@ -169,7 +170,9 @@ export async function runKathaVisualPipeline(opts = {}) {
     __storyboardDirectorBlock: storyboardBlock,
     __sceneContinuityBlocks: script.map((row, i) => {
       const sceneNum = Number(row?.scene) > 0 ? Number(row.scene) : i + 1
-      return continuityBlockForScene(continuityPack, sceneNum)
+      const packBlock = continuityBlockForScene(continuityPack, sceneNum)
+      const triptych = sceneTriptychContinuityBlock(script, i)
+      return [packBlock, triptych].filter(Boolean).join('\n')
     }),
     __characterReferencePrompt: [input.__characterReferencePrompt, characterBlock, storyboardBlock]
       .filter(Boolean)

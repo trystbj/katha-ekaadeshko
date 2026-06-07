@@ -49,13 +49,13 @@ export const STYLE_DNA = {
   comic_panel: {
     shortLabel: 'comic book illustration',
     storyHint:
-      'comic / graphic novel — bold outlines, dynamic poses, stylized environments; consistent comic language',
+      'comic / graphic novel — bold outlines, dynamic poses, stylized environments; artwork ONLY (Katha renders dialogue as overlays)',
     leonardoCore:
-      'STYLE LOCK — comic book illustration ONLY: graphic novel quality, bold outlines, expressive characters, comic-style rendering, visual storytelling panels, dynamic poses, stylized environments, professional comic artwork, consistent character likeness',
+      'STYLE LOCK — comic book illustration ONLY: graphic novel quality, bold outlines, expressive characters, comic-style rendering, dynamic poses, stylized environments, professional comic artwork, consistent character likeness, clean panel composition, cinematic comic framing — NO speech bubbles, NO captions, NO readable text, NO dialogue balloons in frame',
     leonardoForbidden:
-      'FORBIDDEN unless hybrid mode: soft watercolor anime wash, hyperreal photographic pores, unrelated painterly oil realism as dominant finish',
+      'FORBIDDEN: speech bubbles, speech balloons, captions, narration boxes, readable letters, words in frame, subtitle text, comic dialogue text, cluttered multi-panel grids with text; unless hybrid mode: soft watercolor anime wash, hyperreal photographic pores, unrelated painterly oil realism as dominant finish',
     scriptGuidance:
-      'Storyboard comic beats — inked contours, bold lines, dynamic poses — avoid mismatched soft anime or photoreal finishes.'
+      'Storyboard comic beats — inked contours, bold lines, dynamic poses, emotion-focused shots. visual_description must describe artwork ONLY — Katha renders speech bubbles and captions separately. Never ask the image model to draw readable dialogue.'
   },
   cinematic_realistic: {
     shortLabel: 'realistic cinematic photography',

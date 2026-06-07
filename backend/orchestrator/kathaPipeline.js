@@ -35,6 +35,11 @@ import {
   serverlessMaxScriptScenes
 } from '../utils/serverlessSceneLimits.js'
 import {
+  enforceMinimumScriptScenes,
+  sceneCountRangeForInput,
+  ABSOLUTE_MIN_SCENES
+} from '../utils/sceneCountPolicy.js'
+import {
   runLongStoryIntelligence,
   enrichContextMemoryFromOutputs
 } from '../storyIntelligence/longStoryOrchestrator.js'
@@ -556,23 +561,25 @@ async function continuePipelineFromStory(
     const { json: scriptRetryRaw, provider: scriptRetryProvider } = await aiJsonAuto({
       purpose: 'script',
       schemaHint: 'Script',
-      prompt: `${buildScriptPrompt({ story: finalStory, input: pinnedInput, region })}\n\nReturn ONLY a JSON array of 6-8 objects. Each object MUST include: scene (number), narration (string), visual_description (string), dialogue (array of {character,line}).`,
+      prompt: `${buildScriptPrompt({ story: finalStory, input: pinnedInput, region })}\n\nReturn ONLY a JSON array of ${Math.max(ABSOLUTE_MIN_SCENES, sceneCountRangeForInput(pinnedInput).min)}+ objects. Each object MUST include: scene (number), narration (string), visual_description (string), dialogue (array of {character,line}). Never fewer than ${ABSOLUTE_MIN_SCENES} scenes.`,
       order: ['openai', 'gemini', 'deepseek']
     })
     script = normalizeScriptJson(scriptRetryRaw)
     if (script.length) providersUsed.script = scriptRetryProvider
   }
   if (!script.length) {
+    const range = sceneCountRangeForInput(pinnedInput)
     const targetN =
       Number(pinnedInput.__longStoryIntelligence?.targetSceneCount) ||
       Number(longPlan?.targetSceneCount) ||
-      8
-    script = buildFallbackScriptFromStory(finalStory, targetN)
+      range.target
+    script = buildFallbackScriptFromStory(finalStory, Math.max(ABSOLUTE_MIN_SCENES, targetN))
     providersUsed.script = 'fallback_deterministic'
     safeLog('warn', 'script_fallback_from_story', { scenes: script.length })
   }
   const maxScenes = serverlessMaxScriptScenes(pinnedInput)
   script = capScriptScenes(script, maxScenes)
+  script = enforceMinimumScriptScenes(script, finalStory, pinnedInput, buildFallbackScriptFromStory)
   script = attachComposedNarrationToScript(script, finalStory)
   budget.checkpoint('script', { story: finalStory, script })
   console.info('[katha:story-writing]', 'script_enriched', {

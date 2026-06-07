@@ -32,15 +32,16 @@ import {
 import { parseLeonardoApiError } from '../utils/leonardoErrors.js'
 import { traceVisualScene } from '../utils/visualSceneTrace.js'
 import { validateSceneVisualPreflight } from '../utils/sceneVisualPreflight.js'
+import { buildScenePlaceholderImageUrl } from '../../shared/scenePlaceholderImage.js'
 
 function sceneImageMaxAttempts() {
-  const n = Number(process.env.KATHA_SCENE_MAX_ATTEMPTS || 5)
-  return Number.isFinite(n) && n >= 1 ? Math.min(8, Math.floor(n)) : 5
+  const n = Number(process.env.KATHA_SCENE_MAX_ATTEMPTS || 3)
+  return Number.isFinite(n) && n >= 1 ? Math.min(8, Math.floor(n)) : 3
 }
 
 function sceneRetryPasses() {
-  const n = Number(process.env.KATHA_SCENE_RETRY_PASSES || 2)
-  return Number.isFinite(n) && n >= 0 ? Math.min(4, Math.floor(n)) : 2
+  const n = Number(process.env.KATHA_SCENE_RETRY_PASSES || 1)
+  return Number.isFinite(n) && n >= 0 ? Math.min(4, Math.floor(n)) : 1
 }
 
 async function generateOneWithRetry(args) {
@@ -165,6 +166,7 @@ export async function leonardoGenerateForScript({
   }
 
   let completed = 0
+  let succeeded = 0
   let cursor = 0
 
   async function generateSceneRow(s, i) {
@@ -181,7 +183,8 @@ export async function leonardoGenerateForScript({
         scene: sceneKey,
         progress: Math.round((completed / Math.max(1, total)) * 100),
         total,
-        message: `Generating scene ${sceneKey}…`
+        message: `Generating scene ${sceneKey}…`,
+        diagnostic: { scene: sceneKey, status: 'generating', retryCount, provider: 'leonardo' }
       })
     }
     const sceneStarted = Date.now()
@@ -250,7 +253,8 @@ export async function leonardoGenerateForScript({
           blueprint: bp,
           identityBlock,
           castMemory,
-          sceneIndex: i
+          sceneIndex: i,
+          script
         },
         inputWithRefs
       )
@@ -335,13 +339,23 @@ export async function leonardoGenerateForScript({
             pipelineStageLog('image_decoded', { scene: sceneKey, bytes: remote.bytes, mime: remote.mime })
           }
         }
+        if (!lastValidation.ok) {
+          const failReason =
+            lastValidation.failureReason ||
+            lastValidation.issues?.join(', ') ||
+            'validation_failed'
+          console.warn('[katha:leonardo]', 'scene_validation_regen', {
+            scene: sceneKey,
+            attempt,
+            maxAttempts: maxSceneAttempts,
+            reason: failReason
+          })
+          if (attempt >= maxSceneAttempts) {
+            throw new Error(`Scene ${sceneKey} validation failed after ${maxSceneAttempts} attempts: ${failReason}`)
+          }
+        }
         if (lastValidation.ok) break
         if (!lastValidation.shouldRegenerate || attempt >= maxSceneAttempts) break
-        console.warn('[katha:leonardo]', 'scene_validation_regen', {
-          scene: sceneKey,
-          attempt,
-          issues: lastValidation.issues
-        })
       }
       if (!imageUrl || (lastValidation && !lastValidation.ok && lastValidation.shouldRegenerate)) {
         throw new Error(
@@ -363,6 +377,7 @@ export async function leonardoGenerateForScript({
         scene: sceneKey,
         castSlots: castMemory.map((m) => `${m.label}:${m.gender}`).join(', ')
       })
+      succeeded += 1
       completed += 1
       markSceneGenerationComplete(lockId, sceneKey)
       if (onProgress) {
@@ -373,13 +388,14 @@ export async function leonardoGenerateForScript({
           blueprint: bp,
           progress: Math.round((completed / Math.max(1, total)) * 100),
           total,
-          message: `Scene ${sceneKey} complete (${completed}/${total})`,
+          message: `Scene ${sceneKey} complete (${succeeded}/${total})`,
           diagnostic: {
             scene: sceneKey,
             promptLength: prompt.length,
             provider: 'leonardo',
             status: 'complete',
-            retryCount,
+            retryCount: retryCount,
+            maxRetries: maxSceneAttempts,
             durationMs: Date.now() - sceneStarted,
             imageUrl: imageUrl.slice(0, 200)
           }
@@ -389,45 +405,51 @@ export async function leonardoGenerateForScript({
     } catch (e) {
       releaseSceneGenerationLock(lockId, sceneKey)
       const message = e instanceof Error ? e.message : String(e)
-      failures.push({ scene: sceneKey, message })
+      failures.push({ scene: sceneKey, message, retryCount })
+      completed += 1
       traceVisualScene('scene_failed', {
         scene: sceneKey,
         failed: true,
         message: message.slice(0, 320),
         durationMs: Date.now() - sceneStarted,
-        retryCount
+        retryCount,
+        maxRetries: sceneImageMaxAttempts()
       })
-      console.warn('[katha:leonardo]', 'scene_failed', { scene: sceneKey, message })
-      const placeholderUrl = buildScenePlaceholderImageUrl(sceneKey, 'Retry scene')
-      const placeholderRow = {
+      console.warn('[katha:leonardo]', 'scene_failed', {
         scene: sceneKey,
-        image_url: placeholderUrl,
+        message,
+        retryCount,
+        attempts: sceneImageMaxAttempts()
+      })
+      const failedRow = {
+        scene: sceneKey,
+        image_url: '',
         prompt: '',
-        status: 'placeholder',
-        error: message.slice(0, 400)
+        status: 'failed',
+        error: message.slice(0, 400),
+        retryCount
       }
-      completed += 1
       if (onProgress) {
         onProgress({
           stage: 'scene_failed',
           scene: sceneKey,
+          image: failedRow,
           progress: Math.round((completed / Math.max(1, total)) * 100),
           total,
-          message: `Scene ${sceneKey} failed`,
+          message: `Scene ${sceneKey} failed after ${sceneImageMaxAttempts()} attempts`,
           diagnostic: {
             scene: sceneKey,
             promptLength: 0,
             provider: 'leonardo',
-            status: 'placeholder',
+            status: 'failed',
             retryCount,
+            maxRetries: sceneImageMaxAttempts(),
             durationMs: Date.now() - sceneStarted,
-            errorMessage: message.slice(0, 280),
-            imageUrl: placeholderUrl
-          },
-          image: placeholderRow
+            errorMessage: message.slice(0, 280)
+          }
         })
       }
-      return placeholderRow
+      return failedRow
     }
   }
 
@@ -456,11 +478,12 @@ export async function leonardoGenerateForScript({
       if (idx < 0) continue
       console.info('[katha:leonardo]', 'scene_retry_pass', { scene: f.scene, pass: pass + 1, reason: f.message })
       const row = await generateSceneRow(script[idx], idx)
-      if (row) {
-        const exists = out.some((o) => Number(o.scene) === Number(row.scene))
-        if (!exists) out.push(row)
-      } else {
-        failures.push(f)
+      if (row && row.status === 'complete') {
+        const ix = out.findIndex((o) => Number(o.scene) === Number(row.scene))
+        if (ix >= 0) out[ix] = row
+        else out.push(row)
+      } else if (row?.status === 'failed') {
+        failures.push({ scene: row.scene, message: row.error || f.message })
       }
     }
   }

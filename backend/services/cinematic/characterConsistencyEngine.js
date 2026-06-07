@@ -33,6 +33,8 @@ export function buildPermanentCharacterProfiles(bibleCharacters = []) {
       accessories: p.accessories,
       facialStructure: p.facialFeatures,
       bodyType: p.bodyType,
+      skinTone: p.skinTone || 'locked regional skin tone',
+      expressionStyle: p.expressionStyle || 'personality-consistent expressions',
       specialTraits: p.identityTraits,
       visualIdentity: m.visualIdentity,
       baseImagePrompt: m.baseImagePrompt
@@ -51,14 +53,26 @@ export function buildCharacterVisualLocks(bibleCharacters = [], existingLocks = 
 
   return memory.map((m, i) => {
     const prior = byLabel.get(m.label.toLowerCase())
+    const p =
+      m.appearanceProfile ||
+      buildCharacterAppearanceProfile(m.label, m.role || '', m.visualIdentity || '')
     const characterId = prior?.characterId || `char_${i + 1}`
     return {
       characterId,
       label: m.label,
       gender: m.gender,
+      age: p.age,
+      hairStyle: p.hair,
+      hairColor: p.hairColor,
+      eyeColor: p.eyeColor,
+      clothing: p.clothing || prior?.outfitReference,
+      accessories: p.accessories,
+      bodyType: p.bodyType,
+      skinTone: p.skinTone || 'locked',
+      expressionStyle: p.expressionStyle || 'consistent emotional range',
       basePortrait: prior?.basePortrait || prior?.baseImageUrl || '',
       faceReference: prior?.faceReference || prior?.basePortrait || '',
-      outfitReference: prior?.outfitReference || m.clothing || '',
+      outfitReference: prior?.outfitReference || p.clothing || '',
       styleReference: prior?.styleReference || m.visualIdentity || '',
       visualIdentity: m.visualIdentity,
       baseImagePrompt: m.baseImagePrompt,
@@ -97,20 +111,22 @@ export function characterConsistencyPromptBlock(locks = []) {
   if (!locks.length) return ''
   const lines = locks.map((c) => {
     const vi = String(c.visualIdentity || c.styleReference || '').trim()
-    const hair = (vi.match(/\b(hair|braid|bun|locks)[^.]{0,70}/i) || ['locked hairstyle'])[0]
-    const outfit = c.outfitReference || (vi.match(/\b(dress|sari|kurta|coat|robe|jacket)[^.]{0,70}/i) || [''])[0] || 'locked wardrobe'
     return [
-      `${c.label} (${c.gender}) — PERMANENT PROFILE:`,
-      `hair ${hair}; outfit ${outfit};`,
-      `face ref ${c.faceReference || c.basePortrait || 'scene-1 likeness'};`,
-      `visual identity ${vi || c.baseImagePrompt}.`
+      `${c.label} (${c.gender}, age ${c.age || 'locked'}) — PERMANENT PROFILE LOCK:`,
+      `face ${c.facialStructure || vi.slice(0, 80) || 'locked'};`,
+      `hair ${c.hairStyle || 'locked'}${c.hairColor ? ` (${c.hairColor})` : ''};`,
+      `eyes ${c.eyeColor || 'locked'}; skin ${c.skinTone || 'locked'};`,
+      `body ${c.bodyType || 'locked'}; outfit ${c.outfitReference || c.clothing || 'locked wardrobe'};`,
+      `accessories ${c.accessories || 'same every scene'};`,
+      `expression style ${c.expressionStyle || 'consistent'};`,
+      `face ref ${c.faceReference || c.basePortrait || 'scene-1 likeness'}.`
     ].join(' ')
   })
   return [
-    'CHARACTER CONSISTENCY ENGINE — non-negotiable:',
+    'CHARACTER CONSISTENCY ENGINE — non-negotiable (inject into every scene):',
     ...lines,
-    'Store and reuse this profile in every scene prompt automatically.',
-    'Same exact character from previous scenes — hair style, hair color, eye color, age, gender, clothing, body type, accessories, facial features unchanged.',
-    'Never swap genders, age, face structure, or art style between scenes. Reuse the same cast only.'
+    'Lock face, hairstyle, hair color, clothing, age, body type, accessories, skin tone, and expression style.',
+    'Store once — reuse in every scene prompt automatically.',
+    'Never swap genders, age, face structure, wardrobe palette, or art style between scenes.'
   ].join('\n')
 }

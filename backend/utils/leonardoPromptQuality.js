@@ -37,7 +37,7 @@ const STYLE_ANTI_BLEED = {
   cinematic_anime:
     'flat chibi cartoon, storybook watercolor, photoreal snapshot, random mixed media',
   comic_panel:
-    'soft anime watercolor, photoreal portrait, oil painting realism, 3D Pixar',
+    'soft anime watercolor, photoreal portrait, oil painting realism, 3D Pixar, speech bubbles, speech balloons, captions, readable text, dialogue balloons, narration boxes, comic lettering, words in frame',
   cinematic_realistic:
     'anime cel shading, chibi, flat cartoon sticker, storybook illustration, comic ink outline'
 }
@@ -66,6 +66,25 @@ export function priorSceneContinuityBlock(script, index) {
   const prior = priorSceneSummaryFromRow(script[index - 1])
   if (!prior) return ''
   return `SCENE CONTINUITY (from previous beat): ${prior}. Same cast, wardrobe, and world — logical progression only.`
+}
+
+/**
+ * Previous / current / next scene summaries for visual continuity.
+ * @param {Record<string, unknown>[]} script
+ * @param {number} index 0-based row index
+ */
+export function sceneTriptychContinuityBlock(script, index) {
+  if (!Array.isArray(script) || !script.length) return ''
+  const prev = index > 0 ? priorSceneSummaryFromRow(script[index - 1]) : ''
+  const cur = priorSceneSummaryFromRow(script[index])
+  const next = index < script.length - 1 ? priorSceneSummaryFromRow(script[index + 1]) : ''
+  return [
+    prev ? `PREVIOUS SCENE SUMMARY: ${prev}` : '',
+    cur ? `CURRENT SCENE SUMMARY: ${cur}` : '',
+    next ? `NEXT SCENE GOAL: ${next}` : ''
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 /**

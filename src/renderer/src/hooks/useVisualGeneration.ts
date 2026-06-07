@@ -11,7 +11,7 @@ import { attachSceneGenerationStatuses } from '../utils/scenePipelineStatus'
 import { inferCountryFromLanguageCode } from '../utils/inferCountryFromLanguage'
 import { formatApiError, readHttpErrorResponse } from '../utils/formatApiError'
 import { markScenesQueued } from '../utils/sceneGenerationLock'
-import { applySceneImagePatch, markSceneGenerating } from '../utils/applySceneImagePatch'
+import { applySceneImagePatch, markSceneGenerating, markSceneFailed } from '../utils/applySceneImagePatch'
 import { sceneIndexFromPipelineRow } from '../utils/sceneAssetMap'
 import {
   hasUsablePipelineImages,
@@ -29,7 +29,6 @@ import {
 } from '../utils/visualGenerationErrors'
 import { tryAcquireVisualBatchLock, releaseVisualBatchLock } from '../utils/visualBatchLock'
 import type { VisualSceneDiagnostic } from '../types/visualGeneration'
-import { markSceneFailed } from '../utils/applySceneImagePatch'
 import { healEpisodeSceneImages } from '../utils/sceneImageHeal'
 import { filterPipelineImagesToScenes } from '../utils/sceneImageStatus'
 import {
@@ -226,23 +225,37 @@ export function useVisualGeneration() {
               if (evt.type === 'scene_image' && evt.image) {
                 const imageRow = evt.image as PipelineImageRow
                 const sceneNum = sceneIndexFromPipelineRow(imageRow, Number(evt.scene) || 1)
-                const failed = Boolean(evt.failed)
+                const failed =
+                  Boolean(evt.failed) ||
+                  imageRow.status === 'failed' ||
+                  imageRow.status === 'placeholder'
                 const diag = evt.diagnostic as VisualSceneDiagnostic | undefined
                 if (diag) upsertDiagnostic(diag)
-                sseImages = mergePipelineImageRows(sseImages, imageRow, sceneNum)
-                useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
-                  if (!cur.bible) return cur
-                  if (
-                    explicitTargetMode &&
-                    !targetSet.has(sceneNum) &&
-                    isSceneImageCompleted(cur, epn, sceneNum)
-                  ) {
-                    console.info('[katha:pipeline]', 'skip_sse_patch_locked_scene', { scene: sceneNum })
-                    return cur
-                  }
-                  return applySceneImagePatch(cur, epn, imageRow, sceneNum)
-                })
-                console.info('[katha:pipeline]', failed ? 'scene_placeholder' : 'scene_image_ok', {
+                if (failed) {
+                  useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) =>
+                    markSceneFailed(
+                      cur,
+                      epn,
+                      sceneNum,
+                      String(imageRow.error || diag?.errorMessage || evt.message || '')
+                    )
+                  )
+                } else {
+                  sseImages = mergePipelineImageRows(sseImages, imageRow, sceneNum)
+                  useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
+                    if (!cur.bible) return cur
+                    if (
+                      explicitTargetMode &&
+                      !targetSet.has(sceneNum) &&
+                      isSceneImageCompleted(cur, epn, sceneNum)
+                    ) {
+                      console.info('[katha:pipeline]', 'skip_sse_patch_locked_scene', { scene: sceneNum })
+                      return cur
+                    }
+                    return applySceneImagePatch(cur, epn, imageRow, sceneNum)
+                  })
+                }
+                console.info('[katha:pipeline]', failed ? 'scene_failed_sse' : 'scene_image_ok', {
                   scene: sceneNum,
                   url: String(imageRow.image_url || imageRow.imageUrl || '').slice(0, 120)
                 })
@@ -306,20 +319,35 @@ export function useVisualGeneration() {
             if (evt.type === 'scene_image' && evt.image) {
               const imageRow = evt.image as PipelineImageRow
               const sceneNum = sceneIndexFromPipelineRow(imageRow, Number(evt.scene) || 1)
+              const failed =
+                Boolean(evt.failed) ||
+                imageRow.status === 'failed' ||
+                imageRow.status === 'placeholder'
               const diag = evt.diagnostic as VisualSceneDiagnostic | undefined
               if (diag) upsertDiagnostic(diag)
-              sseImages = mergePipelineImageRows(sseImages, imageRow, sceneNum)
-              useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
-                if (!cur.bible) return cur
-                if (
-                  explicitTargetMode &&
-                  !targetSet.has(sceneNum) &&
-                  isSceneImageCompleted(cur, epn, sceneNum)
-                ) {
-                  return cur
-                }
-                return applySceneImagePatch(cur, epn, imageRow, sceneNum)
-              })
+              if (failed) {
+                useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) =>
+                  markSceneFailed(
+                    cur,
+                    epn,
+                    sceneNum,
+                    String(imageRow.error || diag?.errorMessage || '')
+                  )
+                )
+              } else {
+                sseImages = mergePipelineImageRows(sseImages, imageRow, sceneNum)
+                useStudioStore.getState().patchWorkspaceProject(workspaceIx, (cur) => {
+                  if (!cur.bible) return cur
+                  if (
+                    explicitTargetMode &&
+                    !targetSet.has(sceneNum) &&
+                    isSceneImageCompleted(cur, epn, sceneNum)
+                  ) {
+                    return cur
+                  }
+                  return applySceneImagePatch(cur, epn, imageRow, sceneNum)
+                })
+              }
             } else if (evt.type === 'scene_failed') {
               const sceneNum = Number(evt.scene) || 0
               if (sceneNum) {

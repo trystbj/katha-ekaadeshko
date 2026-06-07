@@ -211,7 +211,11 @@ export async function auditEpisodePipelineCompletion(
   }
 
   const blockers: string[] = []
+  const MIN_EXPORT_SCENES = 10
   if (!project.bible) blockers.push('Story not generated.')
+  if (scenes.length > 0 && scenes.length < MIN_EXPORT_SCENES) {
+    blockers.push(`Story needs at least ${MIN_EXPORT_SCENES} scenes before export.`)
+  }
   if (!charsReady) blockers.push('Characters missing.')
   if (!promptsReady) blockers.push('Scene prompts missing.')
   if (!scriptCheck.complete) blockers.push('Scene script incomplete.')

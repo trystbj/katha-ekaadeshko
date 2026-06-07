@@ -73,27 +73,59 @@ export function displayUrlsForEpisodeScenes(
   return buildUnifiedSceneStates(project, episode).map((s) => s.displayImageUrl ?? '')
 }
 
-export function sceneGenerationDiagnostics(
-  project: ProjectState | null | undefined,
-  episode: StoryEpisode
-): {
+export type SceneGenerationDiagnosticsView = {
   completed: number
   failed: number
   remaining: number
   total: number
   failedIndices: number[]
-} {
+  currentScene: number | null
+  retryAttempt: number | null
+  maxRetries: number
+  lastError: string | null
+}
+
+export function sceneGenerationDiagnostics(
+  project: ProjectState | null | undefined,
+  episode: StoryEpisode,
+  opts?: {
+    visualDiagnostics?: Array<{
+      scene: number
+      status: string
+      retryCount?: number
+      maxRetries?: number
+      errorMessage?: string
+    }> | null
+    lastError?: string | null
+  }
+): SceneGenerationDiagnosticsView {
   const states = buildUnifiedSceneStates(project, episode)
   const completed = states.filter((s) => s.imageStatus === 'completed').length
   const failed = states.filter((s) => s.imageStatus === 'failed').length
   const remaining = states.filter(
-    (s) => s.imageStatus === 'pending' || s.imageStatus === 'generating' || s.imageStatus === 'failed'
+    (s) => s.imageStatus === 'pending' || s.imageStatus === 'generating'
   ).length
+  const diagRows = opts?.visualDiagnostics ?? []
+  const active = diagRows.find((d) => d.status === 'generating')
+  const lastFailed = [...diagRows].reverse().find((d) => d.status === 'failed')
+  const sceneErrors = states
+    .filter((s) => s.imageError)
+    .map((s) => `Scene ${s.index}: ${s.imageError}`)
+  const lastError =
+    opts?.lastError ||
+    lastFailed?.errorMessage ||
+    sceneErrors[sceneErrors.length - 1] ||
+    null
+
   return {
     completed,
     failed,
     remaining,
     total: states.length,
-    failedIndices: states.filter((s) => s.imageStatus !== 'completed').map((s) => s.index)
+    failedIndices: states.filter((s) => s.imageStatus === 'failed').map((s) => s.index),
+    currentScene: active?.scene ?? null,
+    retryAttempt: active?.retryCount != null ? active.retryCount + 1 : null,
+    maxRetries: active?.maxRetries ?? lastFailed?.maxRetries ?? 3,
+    lastError
   }
 }

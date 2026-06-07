@@ -22,7 +22,7 @@ export function buildFallbackScriptFromStory(story, targetCount = 8) {
     }
   }
   if (!blocks.length && setting) blocks = [setting]
-  const count = Math.min(16, Math.max(6, Number(targetCount) || 8))
+  const count = Math.min(40, Math.max(10, Number(targetCount) || 10))
   const picked =
     blocks.length >= count
       ? blocks.slice(0, count)

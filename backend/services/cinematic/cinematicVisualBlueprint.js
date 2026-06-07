@@ -156,9 +156,14 @@ export function buildAllSceneVisualBlueprints(script, input = {}, ctx = {}) {
 export function leonardoPromptFromBlueprint(bp, input = {}, identityBlock = '') {
   const profile = resolveStyleProfile(input)
   const vertical = input.aspectMode !== 'horizontal_16_9'
+  const isComic = String(profile.key || '').split('+')[0] === 'comic_panel'
   const framing = vertical
     ? 'vertical 9:16 portrait composition, tall readable framing, hero subject centered'
     : 'horizontal 16:9 widescreen composition, cinematic letter-safe framing'
+
+  const frameRule = isComic
+    ? 'Single comic-art frame — clean panel composition, dynamic pose, emotion-focused shot — NO speech bubbles, NO captions, NO readable text (Katha renders dialogue separately).'
+    : 'Single illustrated frame — no duplicate thumbnails, no text, no subtitles, no captions, no watermark, no UI, no words.'
 
   const hybrid = profile.key?.includes('+')
   const core = hybrid
@@ -191,7 +196,7 @@ export function leonardoPromptFromBlueprint(bp, input = {}, identityBlock = '') 
     framing,
     'Same exact character from previous scenes — identical face, hair, hair color, eye color, clothing, skin tone, age, body type, and accessories.',
     'Quality: highly detailed, professional artwork, cinematic composition, consistent character design, high-quality visual storytelling.',
-    'Single illustrated frame — no comic panels, no duplicate thumbnails, no text, no subtitles, no captions, no watermark, no UI, no words.',
+    frameRule,
     bp.negativePrompt ? `FORBIDDEN: ${bp.negativePrompt}.` : '',
     bp.directorNote ? `Director: ${bp.directorNote}` : ''
   ]

@@ -6,7 +6,13 @@ import {
   regionalCultureContextLine
 } from '../../shared/outputLanguageLock.js'
 import { isServerlessRuntime } from './runtime.js'
-import { serverlessMaxScriptScenes } from './serverlessSceneLimits.js'
+import {
+  serverlessMaxScriptScenes,
+  scriptSceneCountInstruction,
+  sceneCountRangeForInput,
+  ABSOLUTE_MIN_SCENES
+} from './sceneCountPolicy.js'
+import { storyBeatStructurePromptBlock } from '../../shared/storySceneBeats.js'
 import {
   characterPersonalityWritingBlock,
   cinematicWritingBlueprintSection,
@@ -16,15 +22,14 @@ import {
 function longStoryScriptSection(inputLike) {
   const plan = inputLike?.__longStoryIntelligence
   if (!plan?.active) return ''
-  const raw = plan.structure?.targetSceneCount || plan.targetSceneCount || 8
-  const n = Math.min(10, Math.max(6, Number(raw) || 8))
-  const outline = plan.tokenBudget?.scriptContext || ''
+  const range = sceneCountRangeForInput(inputLike)
+  const outline = plan?.tokenBudget?.scriptContext || ''
   return `
 LONG-STORY SCENE PLAN (mandatory):
-- Produce between 6 and ${n} scenes (prefer the upper end when the story supports it; stay within this range so JSON stays valid).
-- Honor scene emotional beats and continuity from the seed analysis.
+- ${scriptSceneCountInstruction(inputLike)}
+${storyBeatStructurePromptBlock(Math.max(ABSOLUTE_MIN_SCENES, range.min))}
 - Each scene: cinematic narration (typically 3–6 sentences when emotional beats need depth; show-don't-tell) + natural dialogue exchanges in dialogue[] (3–8 lines when characters interact; not one-liner robots).
-- visual_description per scene: 2–3 rich filmable sentences (environment, light, body language, camera-friendly staging) for downstream illustration.
+- visual_description per scene: 2–3 rich filmable sentences (environment, light, body language, camera-friendly staging) for downstream illustration — NO readable text, speech bubbles, or captions in frame (Katha renders dialogue separately).
 - Avoid repeated narration lines and emotional resets between scenes; vary sentence openings and rhythm.
 ${outline ? `Planned beats:\n${outline}\n` : ''}`
 }
@@ -232,11 +237,13 @@ ${visualLock}
 
 ${longStoryScriptSection(input)}
 
+${storyBeatStructurePromptBlock(Math.max(ABSOLUTE_MIN_SCENES, sceneCountRangeForInput(input).min))}
+
 ${screenplayQualityRulesBlock(langDisp)}
 
 Rules:
 - Follow GENERATION BLUEPRINT locks (genre, region, pacing, visual card).
-- ${isServerlessRuntime() ? `Produce exactly ${serverlessMaxScriptScenes(input)} scenes (server-optimized batch — quality over quantity).` : '6–10 scenes (use LONG-STORY SCENE PLAN count when provided above).'}
+- ${scriptSceneCountInstruction(input)}
 - Each scene must include:
   - scene (number)
   - visual_description (3–5 rich filmable sentences: location, weather/time, atmosphere, who is visible with locked appearance, pose, action, expression, story event, camera-friendly composition — NEVER title-only; NO text/subtitles/captions in frame)

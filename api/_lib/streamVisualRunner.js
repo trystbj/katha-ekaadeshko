@@ -9,7 +9,11 @@ export async function runStreamVisualPipeline(opts) {
   const partial = { images: [], audio: [] }
   const onProgress = opts.onProgress
   const wrappedProgress = (p) => {
-    if (p?.stage === 'scene_complete' && p?.image) {
+    if (
+      p?.stage === 'scene_complete' &&
+      p?.image?.status === 'complete' &&
+      String(p.image.image_url || p.image.imageUrl || '').trim()
+    ) {
       partial.images.push(p.image)
     }
     if (onProgress) onProgress(p)
