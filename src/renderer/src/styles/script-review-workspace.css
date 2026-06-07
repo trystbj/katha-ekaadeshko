@@ -11,6 +11,20 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.script-review-workspace--embedded {
+  padding: 0.35rem 0.2rem 0.65rem;
+  height: 100%;
+}
+
+.script-review-workspace--embedded .script-review-workspace__title--embedded {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+}
+
+.script-review-workspace--embedded .script-review-workspace__stages {
+  margin-bottom: 4px;
+}
+
 .script-review-workspace__head {
   flex-shrink: 0;
 }

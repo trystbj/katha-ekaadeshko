@@ -19,15 +19,12 @@ import '../styles/story-reading-workspace.css'
 type Props = {
   project: ProjectState | null
   episode: StoryEpisode | null | undefined
-  /** When false, scroll position is saved for tab switches. */
-  active?: boolean
 }
 
-export function StoryReadingWorkspace({ project, episode, active = true }: Props) {
+export function StoryReadingWorkspace({ project, episode }: Props) {
   const uiText = useUiText()
   const patchProject = useStudioStore((s) => s.patchProject)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const savedScrollRef = useRef(0)
 
   const model = useMemo(() => extractStoryReadingModel(project, episode), [project, episode])
   const [viewLang, setViewLang] = useState<StoryTranslationLangCode>('en')
@@ -65,19 +62,24 @@ export function StoryReadingWorkspace({ project, episode, active = true }: Props
 
   useEffect(() => {
     const el = scrollRef.current
-    if (!el) return
+    if (!el || !project?.id) return
+    const key = `katha_story_scroll_${project.id}`
+    try {
+      const saved = sessionStorage.getItem(key)
+      if (saved) el.scrollTop = Number(saved)
+    } catch {
+      /* ignore */
+    }
     const save = () => {
-      savedScrollRef.current = el.scrollTop
+      try {
+        sessionStorage.setItem(key, String(el.scrollTop))
+      } catch {
+        /* ignore */
+      }
     }
     el.addEventListener('scroll', save, { passive: true })
     return () => el.removeEventListener('scroll', save)
-  }, [])
-
-  useEffect(() => {
-    if (active && scrollRef.current) {
-      scrollRef.current.scrollTop = savedScrollRef.current
-    }
-  }, [active])
+  }, [project?.id])
 
   const onCopy = useCallback(async () => {
     if (!exportText) return

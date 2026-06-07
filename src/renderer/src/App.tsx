@@ -30,7 +30,6 @@ import { getGenerateReadiness, i18nKeyForMissing } from './utils/generateReadine
 import { StudioAmbientBackdrop } from './components/StudioAmbientBackdrop'
 import { PreviewStage } from './components/PreviewStage'
 import { StoryboardPreviewWorkspace } from './components/StoryboardPreviewWorkspace'
-import { ScriptReviewWorkspace } from './components/ScriptReviewWorkspace'
 import { showScriptReviewWorkspace, withScriptReviewReopened } from './utils/productionWorkflow'
 import { PreviewWorkspaceBackButton } from './components/PreviewWorkspaceBackButton'
 import { StudioScriptWorkspaceTabs } from './components/StudioScriptWorkspaceTabs'
@@ -1314,19 +1313,6 @@ export default function App() {
                     if (c) selectCharacterPreview(c)
                   }}
                 />
-              ) : showScriptReview && activeEpisode && project ? (
-                <ScriptReviewWorkspace
-                  project={project}
-                  episode={activeEpisode}
-                  busyLabel={busy}
-                  onBack={onPreviewWorkspaceBack}
-                  onNextScene={(sceneIndex) => {
-                    const ix = activeEpisode.scenes.findIndex((s) => s.index === sceneIndex)
-                    const next = activeEpisode.scenes[ix + 1]
-                    if (next) setEmbeddedPreviewIndex(ix + 1)
-                  }}
-                  patchProject={patchProject}
-                />
               ) : showStoryboardPreview && activeEpisode ? (
                 <StoryboardPreviewWorkspace
                   project={project}
@@ -1557,6 +1543,7 @@ export default function App() {
                   project={project}
                   episode={activeEpisode}
                   storyGenerated={Boolean(project?.bible)}
+                  scriptReviewMode={showScriptReview}
                   scenes={scriptPanelScenes}
                   rawStructured={activeEpisode?.rawStructured}
                   busy={Boolean(busy)}
@@ -1565,6 +1552,12 @@ export default function App() {
                   streamReveal={streamReveal}
                   focusedSpeaker={focusedSceneSpeaker}
                   activeSceneIndex={activeEpisode?.scenes[embeddedPreviewIndex]?.index}
+                  patchProject={patchProject}
+                  onScriptReviewNextScene={(sceneIndex) => {
+                    const ix = activeEpisode?.scenes.findIndex((s) => s.index === sceneIndex) ?? -1
+                    const next = activeEpisode?.scenes[ix + 1]
+                    if (next) setEmbeddedPreviewIndex(ix + 1)
+                  }}
                   onSmartRegen={onMonitorSmartRegen}
                   onRegenerateMissingSceneImages={onRegenerateMissingSceneImages}
                   onGenerateFinalVideo={onGenerateFinalVideo}

@@ -16,6 +16,8 @@ type Props = {
   onNextScene: (sceneIndex: number) => void
   patchProject: (fn: (p: ProjectState) => ProjectState) => void
   onBack?: () => void
+  /** Render inside story column Script tab (not center preview). */
+  embeddedInScriptPanel?: boolean
 }
 
 const STAGE_ORDER: ProductionStage[] = [
@@ -33,7 +35,8 @@ export function ScriptReviewWorkspace({
   busyLabel,
   onNextScene,
   patchProject,
-  onBack
+  onBack,
+  embeddedInScriptPanel = false
 }: Props) {
   const uiText = useUiText()
   const [expandedIx, setExpandedIx] = useState<number | null>(episode.scenes[0]?.index ?? null)
@@ -98,22 +101,30 @@ export function ScriptReviewWorkspace({
   )
 
   return (
-    <div className="script-review-workspace">
+    <div
+      className={`script-review-workspace${embeddedInScriptPanel ? ' script-review-workspace--embedded' : ''}`}
+    >
       <header className="script-review-workspace__head">
-        <div className="script-review-workspace__title-row">
-          {onBack ? (
-            <button
-              type="button"
-              className="script-review-workspace__back"
-              onClick={onBack}
-              aria-label={uiText('previewWorkspaceBackAria')}
-              title={uiText('previewWorkspaceBackAria')}
-            >
-              <span aria-hidden>←</span>
-            </button>
-          ) : null}
-          <h2 className="script-review-workspace__title">{uiText('scriptReviewTitle')}</h2>
-        </div>
+        {!embeddedInScriptPanel ? (
+          <div className="script-review-workspace__title-row">
+            {onBack ? (
+              <button
+                type="button"
+                className="script-review-workspace__back"
+                onClick={onBack}
+                aria-label={uiText('previewWorkspaceBackAria')}
+                title={uiText('previewWorkspaceBackAria')}
+              >
+                <span aria-hidden>←</span>
+              </button>
+            ) : null}
+            <h2 className="script-review-workspace__title">{uiText('scriptReviewTitle')}</h2>
+          </div>
+        ) : (
+          <h2 className="script-review-workspace__title script-review-workspace__title--embedded">
+            {uiText('scriptReviewTitle')}
+          </h2>
+        )}
         <p className="script-review-workspace__subtitle">{uiText('scriptReviewSubtitle')}</p>
         <p className="script-review-workspace__status" role="status">
           {uiText(productionStageLabelKey(currentStage))} · {uiText('scriptReviewAwaitingUser')}
