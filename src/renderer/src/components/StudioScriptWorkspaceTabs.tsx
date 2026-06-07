@@ -32,6 +32,7 @@ type Props = {
   onGenerateFinalVideo?: () => void
   onApproveSceneImages?: () => void
   onRetryFailedScenes?: (sceneIndices?: number[]) => void
+  onRetrySceneImage?: (sceneIndex: number) => void
 }
 
 export function StudioScriptWorkspaceTabs({
@@ -52,7 +53,8 @@ export function StudioScriptWorkspaceTabs({
   onRegenerateMissingSceneImages,
   onGenerateFinalVideo,
   onApproveSceneImages,
-  onRetryFailedScenes
+  onRetryFailedScenes,
+  onRetrySceneImage
 }: Props) {
   const uiText = useUiText()
   const [tab, setTab] = useState<StudioScriptTab>(storyGenerated ? 'scenes' : 'script')
@@ -99,6 +101,7 @@ export function StudioScriptWorkspaceTabs({
               busyLabel={busyLabel}
               onApproveSceneImages={onApproveSceneImages}
               onRetryFailedScenes={onRetryFailedScenes}
+              onRetrySceneImage={onRetrySceneImage}
             />
           ) : (
             <StudioSceneSectionPlaceholder />

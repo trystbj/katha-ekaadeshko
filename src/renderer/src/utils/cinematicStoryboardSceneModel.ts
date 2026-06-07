@@ -1,8 +1,8 @@
 import type { CinematicDirectorPlan, CinematicScenePlan } from '../../../../core/cinematic/types'
 import type { ProjectState, StoryEpisode, StoryScene } from '../types/story'
 import { scenePlanAt } from '../cinematic/environmentCss'
-import { sceneUrlForIndex } from './sceneAssetMap'
-import { resolveSceneImageStatus } from './sceneImageStatus'
+import { buildUnifiedSceneState } from './unifiedSceneState'
+import type { SceneImageStatus } from './sceneImageStatus'
 import { SECONDS_PER_RENDER_SCENE } from './scenesWebVtt'
 import {
   cinematicTagI18nKey,
@@ -25,7 +25,7 @@ export type CinematicStoryboardTileModel = {
   rowIndex: number
   scene: StoryScene
   imageUrl: string | undefined
-  imageStatus: ReturnType<typeof resolveSceneImageStatus>
+  imageStatus: SceneImageStatus
   plan: CinematicScenePlan | null
   tags: CinematicSceneTagId[]
   tagKeys: string[]
@@ -50,7 +50,10 @@ export function buildStoryboardTileModels(opts: {
   const hasNarration = Boolean(episode.narrationAudioUrl?.trim())
   const videoReady = Boolean(project.lastRenderVideoUrl)
   const rendering = busyLabel === 'rendering'
-  const exportReady = Boolean(project.storyboardReady || episode.scenes.length)
+  const pipelineExportReady =
+    project.pipelineValidationReport?.episodeNumber === episode.number
+      ? project.pipelineValidationReport.exportReady
+      : false
   const cast = (project.characterIdentityMemory ?? []).map((m) => m.label).slice(0, 4)
 
   const orch = plan?.orchestration as
@@ -63,6 +66,7 @@ export function buildStoryboardTileModels(opts: {
   const hookSceneIndices = orch?.premiumStudio?.shortForm?.hookSceneIndices
 
   return episode.scenes.map((scene, rowIndex) => {
+    const unified = buildUnifiedSceneState(project, episode, scene)
     const planRow = scenePlanAt(plan, rowIndex)
     const emotionProfile = emotionProfiles?.[rowIndex] as
       | { romance?: number; dramaticIntensity?: number; suspense?: number }
@@ -72,13 +76,13 @@ export function buildStoryboardTileModels(opts: {
       sceneIndex: scene.index
     })
     const statuses: SceneTileStatusId[] = []
-    const imageUrl = sceneUrlForIndex(project, scene.index)
-    const imageStatus = resolveSceneImageStatus(project, episode.number, scene.index)
+    const imageUrl = unified.displayImageUrl
+    const imageStatus = unified.imageStatus
     if (imageStatus === 'completed') statuses.push('generated')
-    if (rendering) statuses.push('rendering')
+    if (rendering && imageStatus === 'generating') statuses.push('rendering')
     if (hasNarration) statuses.push('narration_synced')
     if (vs.subtitleStudio.subtitlesOn) statuses.push('subtitle_synced')
-    if (exportReady) statuses.push('export_ready')
+    if (pipelineExportReady && unified.exportReady) statuses.push('export_ready')
     if (videoReady) statuses.push('rendered')
 
     const durationSec =

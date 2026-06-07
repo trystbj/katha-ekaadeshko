@@ -101,9 +101,9 @@ import { collectRenderImageUrls } from './utils/collectRenderImageUrls'
 import {
   dedupeScenePreviewUrls,
   removeSceneAssetsForIndices,
-  sceneStillUrlsForEpisode,
   sceneUrlForIndex
 } from './utils/sceneAssetMap'
+import { displayUrlsForEpisodeScenes } from './utils/unifiedSceneState'
 import { resumeEpisodeVideoRenderIfNeeded } from './utils/episodeVideoRender'
 import { CreatorStudioPanel } from './components/CreatorStudioPanel'
 import {
@@ -472,10 +472,10 @@ export default function App() {
 
   const renderSourceUrls = useMemo(() => {
     if (activeEpisode?.scenes?.length) {
-      return sceneStillUrlsForEpisode(project, activeEpisode.scenes)
+      return displayUrlsForEpisodeScenes(project, activeEpisode)
     }
     return collectRenderImageUrls(project)
-  }, [project, activeEpisode?.scenes])
+  }, [project, activeEpisode, project?.updatedAt, project?.pipelineValidationReport])
 
   const pipelineThumbUrls = useMemo(
     () => dedupeScenePreviewUrls(renderSourceUrls),
@@ -1569,6 +1569,7 @@ export default function App() {
                   onGenerateFinalVideo={onGenerateFinalVideo}
                   onApproveSceneImages={approveAndGenerateAllSceneImages}
                   onRetryFailedScenes={retryFailedSceneImages}
+                  onRetrySceneImage={onMonitorReplaceSceneImage}
                   onSceneFocus={(speaker, sceneIndex) => {
                     setCharacterPreviewId(null)
                     setFocusedSceneSpeaker(speaker.trim())

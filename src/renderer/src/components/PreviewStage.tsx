@@ -6,7 +6,7 @@ import { validatedScenePreviewUrl } from '../utils/validatedPreviewUrl'
 import type { StudioSeasonId } from '../constants/studioSeasonThemes'
 import { STUDIO_SEASON_PRESETS, normalizeStudioSeasonId } from '../constants/studioSeasonThemes'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { cinematicFitBackgroundSize, useCinematicImageFit } from '../hooks/useCinematicImageFit'
+import { cinematicFitImgStyle, useCinematicImageFit } from '../hooks/useCinematicImageFit'
 
 export type CastPortraitLayer = { name: string; url: string; role?: string }
 
@@ -154,31 +154,44 @@ export function PreviewStage({
       >
         <div className="preview-stage__inner">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={hero || (blankIdle ? 'blank' : preset.id)}
-              className="preview-stage__media"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.45 }}
-              style={{
-                backgroundColor: blankIdle ? 'transparent' : cinematicMedia && hero ? '#060a0e' : undefined,
-                backgroundImage: hero
-                  ? cinematicMedia
-                    ? `url(${hero})`
-                    : `linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.5)), url(${hero})`
-                  : blankIdle
-                    ? 'none'
-                    : `${preset.overlay}, url(${preset.heroUrl})`,
-                ...(cinematicMedia && hero
-                  ? {
-                      backgroundSize: cinematicFitBackgroundSize(fitAxis),
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'center center'
-                    }
-                  : {})
-              }}
-            />
+            {cinematicMedia && hero ? (
+              <motion.div
+                key={hero}
+                className="preview-stage__media preview-stage__media--img"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.45 }}
+              >
+                <img
+                  src={hero}
+                  alt=""
+                  className="preview-stage__img"
+                  style={cinematicFitImgStyle(fitAxis)}
+                  draggable={false}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key={hero || (blankIdle ? 'blank' : preset.id)}
+                className="preview-stage__media"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.45 }}
+                style={{
+                  backgroundColor: blankIdle ? 'transparent' : undefined,
+                  backgroundImage: hero
+                    ? `linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.5)), url(${hero})`
+                    : blankIdle
+                      ? 'none'
+                      : `${preset.overlay}, url(${preset.heroUrl})`,
+                  backgroundSize: hero ? 'cover' : undefined,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'center center'
+                }}
+              />
+            )}
           </AnimatePresence>
           {busy ? (
             <>

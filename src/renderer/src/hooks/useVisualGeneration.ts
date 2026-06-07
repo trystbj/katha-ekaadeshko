@@ -607,8 +607,8 @@ export function useVisualGeneration() {
 
         if (!opts?._autoSingleRetry && draftProject?.bible) {
           const need = getScenesNeedingImageRegeneration(draftProject, epn)
-          if (need.length === 1) {
-            console.info('[katha:pipeline]', 'auto_retry_single_scene', { scene: need[0] })
+          if (need.length >= 1 && need.length <= 2) {
+            console.info('[katha:pipeline]', 'auto_retry_remaining_scenes', { scenes: need })
             await generateVisuals({
               episodeNumber: epn,
               sceneIndices: need,

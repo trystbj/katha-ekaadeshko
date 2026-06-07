@@ -54,6 +54,38 @@
   color: var(--warn, #e8b86a);
 }
 
-.pipeline-debug__mark {
-  font-weight: 700;
+.pipeline-debug__loading {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.pipeline-debug__retry {
+  margin-left: 0.35rem;
+  font-size: 0.72rem;
+}
+
+.scene-gen-diagnostics {
+  margin: 0.5rem 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 0.78rem;
+}
+
+.scene-gen-diagnostics__title {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.scene-gen-diagnostics__list {
+  margin: 0;
+  padding-left: 1rem;
+  list-style: disc;
+}
+
+.scene-gen-diagnostics__error {
+  margin: 0.35rem 0 0;
+  color: var(--warn, #e8b86a);
 }

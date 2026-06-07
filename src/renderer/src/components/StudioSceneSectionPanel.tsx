@@ -12,7 +12,8 @@ import {
 import { VisualGenerationDiagnosticsPanel } from './VisualGenerationDiagnosticsPanel'
 import { PipelineDebugPanel } from './PipelineDebugPanel'
 import { useStudioStore } from '../store/useStudioStore'
-import '../styles/visual-generation-diagnostics.css'
+import { SceneGenerationDiagnosticsStrip } from './SceneGenerationDiagnosticsStrip'
+import '../styles/pipeline-debug-panel.css'
 
 type Props = {
   project: ProjectState
@@ -21,6 +22,7 @@ type Props = {
   busyLabel: string | null
   onApproveSceneImages?: () => void
   onRetryFailedScenes?: (sceneIndices?: number[]) => void
+  onRetrySceneImage?: (sceneIndex: number) => void
 }
 
 /** Scene column — AI Director + single batch image generation control. */
@@ -30,9 +32,10 @@ export function StudioSceneSectionPanel({
   activeSceneIndex,
   busyLabel,
   onApproveSceneImages,
-  onRetryFailedScenes
+  onRetryFailedScenes,
+  onRetrySceneImage
 }: Props) {
-  const uiText = useUiText()
+  const lastError = useStudioStore((s) => s.error)
   const visualDiagnostics = useStudioStore((s) => s.visualDiagnostics)
   const healSummary = useStudioStore((s) => s.visualGenerationSummary)
   const generating = busyLabel === 'generating'
@@ -151,10 +154,22 @@ export function StudioSceneSectionPanel({
           {uiText('visualRetryFailedScenes')}
         </button>
       ) : null}
+      <SceneGenerationDiagnosticsStrip
+        project={project}
+        episode={episode}
+        lastError={lastError}
+      />
       <PipelineDebugPanel
         project={project}
         episode={episode}
         cachedReport={project.pipelineValidationReport ?? undefined}
+        onRetryScene={
+          onRetrySceneImage
+            ? (sceneIndex) => onRetrySceneImage(sceneIndex)
+            : onRetryFailedScenes
+              ? (sceneIndex) => onRetryFailedScenes([sceneIndex])
+              : undefined
+        }
       />
       <VisualGenerationDiagnosticsPanel rows={visualDiagnostics ?? []} visible={Boolean(visualDiagnostics?.length)} />
       <p className="studio-scene-section__monitor-note">{uiText('studioSceneSectionMonitorNote')}</p>

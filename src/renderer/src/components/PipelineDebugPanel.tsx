@@ -1,33 +1,34 @@
 import { useEffect, useState } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
+import type { UiTranslateFn } from '../i18n/useAppI18n'
 import type { ProjectState, StoryEpisode } from '../types/story'
 import {
   auditEpisodePipelineCompletion,
   deriveNarrationPipelineState,
   type PipelineValidationReport
 } from '../utils/pipelineCompletionAudit'
-import { resolveSceneImageStatus, sceneTitleForIndex } from '../utils/sceneImageStatus'
-import type { UiTranslateFn } from '../i18n/useAppI18n'
+import { sceneTitleForIndex } from '../utils/sceneImageStatus'
 import '../styles/pipeline-debug-panel.css'
 
 type Props = {
   project: ProjectState
   episode: StoryEpisode
   cachedReport?: PipelineValidationReport
+  onRetryScene?: (sceneIndex: number) => void
 }
 
-function sceneLineLabel(
+function statusLabel(
   row: PipelineValidationReport['scenes'][0],
   uiText: UiTranslateFn
 ): string {
-  if (row.image === 'ok' && row.preview === 'ok') return uiText('pipelineDebugSceneOk')
+  if (row.image === 'ok' && row.preview === 'ok') return uiText('sceneImageReportCompleted')
   if (row.image === 'black') return uiText('pipelineDebugSceneBlack')
   if (row.image === 'placeholder') return uiText('pipelineDebugScenePlaceholder')
-  if (row.image === 'missing') return uiText('pipelineDebugSceneMissingImage')
-  return uiText('pipelineDebugSceneFailed')
+  if (row.image === 'missing') return uiText('sceneImageReportPending')
+  return uiText('sceneImageReportFailed')
 }
 
-export function PipelineDebugPanel({ project, episode, cachedReport }: Props) {
+export function PipelineDebugPanel({ project, episode, cachedReport, onRetryScene }: Props) {
   const uiText = useUiText()
   const [report, setReport] = useState<PipelineValidationReport | null>(cachedReport ?? null)
   const [busy, setBusy] = useState(false)
@@ -67,17 +68,23 @@ export function PipelineDebugPanel({ project, episode, cachedReport }: Props) {
         {report.scenes.map((row) => {
           const ok = row.image === 'ok' && row.preview === 'ok'
           const title = sceneTitleForIndex(episode, row.scene)
-          const status = resolveSceneImageStatus(project, episode.number, row.scene)
+          const label = statusLabel(row, uiText)
           const sc = episode.scenes.find((s) => s.index === row.scene)
           return (
             <li key={row.scene} className={ok ? 'pipeline-debug__scene--ok' : 'pipeline-debug__scene--bad'}>
               <span className="pipeline-debug__mark">{ok ? '✓' : '✗'}</span>{' '}
-              {title} ({uiText('pipelineDebugSceneLine', { scene: String(row.scene), status: sceneLineLabel(row, uiText) })}
+              {uiText('pipelineDebugSceneLine', { title, status: label })}
               {!ok && sc?.imageError ? (
                 <span className="pipeline-debug__tag"> — {sc.imageError}</span>
               ) : null}
-              {!ok ? (
-                <span className="pipeline-debug__tag"> [{status}]</span>
+              {!ok && onRetryScene ? (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm pipeline-debug__retry"
+                  onClick={() => onRetryScene(row.scene)}
+                >
+                  {uiText('sceneGenDiagRetryScene', { scene: title })}
+                </button>
               ) : null}
             </li>
           )
