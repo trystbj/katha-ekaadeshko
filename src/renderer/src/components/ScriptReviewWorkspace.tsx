@@ -15,6 +15,7 @@ type Props = {
   busyLabel: string | null
   onNextScene: (sceneIndex: number) => void
   patchProject: (fn: (p: ProjectState) => ProjectState) => void
+  onBack?: () => void
 }
 
 const STAGE_ORDER: ProductionStage[] = [
@@ -31,7 +32,8 @@ export function ScriptReviewWorkspace({
   episode,
   busyLabel,
   onNextScene,
-  patchProject
+  patchProject,
+  onBack
 }: Props) {
   const uiText = useUiText()
   const [expandedIx, setExpandedIx] = useState<number | null>(episode.scenes[0]?.index ?? null)
@@ -98,7 +100,20 @@ export function ScriptReviewWorkspace({
   return (
     <div className="script-review-workspace">
       <header className="script-review-workspace__head">
-        <h2 className="script-review-workspace__title">{uiText('scriptReviewTitle')}</h2>
+        <div className="script-review-workspace__title-row">
+          {onBack ? (
+            <button
+              type="button"
+              className="script-review-workspace__back"
+              onClick={onBack}
+              aria-label={uiText('previewWorkspaceBackAria')}
+              title={uiText('previewWorkspaceBackAria')}
+            >
+              <span aria-hidden>←</span>
+            </button>
+          ) : null}
+          <h2 className="script-review-workspace__title">{uiText('scriptReviewTitle')}</h2>
+        </div>
         <p className="script-review-workspace__subtitle">{uiText('scriptReviewSubtitle')}</p>
         <p className="script-review-workspace__status" role="status">
           {uiText(productionStageLabelKey(currentStage))} · {uiText('scriptReviewAwaitingUser')}

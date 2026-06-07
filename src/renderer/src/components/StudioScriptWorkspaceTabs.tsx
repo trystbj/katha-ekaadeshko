@@ -95,8 +95,11 @@ export function StudioScriptWorkspaceTabs({
       </div>
 
       <div className="studio-script-workspace__body" role="tabpanel">
-        {tab === 'scenes' ? (
-          storyGenerated && project && episode ? (
+        <div
+          className={`studio-script-workspace__panel${tab !== 'scenes' ? ' studio-script-workspace__panel--hidden' : ''}`}
+          aria-hidden={tab !== 'scenes'}
+        >
+          {storyGenerated && project && episode ? (
             <StudioSceneSectionPanel
               project={project}
               episode={episode}
@@ -108,10 +111,13 @@ export function StudioScriptWorkspaceTabs({
             />
           ) : (
             <StudioSceneSectionPlaceholder />
-          )
-        ) : null}
+          )}
+        </div>
 
-        {tab === 'script' ? (
+        <div
+          className={`studio-script-workspace__panel${tab !== 'script' ? ' studio-script-workspace__panel--hidden' : ''}`}
+          aria-hidden={tab !== 'script'}
+        >
           <LiveScriptPreview
             scenes={scenes}
             rawStructured={rawStructured}
@@ -124,46 +130,51 @@ export function StudioScriptWorkspaceTabs({
             screenplayMode
             activeSceneIndex={storyGenerated ? activeIx : undefined}
           />
-        ) : null}
+        </div>
 
-        {tab === 'voice' ? (
-          <div className="studio-script-workspace__voice">
-            <StoryGenerationDefaultsPicker embeddedInGeneratedDialog />
-          </div>
-        ) : null}
+        <div
+          className={`studio-script-workspace__panel studio-script-workspace__voice${tab !== 'voice' ? ' studio-script-workspace__panel--hidden' : ''}`}
+          aria-hidden={tab !== 'voice'}
+        >
+          <StoryGenerationDefaultsPicker embeddedInGeneratedDialog />
+        </div>
 
-        {tab === 'story' ? (
-          storyGenerated ? (
-            <StoryReadingWorkspace project={project} episode={episode} />
+        <div
+          className={`studio-script-workspace__panel${tab !== 'story' ? ' studio-script-workspace__panel--hidden' : ''}`}
+          aria-hidden={tab !== 'story'}
+        >
+          {storyGenerated ? (
+            <StoryReadingWorkspace project={project} episode={episode} active={tab === 'story'} />
           ) : (
             <div className="story-reading-workspace story-reading-workspace--empty">
               <p className="story-reading-workspace__empty">{uiText('storyReadingEmpty')}</p>
             </div>
-          )
-        ) : null}
+          )}
+        </div>
 
-        {tab === 'video' ? (
-          <div className="studio-script-workspace__voice">
-            <p className="studio-script-workspace__video-hint">{uiText('studioVideoTabHint')}</p>
-            <button
-              type="button"
-              className="btn btn-generate-cta studio-script-workspace__video-btn"
-              disabled={Boolean(busy)}
-              onClick={() => onGenerateFinalVideo?.()}
-            >
-              {uiText('storyboardGenerateFinalVideo')}
-            </button>
-            {!productionGate?.canRenderFinalVideo ? (
-              <p className="studio-script-workspace__video-status" role="status">
-                {!productionGate?.sceneImagesGenerated
-                  ? uiText('studioVideoNeedImages')
-                  : !productionGate?.narrationGenerated
-                    ? uiText('studioVideoNeedNarration')
-                    : uiText('studioVideoNeedValidation')}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        <div
+          className={`studio-script-workspace__panel studio-script-workspace__voice${tab !== 'video' ? ' studio-script-workspace__panel--hidden' : ''}`}
+          aria-hidden={tab !== 'video'}
+        >
+          <p className="studio-script-workspace__video-hint">{uiText('studioVideoTabHint')}</p>
+          <button
+            type="button"
+            className="btn btn-generate-cta studio-script-workspace__video-btn"
+            disabled={Boolean(busy)}
+            onClick={() => onGenerateFinalVideo?.()}
+          >
+            {uiText('storyboardGenerateFinalVideo')}
+          </button>
+          {!productionGate?.canRenderFinalVideo ? (
+            <p className="studio-script-workspace__video-status" role="status">
+              {!productionGate?.sceneImagesGenerated
+                ? uiText('studioVideoNeedImages')
+                : !productionGate?.narrationGenerated
+                  ? uiText('studioVideoNeedNarration')
+                  : uiText('studioVideoNeedValidation')}
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>
   )

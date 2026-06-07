@@ -582,7 +582,7 @@ export default function App() {
 
   const showPreviewBack = Boolean(
     project?.bible &&
-      (showPostExportPreview || showStoryboardPreview || showScriptReview || characterPreviewId)
+      (showPostExportPreview || showStoryboardPreview || characterPreviewId)
   )
 
   const onPreviewWorkspaceBack = useCallback(() => {
@@ -1319,6 +1319,7 @@ export default function App() {
                   project={project}
                   episode={activeEpisode}
                   busyLabel={busy}
+                  onBack={onPreviewWorkspaceBack}
                   onNextScene={(sceneIndex) => {
                     const ix = activeEpisode.scenes.findIndex((s) => s.index === sceneIndex)
                     const next = activeEpisode.scenes[ix + 1]

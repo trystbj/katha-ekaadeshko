@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiText } from '../i18n/useAppI18n'
 import { useStudioStore } from '../store/useStudioStore'
 import type { ProjectState, StoryEpisode } from '../types/story'
@@ -19,13 +19,15 @@ import '../styles/story-reading-workspace.css'
 type Props = {
   project: ProjectState | null
   episode: StoryEpisode | null | undefined
+  /** When false, scroll position is saved for tab switches. */
+  active?: boolean
 }
 
-export function StoryReadingWorkspace({ project, episode }: Props) {
+export function StoryReadingWorkspace({ project, episode, active = true }: Props) {
   const uiText = useUiText()
   const patchProject = useStudioStore((s) => s.patchProject)
-  const rootRef = useRef<HTMLDivElement>(null)
-  const translateBtnRef = useRef<HTMLButtonElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const savedScrollRef = useRef(0)
 
   const model = useMemo(() => extractStoryReadingModel(project, episode), [project, episode])
   const [viewLang, setViewLang] = useState<StoryTranslationLangCode>('en')
@@ -51,6 +53,31 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
   }, [model, viewLang, activeLang?.label, displayBody])
 
   const paragraphs = useMemo(() => splitStoryParagraphs(displayBody), [displayBody])
+
+  const metaParts = useMemo(() => {
+    if (!model) return []
+    const parts: string[] = []
+    if (model.genre) parts.push(model.genre)
+    if (project?.bible?.styleId) parts.push(String(project.bible.styleId).replace(/_/g, ' '))
+    if (model.length) parts.push(model.length)
+    return parts
+  }, [model, project?.bible?.styleId])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const save = () => {
+      savedScrollRef.current = el.scrollTop
+    }
+    el.addEventListener('scroll', save, { passive: true })
+    return () => el.removeEventListener('scroll', save)
+  }, [])
+
+  useEffect(() => {
+    if (active && scrollRef.current) {
+      scrollRef.current.scrollTop = savedScrollRef.current
+    }
+  }, [active])
 
   const onCopy = useCallback(async () => {
     if (!exportText) return
@@ -126,73 +153,71 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
   }
 
   return (
-    <div ref={rootRef} className="story-reading-workspace">
-      <div className="story-reading-workspace__scroll">
-        <header className="story-reading-workspace__header">
-          <h2 className="story-reading-workspace__title">{model.title}</h2>
-          {model.episodeLabel ? (
-            <p className="story-reading-workspace__episode">{model.episodeLabel}</p>
-          ) : null}
-          {viewLang !== 'en' && activeLang ? (
-            <p className="story-reading-workspace__lang-badge" role="status">
-              {uiText('storyReadingTranslatedView', { language: activeLang.label })}
-            </p>
-          ) : null}
-        </header>
+    <div className="story-reading-workspace">
+      <div ref={scrollRef} className="story-reading-workspace__scroll">
+        <div className="story-reading-workspace__article">
+          <header className="story-reading-workspace__header">
+            <h2 className="story-reading-workspace__title">{model.title}</h2>
+            {model.episodeLabel ? (
+              <p className="story-reading-workspace__episode">{model.episodeLabel}</p>
+            ) : null}
+            {metaParts.length ? (
+              <p className="story-reading-workspace__meta-line">{metaParts.join(' · ')}</p>
+            ) : null}
+            {viewLang !== 'en' && activeLang ? (
+              <p className="story-reading-workspace__lang-badge" role="status">
+                {uiText('storyReadingTranslatedView', { language: activeLang.label })}
+              </p>
+            ) : null}
+          </header>
 
-        {model.summary && model.summary !== displayBody ? (
-          <section className="story-reading-workspace__section">
-            <h3 className="story-reading-workspace__label">{uiText('storyReadingSummary')}</h3>
-            <p className="story-reading-workspace__prose">{model.summary}</p>
+          <hr className="story-reading-workspace__rule" aria-hidden />
+
+          {model.summary && model.summary !== displayBody ? (
+            <section className="story-reading-workspace__section">
+              <h3 className="story-reading-workspace__label">{uiText('storyReadingSummary')}</h3>
+              <p className="story-reading-workspace__prose">{model.summary}</p>
+            </section>
+          ) : null}
+
+          <section className="story-reading-workspace__section story-reading-workspace__section--body">
+            <div className="story-reading-workspace__prose story-reading-workspace__prose--body">
+              {paragraphs.map((para, i) => (
+                <p key={i}>{para}</p>
+              ))}
+            </div>
           </section>
-        ) : null}
 
-        <dl className="story-reading-workspace__meta">
-          {model.genre ? (
-            <>
-              <dt>{uiText('storyReadingGenre')}</dt>
-              <dd>{model.genre}</dd>
-            </>
-          ) : null}
-          {model.length ? (
-            <>
-              <dt>{uiText('storyReadingLength')}</dt>
-              <dd>{model.length}</dd>
-            </>
-          ) : null}
           {model.setting && model.setting !== model.summary && model.setting !== displayBody ? (
             <>
-              <dt>{uiText('storyReadingSetting')}</dt>
-              <dd>{model.setting}</dd>
+              <hr className="story-reading-workspace__rule" aria-hidden />
+              <section className="story-reading-workspace__section">
+                <h3 className="story-reading-workspace__label">{uiText('storyReadingSetting')}</h3>
+                <p className="story-reading-workspace__prose">{model.setting}</p>
+              </section>
             </>
           ) : null}
-        </dl>
 
-        <section className="story-reading-workspace__section">
-          <h3 className="story-reading-workspace__label">{uiText('storyReadingFullStory')}</h3>
-          <div className="story-reading-workspace__prose story-reading-workspace__prose--body">
-            {paragraphs.map((para, i) => (
-              <p key={i}>{para}</p>
-            ))}
-          </div>
-        </section>
-
-        {model.characters.length ? (
-          <section className="story-reading-workspace__section">
-            <h3 className="story-reading-workspace__label">{uiText('storyReadingCharacters')}</h3>
-            <ul className="story-reading-workspace__characters">
-              {model.characters.map((c) => (
-                <li key={c.name}>
-                  <span className="story-reading-workspace__char-name">{c.name}</span>
-                  {c.role ? <span className="story-reading-workspace__char-role">{c.role}</span> : null}
-                  {c.traits ? (
-                    <span className="story-reading-workspace__char-traits">{c.traits}</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+          {model.characters.length ? (
+            <>
+              <hr className="story-reading-workspace__rule" aria-hidden />
+              <section className="story-reading-workspace__section">
+                <h3 className="story-reading-workspace__label">{uiText('storyReadingCharacters')}</h3>
+                <ul className="story-reading-workspace__characters">
+                  {model.characters.map((c) => (
+                    <li key={c.name}>
+                      <span className="story-reading-workspace__char-name">{c.name}</span>
+                      {c.role ? <span className="story-reading-workspace__char-role">{c.role}</span> : null}
+                      {c.traits ? (
+                        <span className="story-reading-workspace__char-traits">{c.traits}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {translateError ? (
@@ -202,23 +227,13 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
       ) : null}
 
       <div className="story-reading-workspace__actions">
-        <button type="button" className="btn btn-ghost btn-small" onClick={() => void onCopy()}>
+        <button type="button" className="story-reading-workspace__action" onClick={() => void onCopy()}>
           {copied ? uiText('storyActionCopied') : uiText('storyActionCopy')}
         </button>
-        <button type="button" className="btn btn-ghost btn-small" onClick={onDownload}>
+        <button type="button" className="story-reading-workspace__action" onClick={onDownload}>
           {uiText('storyActionDownload')}
         </button>
-        <button
-          type="button"
-          ref={translateBtnRef}
-          className="btn btn-ghost btn-small story-reading-workspace__translate-btn"
-          aria-expanded={translateOpen}
-          aria-haspopup="dialog"
-          onClick={() => setTranslateOpen((v) => !v)}
-        >
-          <span className="story-reading-workspace__translate-icon" aria-hidden>
-            🌐
-          </span>
+        <button type="button" className="story-reading-workspace__action" onClick={() => setTranslateOpen(true)}>
           {uiText('storyActionTranslate')}
         </button>
       </div>
@@ -227,8 +242,6 @@ export function StoryReadingWorkspace({ project, episode }: Props) {
         open={translateOpen}
         busy={translateBusy}
         activeCode={viewLang}
-        anchorRef={translateBtnRef}
-        portalWrapRef={rootRef}
         onClose={() => setTranslateOpen(false)}
         onTranslate={(code) => void onTranslate(code)}
       />

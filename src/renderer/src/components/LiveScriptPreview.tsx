@@ -8,6 +8,7 @@ import type { StreamRevealState } from '../store/useStudioStore'
 import { useStudioStore } from '../store/useStudioStore'
 import { liveRevealPhaseKey } from '../utils/liveRevealDocument'
 import { formatSceneScreenplay } from '../utils/formatSceneScreenplay'
+import { ScriptSceneStructuredCard } from './ScriptSceneStructuredCard'
 
 type Props = {
   scenes: StoryScene[]
@@ -154,6 +155,7 @@ export function LiveScriptPreview({
               const screenplayBlock = screenplayMode && !voiceOnly ? formatSceneScreenplay(s) : ''
               const scriptCollapsed =
                 screenplayMode && activeSceneIndex != null && s.index !== activeSceneIndex
+              const useStructured = screenplayMode && !voiceOnly
               const sceneStoryBody = voiceOnly
                 ? sceneStaging ||
                   (dialogueLines.length
@@ -162,6 +164,19 @@ export function LiveScriptPreview({
                       ? narrationBody
                       : '')
                 : screenplayBlock || narrationBody
+
+              if (useStructured) {
+                return (
+                  <ScriptSceneStructuredCard
+                    key={s.index}
+                    scene={s}
+                    collapsed={scriptCollapsed}
+                    focused={Boolean(focused)}
+                    onFocus={() => onSceneFocus?.(s.character, s.index)}
+                  />
+                )
+              }
+
               return (
                 <motion.li
                   key={s.index}
