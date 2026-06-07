@@ -30,6 +30,11 @@ export function SceneGenerationDiagnosticsStrip({ project, episode, lastError }:
         <li>
           {uiText('sceneGenDiagRemaining')}: {diag.remaining}
         </li>
+        {diag.needsAction > 0 ? (
+          <li>
+            {uiText('sceneGenDiagNeedsAction')}: {diag.needsAction}
+          </li>
+        ) : null}
         {diag.currentScene != null ? (
           <li>
             {uiText('sceneGenDiagCurrentScene')}: {uiText('sceneGenDiagSceneLabel', { n: String(diag.currentScene) })}

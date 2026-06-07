@@ -4,13 +4,14 @@ import type { ProjectState, StoryEpisode, StoryScene } from '../types/story'
 import type { StudioSeasonId } from '../constants/studioSeasonThemes'
 import { PreviewStage } from './PreviewStage'
 import { StoryboardSubtitleLiveOverlay } from './StoryboardSubtitleLiveOverlay'
+import { ComicDialogueOverlay } from './ComicDialogueOverlay'
 import { ensureVideoStudio } from '../utils/ensureVideoStudio'
-import { sceneUrlForIndex } from '../utils/sceneAssetMap'
+import { sceneImageUrlForScene } from '../utils/sceneImageStatus'
 import { useStudioStore } from '../store/useStudioStore'
 import { normalizeSubtitleStudio } from '../types/subtitleStudio'
 import { storyboardSubtitleFontPx } from '../utils/storyboardSubtitleOverlay'
 import { StoryboardSubtitleToolbar } from './StoryboardSubtitleToolbar'
-import type { SubtitleFreePosition } from '../utils/subtitleFreePosition'
+import '../styles/comic-dialogue-overlay.css'
 import { isSubtitlePlaybackPresetId } from '../constants/subtitlePlaybackPresets'
 
 type Props = {
@@ -53,7 +54,10 @@ export function StoryboardPreviewWorkspace({
   const sceneCount = episode.scenes.length
   const safeIx = sceneCount ? Math.min(Math.max(0, carouselIndex), sceneCount - 1) : 0
   const activeScene: StoryScene | undefined = episode.scenes[safeIx]
-  const activeSceneUrl = activeScene ? sceneUrlForIndex(project, activeScene.index) || sceneUrls[safeIx] : ''
+  const activeSceneUrl = activeScene ? sceneImageUrlForScene(project, activeScene) || '' : ''
+  const isComicStyle =
+    project.bible?.styleId === 'comic_panel' ||
+    String(project.bible?.customVisualPrompt || '').toLowerCase().includes('comic')
 
   const patchSubtitle = useCallback(
     (partial: Parameters<typeof normalizeSubtitleStudio>[0]) => {
@@ -137,13 +141,14 @@ export function StoryboardPreviewWorkspace({
         <StoryboardSubtitleLiveOverlay
           scene={activeScene}
           studio={studio}
-          visible={!rendering}
+          visible={!rendering && !isComicStyle}
           containerRef={stageWrapRef}
           onPositionChange={onSubtitlePositionChange}
           onBoxChange={(partial) =>
             patchSubtitle({ advanced: { ...studio.advanced, ...partial } })
           }
         />
+        <ComicDialogueOverlay scene={activeScene} visible={!rendering && isComicStyle} />
         <StoryboardSubtitleToolbar
           studio={studio}
           disabled={rendering}

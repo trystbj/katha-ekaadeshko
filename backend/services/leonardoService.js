@@ -423,9 +423,9 @@ export async function leonardoGenerateForScript({
       })
       const failedRow = {
         scene: sceneKey,
-        image_url: '',
+        image_url: buildScenePlaceholderImageUrl(sceneKey, `Scene ${sceneKey} — retry`),
         prompt: '',
-        status: 'failed',
+        status: 'emergency_fallback',
         error: message.slice(0, 400),
         retryCount
       }

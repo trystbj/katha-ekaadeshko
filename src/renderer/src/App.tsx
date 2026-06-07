@@ -39,8 +39,10 @@ import { buildVisualPipelinePayload } from './utils/buildVisualPipelinePayload'
 import { episodeSceneImageCoverage } from './utils/storyboardWorkflow'
 import {
   buildSceneImageRegenerationQueue,
-  getScenesNeedingImageRegeneration
+  getScenesNeedingImageRegeneration,
+  getFailedSceneIndices
 } from './utils/sceneImageStatus'
+import { releaseVisualBatchLock } from './utils/visualBatchLock'
 import type { SmartRegenAction } from './components/SmartSceneRegenMenu'
 import { useVisualGeneration } from './hooks/useVisualGeneration'
 import { useVideoGeneration } from './hooks/useVideoGeneration'
@@ -102,7 +104,7 @@ import {
   removeSceneAssetsForIndices,
   sceneUrlForIndex
 } from './utils/sceneAssetMap'
-import { displayUrlsForEpisodeScenes } from './utils/unifiedSceneState'
+import { scenePreviewUrlsAligned } from './utils/sceneImageStatus'
 import { resumeEpisodeVideoRenderIfNeeded } from './utils/episodeVideoRender'
 import { CreatorStudioPanel } from './components/CreatorStudioPanel'
 import {
@@ -471,10 +473,10 @@ export default function App() {
 
   const renderSourceUrls = useMemo(() => {
     if (activeEpisode?.scenes?.length) {
-      return displayUrlsForEpisodeScenes(project, activeEpisode)
+      return scenePreviewUrlsAligned(project, activeEpisode)
     }
     return collectRenderImageUrls(project)
-  }, [project, activeEpisode, project?.updatedAt, project?.pipelineValidationReport])
+  }, [project, activeEpisode, project?.updatedAt])
 
   const pipelineThumbUrls = useMemo(
     () => dedupeScenePreviewUrls(renderSourceUrls),
@@ -685,14 +687,24 @@ export default function App() {
       const p = useStudioStore.getState().project
       if (!p?.bible) return
       const epn = selectedEpisode ?? activeEpisode?.number ?? resolveOngoingEpisodeNumber(p)
-      const need =
-        sceneIndices?.length && sceneIndices.length > 0
-          ? buildSceneImageRegenerationQueue(p, epn, { sceneIndices })
-          : getScenesNeedingImageRegeneration(p, epn)
-      if (!need.length) return
+      const need = buildSceneImageRegenerationQueue(p, epn, {
+        sceneIndices,
+        retryFailedOnly: true,
+        forceRegenerate: true
+      })
+      if (!need.length) {
+        const failed = getFailedSceneIndices(p, epn)
+        console.warn('[katha:production]', 'retry_failed_scenes_empty', {
+          episodeNumber: epn,
+          failed,
+          requested: sceneIndices
+        })
+        return
+      }
       setError(null)
+      releaseVisualBatchLock(p.id)
       console.info('[katha:production]', 'retry_failed_scenes', { episodeNumber: epn, sceneIndices: need })
-      void generateVisuals({ episodeNumber: epn, sceneIndices: need })
+      void generateVisuals({ episodeNumber: epn, sceneIndices: need, forceRegenerate: true })
     },
     [activeEpisode?.number, generateVisuals, selectedEpisode, setError]
   )

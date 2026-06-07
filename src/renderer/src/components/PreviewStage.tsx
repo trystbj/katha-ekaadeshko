@@ -82,7 +82,8 @@ export function PreviewStage({
   const preset = STUDIO_SEASON_PRESETS[normalizeStudioSeasonId(seasonId)]
   const indexMax = Math.max(0, (sceneCount ?? sceneUrls.length) - 1)
   const safeIx = indexMax >= 0 ? Math.min(Math.max(0, carouselIndex), indexMax) : 0
-  const heroCandidate = heroUrl || sceneUrls[safeIx] || sceneUrls.find(Boolean) || ''
+  const alignedUrl = sceneUrls[safeIx] || ''
+  const heroCandidate = heroUrl || alignedUrl || ''
   const [hero, setHero] = useState(instantHeroSwitch ? heroCandidate : '')
   useEffect(() => {
     if (instantHeroSwitch) {

@@ -1,5 +1,6 @@
 import type { ProjectState, StoryEpisode, StoryScene } from '../types/story'
 import {
+  computeLiveSceneImageCounts,
   resolveSceneImageStatus,
   sceneImageUrlForScene,
   sceneTitleForIndex,
@@ -7,13 +8,13 @@ import {
 } from './sceneImageStatus'
 import { sceneNarrationText, sceneHasVisualPrompt } from './pipelineCompletionAudit'
 import { isEmergencySceneAsset, sceneAssetForIndex } from './pipelineCompletionAudit'
+import { isPlaceholderSceneUrl } from './sceneImageValidationClient'
 
 /** Single source of truth for scene pipeline state across UI surfaces. */
 export type UnifiedSceneState = {
   index: number
   title: string
   imageUrl?: string
-  /** URL safe to render in preview/thumbnails (validated completed only). */
   displayImageUrl?: string
   imageStatus: SceneImageStatus
   imageError?: string
@@ -36,14 +37,20 @@ export function buildUnifiedSceneState(
   const rawUrl = sceneImageUrlForScene(project, scene)
   const asset = sceneAssetForIndex(project, scene.index)
   const invalidAsset = isEmergencySceneAsset(asset)
-  const report = project?.pipelineValidationReport
-  const row = report?.episodeNumber === epn ? report.scenes.find((r) => r.scene === scene.index) : null
-  const validatedOk = row ? row.image === 'ok' && row.preview === 'ok' : imageStatus === 'completed'
+  const placeholder = rawUrl ? isPlaceholderSceneUrl(rawUrl) : false
+
   const displayImageUrl =
-    validatedOk && rawUrl && !invalidAsset ? rawUrl : undefined
+    rawUrl && !placeholder
+      ? imageStatus === 'completed' && !invalidAsset
+        ? rawUrl
+        : imageStatus === 'failed'
+          ? rawUrl
+          : undefined
+      : undefined
 
   const narrationReady = sceneNarrationText(scene).length > 0
   const scriptReady = sceneScriptReady(scene)
+  const report = project?.pipelineValidationReport
   const episodeExportReady = report?.episodeNumber === epn ? report.exportReady : false
 
   return {
@@ -51,11 +58,11 @@ export function buildUnifiedSceneState(
     title: sceneTitleForIndex(episode, scene.index),
     imageUrl: rawUrl,
     displayImageUrl,
-    imageStatus: validatedOk ? 'completed' : imageStatus,
+    imageStatus,
     imageError: scene.imageError,
     scriptReady,
     narrationReady,
-    exportReady: episodeExportReady && validatedOk && scriptReady && narrationReady
+    exportReady: episodeExportReady && imageStatus === 'completed' && scriptReady && narrationReady
   }
 }
 
@@ -77,6 +84,7 @@ export type SceneGenerationDiagnosticsView = {
   completed: number
   failed: number
   remaining: number
+  needsAction: number
   total: number
   failedIndices: number[]
   currentScene: number | null
@@ -99,16 +107,15 @@ export function sceneGenerationDiagnostics(
     lastError?: string | null
   }
 ): SceneGenerationDiagnosticsView {
-  const states = buildUnifiedSceneStates(project, episode)
-  const completed = states.filter((s) => s.imageStatus === 'completed').length
-  const failed = states.filter((s) => s.imageStatus === 'failed').length
-  const remaining = states.filter(
-    (s) => s.imageStatus === 'pending' || s.imageStatus === 'generating'
-  ).length
+  const counts = computeLiveSceneImageCounts(project, episode.number)
+  const failedIndices = (episode.scenes ?? [])
+    .filter((s) => resolveSceneImageStatus(project, episode.number, s.index) === 'failed')
+    .map((s) => s.index)
+
   const diagRows = opts?.visualDiagnostics ?? []
   const active = diagRows.find((d) => d.status === 'generating')
   const lastFailed = [...diagRows].reverse().find((d) => d.status === 'failed')
-  const sceneErrors = states
+  const sceneErrors = (episode.scenes ?? [])
     .filter((s) => s.imageError)
     .map((s) => `Scene ${s.index}: ${s.imageError}`)
   const lastError =
@@ -118,11 +125,12 @@ export function sceneGenerationDiagnostics(
     null
 
   return {
-    completed,
-    failed,
-    remaining,
-    total: states.length,
-    failedIndices: states.filter((s) => s.imageStatus === 'failed').map((s) => s.index),
+    completed: counts.completed,
+    failed: counts.failed,
+    remaining: counts.remaining,
+    needsAction: counts.needsAction,
+    total: counts.total,
+    failedIndices,
     currentScene: active?.scene ?? null,
     retryAttempt: active?.retryCount != null ? active.retryCount + 1 : null,
     maxRetries: active?.maxRetries ?? lastFailed?.maxRetries ?? 3,

@@ -1,0 +1,55 @@
+.comic-dialogue-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.comic-dialogue-overlay__bubble {
+  position: absolute;
+  max-width: 42%;
+  padding: 0.45rem 0.55rem 0.5rem;
+  border-radius: 14px;
+  border: 2px solid rgba(20, 20, 24, 0.88);
+  background: rgba(255, 252, 248, 0.96);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+.comic-dialogue-overlay__bubble--right {
+  border-radius: 14px 14px 4px 14px;
+}
+
+.comic-dialogue-overlay__bubble--left {
+  border-radius: 14px 14px 14px 4px;
+}
+
+.comic-dialogue-overlay__speaker {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(20, 20, 24, 0.72);
+}
+
+.comic-dialogue-overlay__text {
+  margin: 0;
+  font-family: 'Comic Neue', 'Baloo 2', 'Noto Sans Devanagari', cursive, sans-serif;
+  font-size: clamp(0.72rem, 2.2vw, 0.92rem);
+  font-weight: 700;
+  line-height: 1.35;
+  color: #141418;
+}
+
+.storyboard-workspace__stage-wrap .comic-dialogue-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.cine-sb-tile__img-failed-msg {
+  margin: 0.35rem 0 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255, 180, 120, 0.95);
+}

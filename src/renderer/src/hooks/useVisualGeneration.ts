@@ -30,19 +30,21 @@ import {
 import { tryAcquireVisualBatchLock, releaseVisualBatchLock } from '../utils/visualBatchLock'
 import type { VisualSceneDiagnostic } from '../types/visualGeneration'
 import { healEpisodeSceneImages } from '../utils/sceneImageHeal'
-import { filterPipelineImagesToScenes } from '../utils/sceneImageStatus'
 import {
   applyPipelineValidationToProject,
   auditEpisodePipelineCompletion
 } from '../utils/pipelineCompletionAudit'
 import {
   buildSceneImageRegenerationQueue,
-  countCompletedSceneImages,
+  computeLiveSceneImageCounts,
   filterPipelineImagesToScenes,
   formatSceneImageIncompleteMessage,
+  getFailedSceneIndices,
   getScenesNeedingImageRegeneration,
-  isSceneImageCompleted
+  isSceneImageCompleted,
+  syncEpisodeSceneImageStatuses
 } from '../utils/sceneImageStatus'
+import { applyEmergencyFallbackForFailedScenes } from '../utils/applyEmergencySceneFallback'
 
 type VisualGenResult = {
   images: PipelineImageRow[]
@@ -550,6 +552,17 @@ export function useVisualGeneration() {
           }
         }
         if (draftProject?.bible) {
+          const failedBeforeFallback = getFailedSceneIndices(draftProject, epn)
+          if (failedBeforeFallback.length) {
+            draftProject = applyEmergencyFallbackForFailedScenes(draftProject, epn, failedBeforeFallback)
+            useStudioStore.getState().patchWorkspaceProject(workspaceIx, () => draftProject!)
+            console.info('[katha:pipeline]', 'emergency_fallback_batch', {
+              scenes: failedBeforeFallback
+            })
+          }
+          draftProject = syncEpisodeSceneImageStatuses(draftProject, epn)
+          const liveCounts = computeLiveSceneImageCounts(draftProject, epn)
+          console.info('[katha:pipeline]', 'live_scene_counts', liveCounts)
           const finalPipeline = await auditEpisodePipelineCompletion(draftProject, epn)
           draftProject = applyPipelineValidationToProject(draftProject, finalPipeline)
           useStudioStore.getState().setVisualGenerationSummary({

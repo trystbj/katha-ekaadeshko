@@ -143,7 +143,11 @@ export function CinematicStoryboardTile({
               style={{ backgroundImage: `url(${imageUrl})` }}
             />
           ) : (
-            <div className="cine-sb-tile__img-placeholder" />
+            <div className="cine-sb-tile__img-placeholder">
+              {imageStatus === 'failed' ? (
+                <p className="cine-sb-tile__img-failed-msg">{uiText('visualStorySceneFailedShort')}</p>
+              ) : null}
+            </div>
           )}
           <span className="cine-sb-tile__scene-badge">
             {uiText('cineSceneNum', { n: String(scene.index) })}

@@ -578,8 +578,8 @@ async function continuePipelineFromStory(
     safeLog('warn', 'script_fallback_from_story', { scenes: script.length })
   }
   const maxScenes = serverlessMaxScriptScenes(pinnedInput)
-  script = capScriptScenes(script, maxScenes)
   script = enforceMinimumScriptScenes(script, finalStory, pinnedInput, buildFallbackScriptFromStory)
+  script = capScriptScenes(script, maxScenes)
   script = attachComposedNarrationToScript(script, finalStory)
   budget.checkpoint('script', { story: finalStory, script })
   console.info('[katha:story-writing]', 'script_enriched', {

@@ -6,7 +6,8 @@ import type { CinematicDirectorPlan } from '../../../../core/cinematic/types'
 import { SceneAiDirectorStrip } from './SceneAiDirectorStrip'
 import { StoryHealthStrip } from './StoryHealthStrip'
 import {
-  countCompletedSceneImages,
+  computeLiveSceneImageCounts,
+  getFailedSceneIndices,
   getScenesNeedingImageRegeneration
 } from '../utils/sceneImageStatus'
 import { VisualGenerationDiagnosticsPanel } from './VisualGenerationDiagnosticsPanel'
@@ -56,12 +57,16 @@ export function StudioSceneSectionPanel({
   const scenePlan = scenePlanAt(cinematicPlan, rowIx >= 0 ? rowIx : 0)
 
   const imageCounts = useMemo(
-    () => countCompletedSceneImages(project, episode?.number ?? 1),
-    [project, episode?.number, project.updatedAt, project.pipelineValidationReport]
+    () => computeLiveSceneImageCounts(project, episode?.number ?? 1),
+    [project, episode?.number, project.updatedAt]
+  )
+  const failedSceneIndices = useMemo(
+    () => getFailedSceneIndices(project, episode?.number ?? 1),
+    [project, episode?.number, project.updatedAt]
   )
   const scenesNeedingImages = useMemo(
     () => getScenesNeedingImageRegeneration(project, episode?.number ?? 1),
-    [project, episode?.number, project.updatedAt, project.pipelineValidationReport]
+    [project, episode?.number, project.updatedAt]
   )
 
   const castSummary = useMemo(() => {
@@ -84,11 +89,7 @@ export function StudioSceneSectionPanel({
     return <p className="studio-scene-section__empty">{uiText('studioScenesNotGenerated')}</p>
   }
 
-  const animationReady =
-    project.pipelineValidationReport?.animationReady ??
-    healSummary?.storyReadyForAnimation ??
-    false
-  const needsBatch = imageCounts.total > 0 && !animationReady
+  const needsBatch = imageCounts.total > 0 && imageCounts.completed < imageCounts.total
   const batchBusy = generating || regenBusy
 
   if (!activeScene) {
@@ -140,7 +141,7 @@ export function StudioSceneSectionPanel({
                     {uiText('visualGenBlackRepaired', { count: String(healSummary.blackRepaired) })}
                   </p>
                 ) : null}
-                {animationReady ? (
+                {imageCounts.completed >= imageCounts.total ? (
                   <p className="studio-scene-section__ready">{uiText('visualGenStoryReadyAnimation')}</p>
                 ) : (
                   <p>{uiText('studioScenesGenerateImages')}</p>
@@ -158,17 +159,17 @@ export function StudioSceneSectionPanel({
       {scenesNeedingImages.length > 0 ? (
         <p className="studio-scene-section__hint" role="status">
           {uiText('storyboardMissingImages', {
-            count: String(scenesNeedingImages.length),
+            count: String(imageCounts.needsAction),
             scenes: scenesNeedingImages.join(', ')
           })}
         </p>
       ) : null}
-      {scenesNeedingImages.length > 0 && onRetryFailedScenes ? (
+      {failedSceneIndices.length > 0 && onRetryFailedScenes ? (
         <button
           type="button"
           className="btn studio-scene-section__retry-btn"
           disabled={batchBusy || rendering}
-          onClick={() => onRetryFailedScenes(scenesNeedingImages)}
+          onClick={() => onRetryFailedScenes(failedSceneIndices)}
         >
           {uiText('visualRetryFailedScenes')}
         </button>

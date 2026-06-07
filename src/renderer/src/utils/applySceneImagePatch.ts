@@ -30,16 +30,30 @@ export function applySceneImagePatch(
   const sceneNum = sceneIndexFromPipelineRow(imageRow, fallbackIndex)
   const url = String(imageRow.image_url || imageRow.imageUrl || '').trim()
   const existingUrl = sceneUrlForIndex(project, sceneNum)
-  if (url && existingUrl === url) return project
+  if (url && existingUrl === url && imageRow.status === 'complete') return project
 
   const isFailed = imageRow.status === 'failed'
-  const isPlaceholder = imageRow.status === 'placeholder' || (!url && !isFailed)
-  if (isFailed) {
+  const isEmergency = imageRow.status === 'emergency_fallback'
+  const isPlaceholder = imageRow.status === 'placeholder' || (!url && !isFailed && !isEmergency)
+
+  if (isFailed && !url) {
+    console.warn('[katha:scene-image]', 'scene_patch_failed', { scene: sceneNum, error: imageRow.error })
     return markSceneFailed(project, episodeNumber, sceneNum, String(imageRow.error || 'Image generation failed'))
   }
+
   const assetsFromPipeline = buildSceneAssetsFromPipeline([imageRow])
   const mergedAssets = mergeProjectAssets(project.assets, assetsFromPipeline)
   const now = new Date().toISOString()
+  const completed = Boolean(url) && !isPlaceholder && imageRow.status === 'complete'
+  const failedWithFallback = Boolean(url) && (isFailed || isEmergency)
+
+  console.info('[katha:scene-image]', 'scene_patch_apply', {
+    scene: sceneNum,
+    status: imageRow.status,
+    hasUrl: Boolean(url),
+    completed,
+    thumbnailUpdated: Boolean(url)
+  })
 
   return {
     ...project,
@@ -53,23 +67,33 @@ export function applySceneImagePatch(
                 ? patchSceneImageStatusFields(
                     {
                       ...s,
-                      productionStatus: (url && !isPlaceholder
+                      productionStatus: (completed
                         ? 'visual_ready'
-                        : 'awaiting_review') as SceneProductionStatus,
-                      generationStatus: isPlaceholder
-                        ? 'image_failed'
-                        : url
-                          ? 'image'
-                          : 'image_failed'
+                        : failedWithFallback || isFailed
+                          ? 'awaiting_review'
+                          : 'generating_visuals') as SceneProductionStatus,
+                      generationStatus: completed
+                        ? 'complete'
+                        : failedWithFallback || isFailed || isPlaceholder
+                          ? 'image_failed'
+                          : 'image'
                     },
                     {
-                      imageStatus: isPlaceholder ? 'failed' : url ? 'generating' : 'failed',
+                      imageStatus: completed
+                        ? 'completed'
+                        : failedWithFallback || isFailed || isPlaceholder
+                          ? 'failed'
+                          : url
+                            ? 'generating'
+                            : 'pending',
                       imageUrl: url || undefined,
-                      imageError: isPlaceholder
-                        ? String(imageRow.error || 'Placeholder image')
-                        : url
-                          ? undefined
-                          : 'No image URL returned',
+                      imageError:
+                        failedWithFallback || isFailed || isPlaceholder
+                          ? String(
+                              imageRow.error ||
+                                (isEmergency ? 'Image generation failed — fallback artwork shown' : 'Image generation failed')
+                            )
+                          : undefined,
                       lastGenerationAttempt: now
                     }
                   )
@@ -88,6 +112,7 @@ export function markSceneFailed(
   sceneIndex: number,
   errorMessage?: string
 ): ProjectState {
+  console.warn('[katha:scene-image]', 'scene_status_failed', { scene: sceneIndex, error: errorMessage })
   return {
     ...project,
     episodes: project.episodes.map((e) =>
@@ -148,6 +173,7 @@ export function markSceneImageCompleted(
   sceneIndex: number,
   imageUrl: string
 ): ProjectState {
+  console.info('[katha:scene-image]', 'scene_status_completed', { scene: sceneIndex })
   return {
     ...project,
     episodes: project.episodes.map((e) =>

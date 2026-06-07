@@ -76,7 +76,7 @@ export function buildStoryboardTileModels(opts: {
       sceneIndex: scene.index
     })
     const statuses: SceneTileStatusId[] = []
-    const imageUrl = unified.displayImageUrl
+    const imageUrl = unified.displayImageUrl || unified.imageUrl
     const imageStatus = unified.imageStatus
     if (imageStatus === 'completed') statuses.push('generated')
     if (rendering && imageStatus === 'generating') statuses.push('rendering')
