@@ -27,7 +27,12 @@ export async function openaiJson({ purpose, schemaHint, prompt }) {
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       temperature: purpose === 'validate' ? 0.2 : 0.85,
-      max_tokens: purpose === 'script' || purpose === 'translate' ? 8192 : 3072,
+      max_tokens:
+        purpose === 'script'
+          ? 16384
+          : purpose === 'translate'
+            ? 8192
+            : 4096,
       messages: [
         { role: 'system', content: SYSTEM_CORE },
         {

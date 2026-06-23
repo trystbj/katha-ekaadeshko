@@ -50,12 +50,22 @@ export function scriptRowFromScene(
     composed_narration: narration,
     dialogue: (scene.dialogueLines ?? []).map((d) => ({
       character: d.character,
-      line: d.line
+      line: d.line,
+      ...(typeof d.durationSec === 'number' ? { duration: d.durationSec } : {})
     })),
     visual_description: visual,
     mood: scene.emotionalTone ?? '',
     camera: scene.cameraDirection ?? '',
     environment: scene.environment ?? '',
+    ...(scene.timeOfDay ? { time_of_day: scene.timeOfDay } : {}),
+    ...(scene.weather ? { weather: scene.weather } : {}),
+    ...(scene.lighting ? { lighting: scene.lighting } : {}),
+    ...(typeof scene.narrationDurationSec === 'number'
+      ? { narration_duration: scene.narrationDurationSec }
+      : {}),
+    ...(typeof scene.sceneDurationSec === 'number'
+      ? { scene_duration: scene.sceneDurationSec }
+      : {}),
     action: scene.characterActions ?? '',
     scene_title: scene.sceneTitle ?? `Scene ${scene.index}`
   }

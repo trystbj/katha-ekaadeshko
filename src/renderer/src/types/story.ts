@@ -47,6 +47,8 @@ export type SceneLineType = 'Dialogue' | 'Thought'
 export interface StoryDialogueLine {
   character: string
   line: string
+  /** Estimated spoken duration in seconds (drives narration/subtitle/animation timing). */
+  durationSec?: number
 }
 
 /** Primary story / narration tongue — aligned with story-region `languageCode` (`constants/storyLocaleOptions`). */
@@ -172,8 +174,16 @@ export interface StoryScene {
   text: string
   /** Pure voiceover when dialogue is split for script display. */
   narrationText?: string
+  /** Estimated spoken duration of the narration in seconds. */
+  narrationDurationSec?: number
   /** Character lines when the pipeline returns structured dialogue. */
   dialogueLines?: StoryDialogueLine[]
+  /** Estimated total screen duration of this scene in seconds (narration + dialogue + pauses). */
+  sceneDurationSec?: number
+  /** Cinematic direction fields for the AI director. */
+  timeOfDay?: string
+  weather?: string
+  lighting?: string
   emoji?: string
   /** Shot / staging line from the pipeline script (paired with Leonardo stills). */
   visualDescription?: string

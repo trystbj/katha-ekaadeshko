@@ -10,9 +10,17 @@ export interface JobsStreamGenerateResult {
   script: Array<{
     narration: string
     scene?: number
+    scene_title?: string
+    location?: string
+    time_of_day?: string
+    weather?: string
+    lighting?: string
+    mood?: string
     visual_description?: string
     composed_narration?: string
-    dialogue?: Array<{ character?: string; line?: string }>
+    narration_duration?: number
+    scene_duration?: number
+    dialogue?: Array<{ character?: string; line?: string; duration?: number }>
   }>
   images?: Array<{
     image_url?: string

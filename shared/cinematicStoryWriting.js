@@ -47,6 +47,23 @@ function genreNarrationStyle(genre, storyTone) {
 }
 
 /**
+ * Map story length → dialogue/narration entries-per-scene guidance (no backend import).
+ * @param {object} input
+ * @returns {{ min: number, preferred: number, max: number, label: string }}
+ */
+export function dialogueDensityHint(input = {}) {
+  const length = String(input.length || input.storyLength || '').toLowerCase()
+  const series = Boolean(
+    input.seriesMode || input.isSeries || input.episodeSeries || input.__seriesMode
+  )
+  const epic = Boolean(input.epicMode || input.__epicMode) || length.includes('epic')
+  if (epic) return { min: 10, preferred: 18, max: 25, label: 'epic' }
+  if (series || length.includes('long')) return { min: 10, preferred: 15, max: 20, label: 'long' }
+  if (length.includes('medium')) return { min: 8, preferred: 12, max: 15, label: 'medium' }
+  return { min: 5, preferred: 8, max: 10, label: 'short' }
+}
+
+/**
  * Natural human dialogue — anti-robot rules for dialogue[].
  */
 export function naturalDialogueRulesBlock(lang = 'English') {
@@ -56,10 +73,110 @@ export function naturalDialogueRulesBlock(lang = 'English') {
     '- Characters react emotionally to what was JUST said; use subtext, not exposition ("As you know…" is forbidden).',
     '- Give each character a DISTINCT voice: vocabulary, rhythm, hesitation, humor, bluntness, warmth — never interchangeable generic AI tone.',
     '- Allow natural speech: interruptions, trailing off ("I just…"), questions, pushback, awkward pauses, laughter, sighs, quiet denials.',
+    '- Characters ASK questions, CHALLENGE ideas, express fear, express curiosity, reveal thoughts, and REACT to discoveries — never robotic AI conversation.',
     '- Characters do NOT explain obvious facts to each other; they speak from motivation, fear, hope, pride, shame, affection.',
     '- Avoid: robotic politeness, repetitive phrasing, overly formal lecture tone, one-line exchanges that end the moment instantly.',
-    '- When two or more characters share a scene, write MEANINGFUL back-and-forth (typically 3–8 lines total unless pure voiceover) — reactions, counter-questions, emotional beats.',
     '- Match quality bar: professional animated films, novels, visual novels, television dramas, story-driven games.'
+  ].join('\n')
+}
+
+/**
+ * DIALOGUE-DRIVEN STORYTELLING — the story must be carried by conversation, not narration.
+ * @param {{ min: number, preferred: number, max: number }} [density]
+ */
+export function dialogueDrivenStorytellingBlock(density = { min: 8, preferred: 12, max: 20 }) {
+  return [
+    'DIALOGUE-DRIVEN STORYTELLING (mandatory — this is the #1 rule):',
+    '- Tell the story THROUGH dialogue. Target ratio per scene: 70–85% dialogue, 15–30% narration.',
+    '- Do NOT summarize important events in narration. Let characters explain, discover, react, argue, question, and reveal information naturally in their own words.',
+    `- Every scene must contain a MINIMUM of ${Math.max(8, density.min)} dialogue/narration entries; aim for ${density.preferred}, up to ${density.max} on key beats.`,
+    '- FORBIDDEN: scenes with only 1–3 dialogue lines. Forbidden: a single narration paragraph standing in for a whole scene.',
+    '- Narration is connective tissue ONLY — atmosphere, transitions, and the occasional inner thought — never the main delivery of plot.',
+    '- Build emotional progression inside each scene: the conversation should change someone (a decision, a confession, a fear, a discovery) by the end.',
+    '- Each scene must advance the story AND deepen at least one relationship or character.'
+  ].join('\n')
+}
+
+/**
+ * Travel / transition scenes — never teleport characters between locations.
+ */
+export function transitionScenesBlock() {
+  return [
+    'TRAVEL & TRANSITION SCENES (mandatory — improves pacing and animation):',
+    '- Do NOT instantly move characters between distant locations. Generate intermediate scenes.',
+    '- Example — instead of: Village → Castle, generate: Village → Forest Path → River Crossing → Castle Entrance.',
+    '- Use transition scenes for character conversation, foreshadowing, rising tension, small discoveries, and world texture.',
+    '- Each transition still obeys the dialogue-driven and minimum-entry rules — it is a real scene, not a caption.'
+  ].join('\n')
+}
+
+/**
+ * Mystery / suspense expansion — genre-aware.
+ * @param {string} [genre]
+ */
+export function mysterySuspenseBlock(genre = '') {
+  const g = String(genre || '').toLowerCase()
+  const relevant =
+    g.includes('mystery') ||
+    g.includes('thriller') ||
+    g.includes('horror') ||
+    g.includes('fantasy') ||
+    g.includes('adventure') ||
+    g.includes('crime') ||
+    g.includes('detective')
+  if (!relevant) {
+    return [
+      'SUSPENSE & CURIOSITY (mandatory):',
+      '- Plant small questions early and answer them later; keep the audience leaning forward.',
+      '- Reveal information gradually through dialogue and discovery — never dump it all at once.'
+    ].join('\n')
+  }
+  return [
+    'MYSTERY & SUSPENSE EXPANSION (mandatory for this genre):',
+    '- Spread clues across MULTIPLE scenes — never reveal everything in one place.',
+    '- Introduce red herrings and misleading interpretations that characters debate.',
+    '- Build tension gradually; delay major reveals; let dread/curiosity accumulate.',
+    '- Create multiple twists, and do NOT solve the central mystery immediately.',
+    '- Characters theorize, doubt each other, and uncover pieces through conversation and investigation.'
+  ].join('\n')
+}
+
+/**
+ * Cinematic direction material — every scene must feed the AI Cinematic Director.
+ */
+export function cinematicDirectionBlock() {
+  return [
+    'CINEMATIC DIRECTION MATERIAL (mandatory — feeds camera, animation, subtitle timing):',
+    '- Each scene description must clearly establish: location, time of day, weather, lighting, mood, character positions, and important objects.',
+    '- Provide material for: camera movement, character expressions, environmental animation, emotional pauses, and motion effects.',
+    '- Stage WHERE each character stands/sits and HOW they move, so the scene can be blocked and animated.',
+    '- Mark emotional shifts and dramatic pauses so the director can time reveals and reactions.'
+  ].join('\n')
+}
+
+/**
+ * Per-line dialogue + narration duration generation (drives narration/subtitle/animation timing).
+ */
+export function dialogueDurationBlock() {
+  return [
+    'DIALOGUE DURATION (mandatory — script JSON only):',
+    '- Every dialogue line and the scene narration must include an estimated spoken duration in seconds.',
+    '- Estimate naturally from spoken length (roughly 2.5–3 words per second), including breaths and dramatic pauses.',
+    '- Example: Arjun: "What was that sound?" (2.4s) · Maya: "It came from the forest." (2.7s) · Narration: "The fog drifted slowly between the trees." (4.8s)',
+    '- In JSON, put the number in the "duration" field on each dialogue entry, and "narration_duration" for the scene narration.',
+    '- These durations drive narration timing, subtitle timing, and animation timing downstream — make them realistic.'
+  ].join('\n')
+}
+
+/**
+ * Cliffhanger system — every non-final chapter/episode must hook the next.
+ */
+export function cliffhangerBlock() {
+  return [
+    'CLIFFHANGER SYSTEM (mandatory):',
+    '- Every non-final chapter/episode must END on: a discovery, a threat, a new clue, a suspense moment, a plot twist, or an unanswered question.',
+    '- The final scene of each non-final segment should make the audience want to continue immediately.',
+    '- The true ending resolves the arc; intermediate segments do not.'
   ].join('\n')
 }
 
@@ -160,10 +277,13 @@ export function screenplayQualityRulesBlock(lang = 'English') {
   return [
     'SCREENPLAY QUALITY (professional — mandatory):',
     `- Visible script language: ${lang} only in narration, dialogue, and visual_description.`,
+    '- Output must read like an animated film / mystery drama / visual novel screenplay — NOT an AI summary.',
+    '- Dialogue-first: most of each scene is spoken dialogue; narration stays minimal and connective.',
     '- Scene length upgrade: target 2–3× the detail of thin AI summaries — richer setting, action, and emotion per scene.',
     '- Scene pacing: one clear story beat per scene; open with image/action; end on emotional or plot micro-turn.',
-    '- Narration: 3–6 sentences when the beat needs depth (2–4 minimum for quiet beats); cinematic audiobook voice; vary rhythm.',
-    '- Dialogue: naturalHumanDialogue rules apply; empty dialogue[] only for pure voiceover montage scenes.',
+    '- Target scene duration 30–90 seconds of screen time; never a 1–3 line micro-scene.',
+    '- Narration: keep short (1–3 sentences typical) — atmosphere/transition only; let dialogue carry the plot.',
+    '- Dialogue: naturalHumanDialogue rules apply; empty dialogue[] ONLY for a deliberate pure-voiceover montage scene.',
     '- Continuity: props, weather, time-of-day, injuries, relationships carry forward unless changed on-screen.',
     '- Professional structure: purpose + progression + character development + visual storytelling in every scene.',
     '- Forbidden filler: "Meanwhile," "Suddenly," "In a surprising turn," generic tension clichés every scene.',
@@ -179,10 +299,11 @@ export function cinematicWritingBlueprintSection(input = {}) {
   const genre = String(input.genre || '').trim()
   const storyTone = String(input.storyTone || '').trim()
   const lang = String(input.__storyLanguageDisplay || 'English').trim() || 'English'
+  const density = dialogueDensityHint(input)
 
   return [
     'CINEMATIC STORYTELLING INTELLIGENCE (screenplay-grade — mandatory):',
-    '- Write like a professional storyteller for animated features, visual novels, story-driven games, and cinematic short films — NOT generic AI exposition.',
+    '- Write like a professional storyteller for animated features, mystery dramas, fantasy animation, motion comics, visual novels, and serialized storytelling — NOT generic AI exposition or summaries.',
     '- Quality bar: authored, emotionally engaging, culturally grounded — stories should feel human-written.',
     '- Emotional progression: each scene must know what the audience should FEEL next; build tension, release, contrast, cooldown.',
     '- Vary rhythm: short punchy lines + longer atmospheric passages; silence, weather, sound, body language.',
@@ -190,11 +311,15 @@ export function cinematicWritingBlueprintSection(input = {}) {
     '- Relationship-aware: dialogue and reactions reflect who these people are to each other RIGHT NOW.',
     ...genreNarrationStyle(genre, storyTone),
     `Language soul (${lang}): idiomatic, emotionally natural ${lang}; dialogue must sound spoken aloud by distinct real people.`,
+    dialogueDrivenStorytellingBlock(density),
     showDontTellBlock(),
     plotStructureBlock(),
     emotionArcBlock(),
     sceneDepthBlock(),
     intelligentPacingBlock(),
+    transitionScenesBlock(),
+    mysterySuspenseBlock(genre),
+    cliffhangerBlock(),
     naturalDialogueRulesBlock(lang),
     screenplayQualityRulesBlock(lang)
   ].join('\n')

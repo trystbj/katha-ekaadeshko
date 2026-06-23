@@ -106,26 +106,37 @@ export function buildEpisodeScenesFromScriptRows(
         ? String(s.composed_narration).trim()
         : narration
     const dialogueLines = Array.isArray(s.dialogue)
-      ? (s.dialogue as { character?: string; line?: string }[])
-          .map((d) => ({
-            character: String(d?.character || '').trim() || 'Character',
-            line: String(d?.line || '').trim()
-          }))
+      ? (s.dialogue as { character?: string; line?: string; duration?: number | string }[])
+          .map((d) => {
+            const dur = Number(d?.duration)
+            return {
+              character: String(d?.character || '').trim() || 'Character',
+              line: String(d?.line || '').trim(),
+              ...(Number.isFinite(dur) && dur > 0 ? { durationSec: dur } : {})
+            }
+          })
           .filter((d) => d.line.length > 0)
       : []
     const row = s as Record<string, unknown>
+    const narrationDur = Number((row as { narration_duration?: number | string }).narration_duration)
+    const sceneDur = Number((row as { scene_duration?: number | string }).scene_duration)
     scenes.push({
       index: sceneNum,
       lineType: 'Dialogue',
       character: 'Narration',
       text: composed || narration,
       narrationText: narration,
+      ...(Number.isFinite(narrationDur) && narrationDur > 0 ? { narrationDurationSec: narrationDur } : {}),
       ...(dialogueLines.length ? { dialogueLines } : {}),
+      ...(Number.isFinite(sceneDur) && sceneDur > 0 ? { sceneDurationSec: sceneDur } : {}),
       visualDescription: strField(row, 'visual_description'),
       sceneTitle: sceneTitleFromRow(row, sceneNum),
       emotionalTone: strField(row, 'mood', 'emotional_tone', 'tone'),
       cameraDirection: strField(row, 'camera', 'camera_angle', 'camera_direction'),
       environment: strField(row, 'environment', 'location', 'setting'),
+      timeOfDay: strField(row, 'time_of_day', 'timeOfDay'),
+      weather: strField(row, 'weather'),
+      lighting: strField(row, 'lighting'),
       characterActions: strField(row, 'action', 'character_actions', 'actions'),
       productionStatus: 'awaiting_review'
     })

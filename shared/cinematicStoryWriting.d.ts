@@ -11,6 +11,29 @@ export function characterPersonalityWritingBlock(
 
 export function naturalDialogueRulesBlock(lang?: string): string
 
+export function dialogueDensityHint(input?: Record<string, unknown>): {
+  min: number
+  preferred: number
+  max: number
+  label: string
+}
+
+export function dialogueDrivenStorytellingBlock(density?: {
+  min: number
+  preferred: number
+  max: number
+}): string
+
+export function transitionScenesBlock(): string
+
+export function mysterySuspenseBlock(genre?: string): string
+
+export function cinematicDirectionBlock(): string
+
+export function dialogueDurationBlock(): string
+
+export function cliffhangerBlock(): string
+
 export function showDontTellBlock(): string
 
 export function sceneDepthBlock(): string

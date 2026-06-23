@@ -35,7 +35,7 @@ export async function geminiJson({ purpose, schemaHint, prompt }) {
       ],
       generationConfig: {
         temperature: 0.65,
-        maxOutputTokens: purpose === 'script' || purpose === 'translate' ? 8192 : 4096
+        maxOutputTokens: purpose === 'script' ? 16384 : purpose === 'translate' ? 8192 : 4096
       }
     })
   })

@@ -16,19 +16,22 @@ import { storyBeatStructurePromptBlock } from '../../shared/storySceneBeats.js'
 import {
   characterPersonalityWritingBlock,
   cinematicWritingBlueprintSection,
-  screenplayQualityRulesBlock
+  screenplayQualityRulesBlock,
+  cinematicDirectionBlock,
+  dialogueDurationBlock
 } from '../cinematic/cinematicStoryWriting.js'
+import { dialogueDensityForInput, effectiveMinScenes } from './sceneCountPolicy.js'
 
 function longStoryScriptSection(inputLike) {
   const plan = inputLike?.__longStoryIntelligence
   if (!plan?.active) return ''
-  const range = sceneCountRangeForInput(inputLike)
   const outline = plan?.tokenBudget?.scriptContext || ''
+  const density = dialogueDensityForInput(inputLike)
   return `
 LONG-STORY SCENE PLAN (mandatory):
 - ${scriptSceneCountInstruction(inputLike)}
-${storyBeatStructurePromptBlock(Math.max(ABSOLUTE_MIN_SCENES, range.min))}
-- Each scene: cinematic narration (typically 3–6 sentences when emotional beats need depth; show-don't-tell) + natural dialogue exchanges in dialogue[] (3–8 lines when characters interact; not one-liner robots).
+${storyBeatStructurePromptBlock(effectiveMinScenes(inputLike))}
+- Each scene is DIALOGUE-DRIVEN: ${Math.max(8, density.min)}-${density.max} dialogue/narration entries (target ~${density.preferred}); 70–85% dialogue, narration short and connective.
 - visual_description per scene: 2–3 rich filmable sentences (environment, light, body language, camera-friendly staging) for downstream illustration — NO readable text, speech bubbles, or captions in frame (Katha renders dialogue separately).
 - Avoid repeated narration lines and emotional resets between scenes; vary sentence openings and rhythm.
 ${outline ? `Planned beats:\n${outline}\n` : ''}`
@@ -108,7 +111,9 @@ Constraints:
 - Cultural authenticity: include believable details (places, customs) without stereotyping. Only use personal names if USER SEED / NAMING LOCK allows names; otherwise pronouns and relationship words only.
 - Strict logical consistency (timeline, motivations, causal chain).
 - Avoid repetition vs memory below.
-- Length: ${length} (short≈600-900 words, medium≈900-1400, long≈1400-2000).
+- Length: ${length} (short≈900-1400 words, medium≈1400-2200, long≈2200-3500, epic≈3500+) — write a RICH story, never a compressed summary.
+- DIALOGUE-DRIVEN: carry the plot through characters talking, discovering, arguing, questioning, and revealing — not through narrator summary. The downstream screenplay must be 70–85% dialogue, so write abundant, distinct, quotable spoken exchanges into the prose.
+- Structure the prose in chapters/scenes with clear progression so it can be broken into many cinematic scenes (travel/transition beats between locations — never teleport characters).
 - Story prose: cinematic audiobook quality — sensory atmosphere, emotional interiority, natural human rhythm; NOT flat AI summary.
 - Show don't tell: reveal emotion through action, gesture, environment, and dialogue — never label feelings without behavior.
 - Plot: strong opening hook, rising conflict, clear climax, satisfying resolution — motivations and consequences visible.
@@ -219,10 +224,14 @@ export function buildScriptPrompt({ story, input, region }) {
     genre: input?.genre,
     storyTone: input?.storyTone,
     __storyLanguageDisplay: langDisp,
-    storyLanguage: input?.storyLanguage
+    storyLanguage: input?.storyLanguage,
+    length: input?.length || input?.storyLength,
+    seriesMode: input?.seriesMode || input?.isSeries || input?.__seriesMode,
+    epicMode: input?.epicMode || input?.__epicMode
   })
+  const density = dialogueDensityForInput(input)
 
-  return `${preamble}Convert this story into a cinematic short-form screenplay suitable for 40s–2min video.
+  return `${preamble}Convert this story into a rich, dialogue-driven cinematic screenplay — animated-film / mystery-drama / visual-novel quality. Each scene plays for roughly 30–90 seconds, NOT a compressed summary.
 
 ${masterBlock ? `${masterBlock}\n\n` : ''}${cinematicWrite}
 
@@ -237,33 +246,50 @@ ${visualLock}
 
 ${longStoryScriptSection(input)}
 
-${storyBeatStructurePromptBlock(Math.max(ABSOLUTE_MIN_SCENES, sceneCountRangeForInput(input).min))}
+${storyBeatStructurePromptBlock(effectiveMinScenes(input))}
 
 ${screenplayQualityRulesBlock(langDisp)}
+
+${cinematicDirectionBlock()}
+
+${dialogueDurationBlock()}
 
 Rules:
 - Follow GENERATION BLUEPRINT locks (genre, region, pacing, visual card).
 - ${scriptSceneCountInstruction(input)}
+- DIALOGUE-FIRST: 70–85% dialogue, 15–30% narration per scene. Do NOT summarize key events in narration — let characters say, discover, argue, question, and reveal them.
 - Each scene must include:
   - scene (number)
-  - visual_description (3–5 rich filmable sentences: location, weather/time, atmosphere, who is visible with locked appearance, pose, action, expression, story event, camera-friendly composition — NEVER title-only; NO text/subtitles/captions in frame)
-  - narration (cinematic voiceover for TTS — show-don't-tell; typically 4–7 sentences on key beats, 3–5 on brief beats; sensory + emotional depth; NOT robotic list tone)
-  - dialogue (array of { character, line } — natural human conversation when characters interact: typically 4–10 lines with back-and-forth, distinct voices, reactions, hesitation, interruptions; empty array ONLY for pure voiceover)
+  - scene_title (short evocative title)
+  - location, time_of_day, weather, lighting, mood (concise strings — feed the cinematic director)
+  - visual_description (3–5 rich filmable sentences: who is visible with locked appearance, positions, pose, action, expression, important objects, camera-friendly composition — NEVER title-only; NO text/subtitles/captions in frame)
+  - narration (SHORT cinematic voiceover for TTS — 1–3 sentences, atmosphere/transition only; show-don't-tell; NOT a plot summary)
+  - narration_duration (estimated spoken seconds for the narration, e.g. 4.8)
+  - dialogue (array of { character, line, duration } — natural human conversation: ${Math.max(8, density.min)}-${density.max} entries per scene with back-and-forth, distinct voices, questions, reactions, hesitation, interruptions; "duration" is estimated spoken seconds for that line, e.g. 2.4). Empty array ONLY for a deliberate pure-voiceover montage scene.
+- A scene that is only 1–3 dialogue lines is FORBIDDEN — develop the conversation and emotional progression.
+- Travel/transition: never teleport characters between distant locations; write intermediate scenes (e.g. Village → Forest Path → River Crossing → Castle).
 - Write narration and every dialogue line in ${langDisp} unless USER SEED explicitly authorizes bilingual delivery (${langDisp} remains primary).
-- Narration carries atmosphere and visible emotion; dialogue carries distinct character voice — do not duplicate the same information in both.
+- Narration carries atmosphere; dialogue carries plot and distinct character voice — do not duplicate the same information in both.
 - Every scene needs clear purpose, plot/emotional progression, and a micro-turn ending; no filler vignettes.
 - Emotional flow: each scene's tone must follow logically from the previous scene (build-up, peak, cooldown); let key moments breathe.
+- For mystery/thriller/horror/fantasy/adventure: spread clues across scenes, add red herrings, delay reveals, build multiple twists — never solve it immediately.
 - Anti-AI phrasing: avoid "In a surprising turn", "Little did they know", "The air was thick with tension" every scene — vary language.
-- Ensure continuity across scenes.
-- Keep it original; do not add copyrighted references.
+- Ensure continuity across scenes. Keep it original; do not add copyrighted references.
 
-Return JSON ONLY as an array with this shape:
+Return JSON ONLY as an array with this shape (extra fields allowed; "duration"/"narration_duration" are seconds as numbers):
 [
   {
     "scene": 1,
+    "scene_title": string,
+    "location": string,
+    "time_of_day": string,
+    "weather": string,
+    "lighting": string,
+    "mood": string,
     "visual_description": string,
     "narration": string,
-    "dialogue": [ { "character": string, "line": string } ]
+    "narration_duration": number,
+    "dialogue": [ { "character": string, "line": string, "duration": number } ]
   }
 ]
 

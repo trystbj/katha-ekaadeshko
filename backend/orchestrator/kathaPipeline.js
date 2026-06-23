@@ -46,6 +46,7 @@ import {
 import { normalizeScriptJson } from '../utils/normalizeScriptJson.js'
 import { buildFallbackScriptFromStory } from '../../shared/fallbackScriptFromStory.js'
 import { attachComposedNarrationToScript } from '../cinematic/cinematicStoryWriting.js'
+import { attachSceneDurations } from '../../shared/dialogueDuration.js'
 import {
   analyzeNamingPolicy,
   enrichStoryCharacterProfiles,
@@ -580,11 +581,18 @@ async function continuePipelineFromStory(
   const maxScenes = serverlessMaxScriptScenes(pinnedInput)
   script = enforceMinimumScriptScenes(script, finalStory, pinnedInput, buildFallbackScriptFromStory)
   script = capScriptScenes(script, maxScenes)
+  script = attachSceneDurations(script)
   script = attachComposedNarrationToScript(script, finalStory)
   budget.checkpoint('script', { story: finalStory, script })
+  const dialogueLineTotal = script.reduce(
+    (sum, r) => sum + (Array.isArray(r.dialogue) ? r.dialogue.length : 0),
+    0
+  )
   console.info('[katha:story-writing]', 'script_enriched', {
     scenes: script.length,
-    withDialogue: script.filter((r) => Array.isArray(r.dialogue) && r.dialogue.length > 0).length
+    withDialogue: script.filter((r) => Array.isArray(r.dialogue) && r.dialogue.length > 0).length,
+    dialogueLines: dialogueLineTotal,
+    avgDialoguePerScene: script.length ? Math.round((dialogueLineTotal / script.length) * 10) / 10 : 0
   })
   pipelineStageLog('scene_descriptions_created', { count: script.length })
   providersUsed.script = scriptProvider
