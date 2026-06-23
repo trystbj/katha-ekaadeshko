@@ -52,6 +52,16 @@ function genreNarrationStyle(genre, storyTone) {
  * @returns {{ min: number, preferred: number, max: number, label: string }}
  */
 export function dialogueDensityHint(input = {}) {
+  // Explicit override (e.g. runtime-bounded density resolved by the backend) wins.
+  const override = input.__dialogueDensity
+  if (override && typeof override === 'object') {
+    return {
+      min: Number(override.min) || 5,
+      preferred: Number(override.preferred) || 8,
+      max: Number(override.max) || 10,
+      label: String(override.label || input.length || 'short')
+    }
+  }
   const length = String(input.length || input.storyLength || '').toLowerCase()
   const series = Boolean(
     input.seriesMode || input.isSeries || input.episodeSeries || input.__seriesMode

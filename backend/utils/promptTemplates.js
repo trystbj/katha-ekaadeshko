@@ -97,7 +97,9 @@ export function buildStoryPrompt(inputLike) {
     genre,
     storyTone: inputLike?.storyTone,
     __storyLanguageDisplay: langDisp,
-    storyLanguage
+    storyLanguage,
+    length: inputLike?.length || inputLike?.storyLength,
+    __dialogueDensity: dialogueDensityForInput(inputLike)
   })
 
   return `${preamble}Generate a UNIQUE, culturally authentic ${genre} ${theme} story grounded in ${country} (${region}).
@@ -220,6 +222,7 @@ export function buildScriptPrompt({ story, input, region }) {
     ? `Regional atmosphere (culture while writing in ${langDisp}): ${input.__regionalContextDisplay}.`
     : ''
   const castBlock = characterPersonalityWritingBlock(story?.characters || [])
+  const density = dialogueDensityForInput(input)
   const cinematicWrite = cinematicWritingBlueprintSection({
     genre: input?.genre,
     storyTone: input?.storyTone,
@@ -227,9 +230,9 @@ export function buildScriptPrompt({ story, input, region }) {
     storyLanguage: input?.storyLanguage,
     length: input?.length || input?.storyLength,
     seriesMode: input?.seriesMode || input?.isSeries || input?.__seriesMode,
-    epicMode: input?.epicMode || input?.__epicMode
+    epicMode: input?.epicMode || input?.__epicMode,
+    __dialogueDensity: density
   })
-  const density = dialogueDensityForInput(input)
 
   return `${preamble}Convert this story into a rich, dialogue-driven cinematic screenplay — animated-film / mystery-drama / visual-novel quality. Each scene plays for roughly 30–90 seconds, NOT a compressed summary.
 

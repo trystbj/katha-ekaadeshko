@@ -1,5 +1,5 @@
 import { createHttpClient } from '../utils/httpClient.js'
-import { llmHttpRetries, llmHttpTimeoutMs } from '../utils/runtime.js'
+import { llmHttpRetries, llmHttpTimeoutMs, isServerlessRuntime } from '../utils/runtime.js'
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -27,9 +27,13 @@ export async function openaiJson({ purpose, schemaHint, prompt }) {
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       temperature: purpose === 'validate' ? 0.2 : 0.85,
+      // Serverless caps script output so the call finishes inside the Vercel time budget;
+      // desktop/long-running gets the full rich window.
       max_tokens:
         purpose === 'script'
-          ? 16384
+          ? isServerlessRuntime()
+            ? 8192
+            : 16384
           : purpose === 'translate'
             ? 8192
             : 4096,

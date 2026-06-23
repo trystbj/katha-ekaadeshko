@@ -14,7 +14,7 @@ import { isServerlessRuntime } from './runtime.js'
 export const ABSOLUTE_MIN_SCENES = 10
 
 /** Hard ceiling per single LLM script request on serverless (timeout / token guard). */
-const SERVERLESS_SCRIPT_CEILING = 16
+const SERVERLESS_SCRIPT_CEILING = 13
 
 /**
  * @param {object} [input]
@@ -42,17 +42,29 @@ export function sceneCountRangeForInput(input = {}) {
  */
 export function dialogueDensityForInput(input = {}) {
   const { label } = sceneCountRangeForInput(input)
-  switch (label) {
-    case 'epic':
-      return { min: 10, preferred: 18, max: 25 }
-    case 'series':
-    case 'long':
-      return { min: 10, preferred: 15, max: 20 }
-    case 'medium':
-      return { min: 8, preferred: 12, max: 15 }
-    default:
-      return { min: 5, preferred: 8, max: 10 }
+  const full = (() => {
+    switch (label) {
+      case 'epic':
+        return { min: 10, preferred: 18, max: 25 }
+      case 'series':
+      case 'long':
+        return { min: 10, preferred: 15, max: 20 }
+      case 'medium':
+        return { min: 8, preferred: 12, max: 15 }
+      default:
+        return { min: 5, preferred: 8, max: 10 }
+    }
+  })()
+  // Serverless: bound per-scene output so the single LLM script call finishes
+  // within the Vercel function time budget (rich but not runaway).
+  if (isServerlessRuntime()) {
+    return {
+      min: Math.min(full.min, 5),
+      preferred: Math.min(full.preferred, 8),
+      max: Math.min(full.max, 10)
+    }
   }
+  return full
 }
 
 /** Max script rows after LLM generation (desktop vs serverless). */
