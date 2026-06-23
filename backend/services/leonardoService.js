@@ -177,6 +177,7 @@ export async function leonardoGenerateForScript({
       console.info('[katha:leonardo]', 'scene_skip_duplicate_lock', { scene: sceneKey })
       return null
     }
+    let retryCount = 0
     if (onProgress) {
       onProgress({
         stage: 'scene_generating',
@@ -188,7 +189,6 @@ export async function leonardoGenerateForScript({
       })
     }
     const sceneStarted = Date.now()
-    let retryCount = 0
     try {
       let scriptRow = s
       const preflight = validateSceneVisualPreflight(scriptRow, inputWithRefs, sceneKey)
